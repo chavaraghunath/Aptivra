@@ -8,7 +8,7 @@ negative results. The packaged checkpoint contains 271,361,024 unique parameters
 512-byte context window.
 
 The published checkpoint must not be described as a usable general language model unless a
-machine-readable v3 evaluation record shows held-out answer-span bits per byte beating the
+machine-readable v4 evaluation record shows held-out answer-span bits per byte beating the
 unigram baseline fitted to those same answer bytes. The current audit found low loss on some
 seen identity prompts but poor held-out byte
 prediction; see `docs/RESULTS.md` for the erratum and historical context.
@@ -17,8 +17,10 @@ prediction; see `docs/RESULTS.md` for the erratum and historical context.
 
 - The exported backbone/router/expert parameter count is measured by
   `aptivra.eval.model_card_eval.count_export_parameters`.
-- Model-card metrics are generated from a strict v3 JSON record written by
-  `scripts/evaluate_model_card.py`; invalid or incomplete evidence fails the release gate closed.
+- Model-card metrics are generated from a strict v4 JSON record. Hub publication copies the exact
+  allowlisted export bytes into private staging, measures that copy against the bundled versioned
+  8+ KB held-out prose/code corpus, and hash-verifies it immediately before upload; an optional
+  record is only checked for reproducibility and never controls the card or notice.
 - Hub packaging consists of one `model.safetensors`, configuration/tokenizer metadata,
   `conversion-provenance.json`, and self-contained remote code loaded by stock Transformers
   with `trust_remote_code=True`.
@@ -27,6 +29,10 @@ prediction; see `docs/RESULTS.md` for the erratum and historical context.
   the C CLI currently parses their headers rather than providing a measured inference engine.
 - AID-Bench checks subsystem invariants in `aptivra/benchmarks/aid_bench.py`; it is not a model
   capability score.
+- Generated Python used by mechanical verifiers and synthesized research tools runs in a
+  resource-limited child process with a wall-clock timeout and process-group termination. This
+  contains hangs and accidental failures during evaluation; it is not a security boundary and
+  must not be used to execute hostile code.
 
 ## Repository Layout
 
@@ -78,6 +84,10 @@ PYTHONPATH=$PWD python -m scripts.evaluate_model_card \
 Render the Hugging Face README from that record through
 `aptivra.export.model_card.generate_model_card_readme`. The release gate threshold is configured
 in `configs/model_card_release_gate.yaml` and registered in `docs/configuration-register.md`.
+The recorded losses establish byte prediction only on the named, hashed prompt and text sets.
+They do not establish factual accuracy, generated-answer correctness, instruction following,
+safety, or performance on other inputs. Whole-text scoring uses fixed-context chunks and retains
+the preceding byte at each chunk boundary.
 
 ## Load the Hub Layout
 
@@ -97,8 +107,11 @@ output = model.generate(**inputs, max_new_tokens=96, do_sample=False)
 Set `max_new_tokens`: the checkpoint did not learn to emit an end byte reliably. Byte `0` is
 both padding and EOS in the tokenizer metadata, and byte `10` (newline) is also a generation
 stop ID. Raw package text and Transformers token sequences both retain the first emitted stop
-byte; display clients may trim it explicitly. The combined prompt and generated sequence cannot
-exceed the 512-byte context window.
+byte; display clients may trim it explicitly. The continual-learning harness uses byte `0` or
+`10` for single-line T1–T7 answers but only byte `0` for multi-line T8–T12 code answers. This
+task-aware rule deliberately differs from the unchanged published Hub tokenizer for T8–T12; see
+`docs/run-options.md`. The combined prompt and generated sequence cannot exceed the 512-byte
+context window.
 
 ## Common Commands
 

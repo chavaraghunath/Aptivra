@@ -1,0 +1,227 @@
+Notes from a Small Software Workshop
+
+The workshop opens before sunrise because quiet rooms make careful work easier. A caretaker
+checks the doors, fills a kettle, and writes the date on a white board. Soon the first engineer
+arrives with a notebook full of questions. Nothing is deployed yet. The team begins by naming
+the behavior it wants to observe, the conditions that could invalidate the observation, and the
+evidence that would change its mind.
+
+A useful measurement has a narrow claim. If a timer records the duration of one operation, it
+does not establish that every operation is fast. If a sample passes a parser, it does not prove
+that all possible inputs are safe. The written conclusion should remain smaller than the test.
+This habit can feel cautious, but it lets later readers distinguish a fact from an expectation.
+
+The first exercise is a queue. Items enter at one end and leave at the other. The implementation
+is deliberately plain so that its invariants are visible:
+
+```python
+from collections import deque
+
+
+class WorkQueue:
+    def __init__(self) -> None:
+        self._items: deque[str] = deque()
+
+    def add(self, item: str) -> None:
+        if not item:
+            raise ValueError("item must not be empty")
+        self._items.append(item)
+
+    def take(self) -> str | None:
+        return self._items.popleft() if self._items else None
+```
+
+The group writes down what the example does not cover. It has no persistence, no concurrent
+producers, and no retry protocol. Those omissions are acceptable in an exercise only because
+they are explicit. A production queue would need ownership rules, capacity limits, monitoring,
+and a recovery story after interruption.
+
+At the next table, two people inspect a stream of temperature readings. They avoid rounding
+until display time because early rounding can hide a boundary error. They also keep the missing
+readings instead of replacing them with zero. Zero is a real observation; absence is a different
+state. Their summary function returns both a value and the count that supported it.
+
+```python
+def mean_present(values: list[float | None]) -> tuple[float | None, int]:
+    present = [value for value in values if value is not None]
+    if not present:
+        return None, 0
+    return sum(present) / len(present), len(present)
+```
+
+After breakfast, the workshop turns to files. A file format is a promise between writers and
+readers that may be maintained by different teams years apart. The participants choose a version
+field, reject unknown required fields, and preserve optional metadata. They learn that silently
+guessing a version produces friendly demos and difficult incidents.
+
+One participant proposes a compact checksum utility:
+
+```python
+import hashlib
+from pathlib import Path
+
+
+def digest(path: Path) -> str:
+    value = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            value.update(block)
+    return value.hexdigest()
+```
+
+The checksum identifies bytes, not meaning. Two files with the same digest can be treated as the
+same byte sequence for ordinary engineering purposes, but the digest does not certify who made
+the file, whether its contents are correct, or whether the program reading it is trustworthy.
+Each of those questions needs separate evidence.
+
+In the afternoon the team walks outside and studies a footbridge. The bridge is simple enough to
+understand at a glance, yet it embodies many constraints: expected load, material fatigue, water
+level, wind, inspection access, and the cost of replacement. Software has similar hidden loads.
+A function signature shows the entrance, not the weather it must survive.
+
+Back indoors, they model a retry schedule. The delay grows after each failure and includes a
+small random offset so that many clients do not return at the same instant:
+
+```python
+import random
+
+
+def retry_delays(base: float, attempts: int, cap: float) -> list[float]:
+    if base <= 0 or attempts < 0 or cap < base:
+        raise ValueError("invalid retry settings")
+    delays: list[float] = []
+    for attempt in range(attempts):
+        ceiling = min(cap, base * (2**attempt))
+        delays.append(random.uniform(ceiling / 2, ceiling))
+    return delays
+```
+
+They discuss why a retry is not automatically resilient. Repeating a non-idempotent request can
+duplicate a payment or append the same event twice. Repeating forever can turn a small outage
+into sustained overload. A sound retry policy needs a deadline, a bounded number of attempts,
+an operation that tolerates repetition, and a signal that tells operators when attempts stop.
+
+The next lesson concerns logs. A sentence written for a person can be useful during development,
+but a service needs fields that tools can search consistently. A request identifier, operation
+name, duration, outcome, and error category make a record useful without exposing private data.
+The team treats redaction as part of the schema, not as a cleanup performed after an incident.
+
+They sketch a small record builder:
+
+```python
+from typing import Any
+
+
+def event(kind: str, request_id: str, **details: Any) -> dict[str, Any]:
+    if not kind or not request_id:
+        raise ValueError("kind and request_id are required")
+    return {
+        "kind": kind,
+        "request_id": request_id,
+        "details": details,
+    }
+```
+
+During review, someone asks whether the helper prevents a caller from placing a secret inside
+the details mapping. It does not. The question improves the design: callers need an allowlist of
+accepted fields, while the logging layer needs a final defensive redaction pass. Multiple layers
+are justified when they address different failure modes.
+
+On the second day, the group examines time. Wall clocks can jump after synchronization, while a
+monotonic clock is suited to measuring elapsed duration. Calendar timestamps still matter for
+cross-system records, so both forms may be needed. The distinction is documented near the data,
+because a bare number named `time` invites the wrong interpretation.
+
+They implement a deadline calculation without sleeping in the test:
+
+```python
+def remaining(deadline: float, now: float) -> float:
+    return max(0.0, deadline - now)
+
+
+def expired(deadline: float, now: float) -> bool:
+    return remaining(deadline, now) == 0.0
+```
+
+Boundary examples include a deadline in the future, exactly equal to the current reading, and
+already past. The equality case matters because vague wording such as "around the deadline" is
+not executable. A test forces the policy to become precise.
+
+The workshop then considers configuration. A default should be safe for a new installation and
+visible to the operator. A range should reject values known to cause harm. A change should leave
+an audit record containing the old value, the new value, the actor, and a stable request key.
+When rollback is possible, the previous version should remain addressable rather than merely
+copied into a log message.
+
+Here is a small validator used only for discussion:
+
+```python
+def validate_batch_size(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError("batch size must be an integer")
+    if not 1 <= value <= 1024:
+        raise ValueError("batch size must be between 1 and 1024")
+    return value
+```
+
+The explicit Boolean check surprises a few attendees because Boolean values are integers in
+Python. That surprise is useful. Languages contain edge cases that are easy to forget, and a
+validation boundary should encode the intended domain rather than inherit accidental behavior.
+
+Later, pairs exchange code reviews. A good review comment names the observed behavior, explains
+its consequence, and suggests a verifiable correction. "This feels wrong" gives the author no
+stable target. "A cancelled request leaves the lock held; release it in a finally block and add
+a cancellation test" can be investigated and resolved.
+
+They revise a resource helper:
+
+```python
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+
+@contextmanager
+def marked_section(state: dict[str, bool]) -> Iterator[None]:
+    if state.get("active", False):
+        raise RuntimeError("section is already active")
+    state["active"] = True
+    try:
+        yield
+    finally:
+        state["active"] = False
+```
+
+The cleanup belongs in `finally` because success is only one exit path. Exceptions, cancellation,
+and early returns must restore the invariant too. The example remains local and deterministic;
+a distributed lease would require expiration, fencing, and ownership checks that this dictionary
+cannot provide.
+
+The final technical session covers parsers. Inputs are assumed malformed until proven otherwise.
+Length limits are checked before allocation, nesting is bounded, and error messages identify the
+location without echoing sensitive content. The parser never executes text merely because the
+text resembles code.
+
+For a tiny line protocol, the group writes:
+
+```python
+def parse_line(line: str) -> tuple[str, str]:
+    if len(line.encode("utf-8")) > 4096:
+        raise ValueError("line is too long")
+    key, separator, value = line.partition("=")
+    if not separator or not key:
+        raise ValueError("expected a non-empty key followed by equals")
+    return key, value
+```
+
+Tests cover an empty line, a missing separator, a Unicode value, the exact length limit, and one
+byte beyond it. The ordinary case matters, but the boundaries define the contract.
+
+As the workshop closes, each participant writes a short operational note for a future colleague.
+The note explains how to start the component, how to tell whether it is healthy, which failure
+signals require action, and how to return to the previous state. Commands are copied from a clean
+environment rather than from memory.
+
+The caretaker erases the board but leaves one sentence: evidence should travel with the claim it
+supports. A result without its input, version, and method is a story. A result with those details
+can be repeated, challenged, and improved. The room becomes quiet again, ready for the next group
+to begin with questions instead of assumptions.

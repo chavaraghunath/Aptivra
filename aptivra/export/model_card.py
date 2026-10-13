@@ -34,6 +34,8 @@ class ReleaseGateSettings:
     heldout_bpb_unigram_margin_bits: float
     minimum_trained_prompt_samples: int
     minimum_heldout_prompt_samples: int
+    minimum_heldout_text_bytes: int
+    supplied_record_metric_tolerance: float
 
 
 def load_release_gate_settings(
@@ -54,10 +56,20 @@ def load_release_gate_settings(
         raise ValueError("heldout_bpb_unigram_margin_bits must be non-negative")
     trained_minimum = _positive_config_int(section, "minimum_trained_prompt_samples")
     heldout_minimum = _positive_config_int(section, "minimum_heldout_prompt_samples")
+    text_minimum = _positive_config_int(section, "minimum_heldout_text_bytes")
+    raw_tolerance = section.get("supplied_record_metric_tolerance")
+    if not isinstance(raw_tolerance, int | float) or isinstance(raw_tolerance, bool):
+        raise ValueError("supplied_record_metric_tolerance must be numeric")
+    if not 0.0 <= raw_tolerance <= 0.001:
+        raise ValueError(
+            "supplied_record_metric_tolerance must be between 0.0 and 0.001"
+        )
     return ReleaseGateSettings(
         heldout_bpb_unigram_margin_bits=float(raw_margin),
         minimum_trained_prompt_samples=trained_minimum,
         minimum_heldout_prompt_samples=heldout_minimum,
+        minimum_heldout_text_bytes=text_minimum,
+        supplied_record_metric_tolerance=float(raw_tolerance),
     )
 
 
@@ -69,16 +81,21 @@ def load_release_gate_config(config_path: Path | str = DEFAULT_RELEASE_GATE_CONF
 def release_gate_allows_general_language_model(
     results_record: dict[str, Any],
     config_path: Path | str = DEFAULT_RELEASE_GATE_CONFIG,
+    *,
+    fresh_evaluation: EvaluationRecord | None = None,
 ) -> bool:
-    """Returns whether the checkpoint beats the configured held-out unigram baseline gate."""
+    """Return true only for freshly measured evidence that beats the configured gate."""
     try:
         settings = load_release_gate_settings(config_path)
         validated = validate_evaluation_record(
             results_record,
             minimum_trained_samples=settings.minimum_trained_prompt_samples,
             minimum_heldout_samples=settings.minimum_heldout_prompt_samples,
+            minimum_heldout_text_bytes=settings.minimum_heldout_text_bytes,
         )
     except (OSError, ValueError):
+        return False
+    if fresh_evaluation is None or fresh_evaluation != validated:
         return False
     heldout = validated.evaluation.heldout_prompt_answer_bpb
     return (
@@ -94,9 +111,10 @@ def generate_model_card_readme(
     *,
     results_record: dict[str, Any] | None = None,
     results_path: Path | str | None = None,
+    fresh_evaluation: EvaluationRecord | None = None,
     release_gate_config_path: Path | str = DEFAULT_RELEASE_GATE_CONFIG,
 ) -> str:
-    """Renders a short model card from measured results only."""
+    """Render a card; only publication's fresh validated evidence may clear its notice."""
     _ = (model_config, num_experts)
     record = results_record if results_record is not None else {}
     if results_path is not None:
@@ -109,12 +127,20 @@ def generate_model_card_readme(
             record,
             minimum_trained_samples=settings.minimum_trained_prompt_samples,
             minimum_heldout_samples=settings.minimum_heldout_prompt_samples,
+            minimum_heldout_text_bytes=settings.minimum_heldout_text_bytes,
         )
     display_record = (
         validated.model_dump(mode="json", by_alias=True) if validated is not None else {}
     )
-    gate_passed = validated is not None and release_gate_allows_general_language_model(
-        record, release_gate_config_path
+    gate_passed = (
+        validated is not None
+        and fresh_evaluation is not None
+        and fresh_evaluation == validated
+        and release_gate_allows_general_language_model(
+            record,
+            release_gate_config_path,
+            fresh_evaluation=fresh_evaluation,
+        )
     )
     trained_bpb = _bpb_range_summary(
         display_record, ("evaluation", "trained_prompt_answer_bpb")
@@ -130,6 +156,13 @@ def generate_model_card_readme(
     )
     prompt_set_samples = _number_text_at(
         display_record, ("evaluation", "heldout_prompt_set", "samples")
+    )
+    text_set_name = _text_at(display_record, ("evaluation", "heldout_text_set", "name"))
+    text_set_sha256 = _text_at(
+        display_record, ("evaluation", "heldout_text_set", "sha256")
+    )
+    text_set_bytes = _number_text_at(
+        display_record, ("evaluation", "heldout_text_set", "bytes")
     )
     trained_uniform = _bpb_summary(
         display_record,
@@ -231,6 +264,9 @@ function calling, code synthesis skill, or continual-learning retention.
 | Held-out prompt set | {prompt_set_name} |
 | Held-out prompt set SHA-256 | {prompt_set_sha256} |
 | Held-out prompt samples | {prompt_set_samples} |
+| Held-out text set | {text_set_name} |
+| Held-out text set SHA-256 | {text_set_sha256} |
+| Held-out text bytes | {text_set_bytes} |
 | Trained-prompt answer-span BpB | {trained_bpb} |
 | Trained-answer uniform baseline BpB | {trained_uniform} |
 | Trained-answer fitted unigram baseline BpB | {trained_unigram} |
@@ -244,6 +280,13 @@ function calling, code synthesis skill, or continual-learning retention.
 Each baseline is computed on exactly the bytes scored by the metric beside it. The empirical
 unigram distribution is fitted and evaluated on those same bytes, so it is an optimistic
 baseline bound rather than an independently fitted estimate.
+
+Publication recomputes these loss metrics from the exact local export immediately before upload.
+The whole-text metric processes fixed-context chunks, retaining the preceding byte at each chunk
+boundary. The metrics establish byte-prediction loss only on the named, hashed prompt and text
+sets. They do not establish factual accuracy, answer correctness, instruction following, safety,
+or performance on other inputs. A supplied record is only a reproducibility cross-check and never
+controls this card or its usability notice.
 
 ## What It Cannot Do
 

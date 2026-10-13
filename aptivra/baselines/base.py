@@ -32,12 +32,22 @@ class BaselineTrainer(ABC):
         clean_bytes = bytes([min(255, max(0, t)) for t in tok_list])
         return clean_bytes.decode("utf-8", errors="ignore")
 
+    @classmethod
+    def encode_training_target(cls, instance: TaskInstance) -> torch.Tensor:
+        """Encode a target with the stop byte declared by its task family."""
+        return cls.encode_text(instance.training_target())
+
     @abstractmethod
     def train_task(self, task_idx: int, train_instances: list[TaskInstance]) -> dict[str, Any]:
         """Trains the model on a task instance dataset."""
         pass
 
-    def predict(self, prompt: str, max_new_tokens: int = 32) -> str:
+    def predict(
+        self,
+        prompt: str,
+        max_new_tokens: int = 32,
+        stop_token_ids: tuple[int, ...] = (0, ord("\n")),
+    ) -> str:
         """Autoregressive greedy generation given prompt string."""
         self.model.eval()
         prompt_tensor = self.encode_text(prompt).unsqueeze(0).to(self.device)
@@ -51,8 +61,7 @@ class BaselineTrainer(ABC):
                 next_tok = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
                 curr_tokens = torch.cat([curr_tokens, next_tok], dim=1)
 
-                # Early stopping on newline or null byte
-                if next_tok.item() in (0, ord("\n")):
+                if next_tok.item() in stop_token_ids:
                     break
 
         gen_tokens = curr_tokens[0, prompt_tensor.shape[1] :]

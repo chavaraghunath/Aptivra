@@ -16,8 +16,11 @@ def main() -> None:
     parser.add_argument(
         "--results-record",
         type=Path,
-        required=True,
-        help="Fresh model-card evaluation JSON for the exact model.safetensors file",
+        default=None,
+        help=(
+            "Optional prior evaluation JSON to compare with the mandatory fresh publication "
+            "evaluation; it never controls the rendered card"
+        ),
     )
     parser.add_argument(
         "--regenerate",
@@ -52,13 +55,16 @@ def main() -> None:
         )
 
     if args.dry_run:
-        plan = prepare_hf_publication(args.repo_id, export_path, args.results_record)
-        print("Files to upload:")
-        for filename in plan.upload_files:
-            print(f"  {filename}")
-        print("Remote files to delete:")
-        for pattern in plan.delete_patterns:
-            print(f"  {pattern}")
+        with prepare_hf_publication(
+            args.repo_id, export_path, args.results_record
+        ) as plan:
+            plan.verify_staged_files()
+            print("Files to upload:")
+            for filename in plan.upload_files:
+                print(f"  {filename}  sha256:{plan.file_sha256[filename]}")
+            print("Remote files to delete:")
+            for pattern in plan.delete_patterns:
+                print(f"  {pattern}")
         return
 
     url = push_aptivra_model_to_hf(

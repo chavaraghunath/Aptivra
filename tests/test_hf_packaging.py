@@ -25,6 +25,7 @@ from transformers import (
 
 from aptivra.eval.model_card_eval import (
     DEFAULT_HELDOUT_PROMPTS_PATH,
+    DEFAULT_HELDOUT_TEXT_PATH,
     PromptAnswer,
     evaluate_export_dir,
     sha256_file,
@@ -32,7 +33,7 @@ from aptivra.eval.model_card_eval import (
 from aptivra.eval.model_card_schema import PROVENANCE_FILENAME
 from aptivra.experts.expert import ExpertModule
 from aptivra.experts.router import GatingRouter
-from aptivra.export import hf_conversion
+from aptivra.export import hf_conversion, hf_push
 from aptivra.export.hf_conversion import convert_legacy_export_to_huggingface
 from aptivra.export.hf_hub_artifacts import HUB_LAYOUT_FILES, export_huggingface_hub_layout
 from aptivra.export.hf_push import (
@@ -369,6 +370,22 @@ class _RecordingApi:
         self.upload_calls.append(kwargs)
 
 
+class _SnapshottingApi(_RecordingApi):
+    def __init__(self) -> None:
+        super().__init__()
+        self.uploaded_bytes: dict[str, bytes] = {}
+
+    def upload_folder(self, **kwargs: object) -> None:
+        super().upload_folder(**kwargs)
+        folder_path = Path(str(kwargs["folder_path"]))
+        allow_patterns = kwargs["allow_patterns"]
+        assert isinstance(allow_patterns, list)
+        self.uploaded_bytes = {
+            str(name): (folder_path / str(name)).read_bytes()
+            for name in allow_patterns
+        }
+
+
 def _write_results_record(
     export_dir: Path,
     output: Path,
@@ -411,7 +428,7 @@ def _write_results_record(
     output.write_text(
         json.dumps(
             {
-                "schema_version": "aptivra.model_card_eval.v3",
+                "schema_version": "aptivra.model_card_eval.v4",
                 "timestamp_utc": "2026-10-14T00:00:00+00:00",
                 "checkpoint": {
                     "model_safetensors_sha256": digest,
@@ -440,11 +457,16 @@ def _write_results_record(
                         "sha256": sha256_file(DEFAULT_HELDOUT_PROMPTS_PATH),
                         "samples": 24,
                     },
+                    "heldout_text_set": {
+                        "name": DEFAULT_HELDOUT_TEXT_PATH.name,
+                        "sha256": sha256_file(DEFAULT_HELDOUT_TEXT_PATH),
+                        "bytes": DEFAULT_HELDOUT_TEXT_PATH.stat().st_size,
+                    },
                     "trained_prompt_answer_bpb": metric(5.0, 7, 4.0),
                     "heldout_prompt_answer_bpb": metric(5.0, 24, 4.0),
                     "heldout_text_bpb": {
                         "value": 5.0,
-                        "evaluated_bytes": 10,
+                        "evaluated_bytes": DEFAULT_HELDOUT_TEXT_PATH.stat().st_size - 1,
                         "baselines": {
                             "uniform_bpb": 8.0,
                             "unigram_bpb": 4.0,
@@ -465,7 +487,10 @@ def _write_results_record(
     os.utime(output, ns=(weights_mtime + 1_000_000_000, weights_mtime + 1_000_000_000))
 
 
-def test_push_uploads_only_new_layout_with_injected_client(tmp_path: Path) -> None:
+def test_push_uploads_only_new_layout_with_injected_client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     config, backbone, router, experts = _tiny_components()
     export_dir = tmp_path / "upload"
     export_huggingface_hub_layout(export_dir, backbone, router, experts, config)
@@ -474,6 +499,11 @@ def test_push_uploads_only_new_layout_with_injected_client(tmp_path: Path) -> No
     (export_dir / "multitier_manifest.json").write_text("{}", encoding="utf-8")
     results = tmp_path / "results.json"
     _write_results_record(export_dir, results)
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    fresh_record["timestamp_utc"] = "2026-10-14T01:00:00+00:00"
+    for field in ("mean", "min", "max"):
+        fresh_record["evaluation"]["heldout_prompt_answer_bpb"][field] += 0.0000005
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", lambda _: fresh_record)
     api = _RecordingApi()
 
     url = push_aptivra_model_to_hf(
@@ -486,14 +516,70 @@ def test_push_uploads_only_new_layout_with_injected_client(tmp_path: Path) -> No
     assert url == "https://huggingface.co/owner/repo"
     assert len(api.create_calls) == 1
     assert len(api.upload_calls) == 1
+    staged_path = Path(str(api.upload_calls[0]["folder_path"]))
+    assert not staged_path.exists()
     allowed = api.upload_calls[0]["allow_patterns"]
     assert allowed == list(HUB_PUBLICATION_FILES)
     assert api.upload_calls[0]["delete_patterns"] == list(LEGACY_HUB_DELETE_PATTERNS)
     assert all(not name.endswith((".pt", ".gguf")) for name in allowed)
     assert all("manifest" not in name for name in allowed)
-    assert {path.name for path in export_dir.iterdir()} >= set(HUB_PUBLICATION_FILES)
-    assert "owner/repo" in (export_dir / "README.md").read_text(encoding="utf-8")
+    assert not (export_dir / "README.md").exists()
     assert PROVENANCE_FILENAME in allowed
+
+
+def test_push_uploads_staged_bytes_when_source_changes_after_staging(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    original_weights = (export_dir / "model.safetensors").read_bytes()
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    staged_paths: list[Path] = []
+
+    def evaluate(staged_path: Path) -> dict[str, object]:
+        staged_paths.append(staged_path)
+        (export_dir / "model.safetensors").write_bytes(b"source changed after staging")
+        return fresh_record
+
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", evaluate)
+    api = _SnapshottingApi()
+
+    push_aptivra_model_to_hf("owner/repo", export_dir, results, api=api)
+
+    assert api.uploaded_bytes["model.safetensors"] == original_weights
+    assert staged_paths and not staged_paths[0].exists()
+
+
+def test_push_refuses_staging_mutation_after_evaluation_and_cleans_up(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    staged_paths: list[Path] = []
+
+    def evaluate(staged_path: Path) -> dict[str, object]:
+        staged_paths.append(staged_path)
+        (staged_path / "tokenizer_config.json").write_text(
+            "changed after evaluation", encoding="utf-8"
+        )
+        return fresh_record
+
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", evaluate)
+    api = _RecordingApi()
+
+    with pytest.raises(ValueError, match="staged publication file changed"):
+        push_aptivra_model_to_hf("owner/repo", export_dir, results, api=api)
+
+    assert api.create_calls == []
+    assert api.upload_calls == []
+    assert staged_paths and not staged_paths[0].exists()
 
 
 @pytest.mark.parametrize(
@@ -502,11 +588,11 @@ def test_push_uploads_only_new_layout_with_injected_client(tmp_path: Path) -> No
         ("missing", FileNotFoundError, "results record not found"),
         ("missing_hash", ValueError, "model_safetensors_sha256"),
         ("wrong_hash", ValueError, "does not match export"),
-        ("stale", ValueError, "older than model.safetensors"),
     ],
 )
-def test_push_refuses_invalid_or_stale_evidence_before_network(
+def test_push_refuses_invalid_supplied_evidence_before_network(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
     record_kind: str,
     error_type: type[Exception],
     message: str,
@@ -518,10 +604,13 @@ def test_push_refuses_invalid_or_stale_evidence_before_network(
         results.write_text(json.dumps({"checkpoint": {}}), encoding="utf-8")
     elif record_kind == "wrong_hash":
         _write_results_record(export_dir, results, weights_hash="0" * 64)
-    elif record_kind == "stale":
-        _write_results_record(export_dir, results)
-        weights_mtime = (export_dir / "model.safetensors").stat().st_mtime_ns
-        os.utime(results, ns=(weights_mtime - 1, weights_mtime - 1))
+    trusted = tmp_path / "trusted.json"
+    _write_results_record(export_dir, trusted)
+    monkeypatch.setattr(
+        hf_push,
+        "evaluate_export_dir",
+        lambda _: json.loads(trusted.read_text(encoding="utf-8")),
+    )
     api = _RecordingApi()
 
     with pytest.raises(error_type, match=message):
@@ -539,29 +628,68 @@ def test_prepare_refuses_incomplete_layout(tmp_path: Path) -> None:
         prepare_hf_publication("owner/repo", tmp_path / "missing-layout", results)
 
 
-def test_push_refuses_missing_results_record_before_network(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("supplied", "fresh"),
+    [({"metric": 1.0}, {"other": 1.0}), ([1.0], [1.0, 2.0])],
+)
+def test_supplied_record_comparison_rejects_structural_mismatches(
+    supplied: object,
+    fresh: object,
+) -> None:
+    with pytest.raises(ValueError, match="differs from fresh evaluation"):
+        hf_push._compare_record_values(
+            supplied,
+            fresh,
+            path=("evaluation",),
+            tolerance=0.000001,
+        )
+
+
+def test_push_without_supplied_record_uses_fresh_evaluation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     export_dir = tmp_path / "hub"
     _export_new_layout(export_dir)
+    fresh_path = tmp_path / "fresh.json"
+    _write_results_record(export_dir, fresh_path)
+    calls: list[Path] = []
+
+    def evaluate(path: Path) -> dict[str, object]:
+        calls.append(path)
+        return json.loads(fresh_path.read_text(encoding="utf-8"))
+
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", evaluate)
     api = _RecordingApi()
 
-    with pytest.raises(ValueError, match="results record is required"):
-        push_aptivra_model_to_hf("owner/repo", export_dir, api=api)
+    url = push_aptivra_model_to_hf("owner/repo", export_dir, api=api)
 
-    assert api.create_calls == []
-    assert api.upload_calls == []
+    assert url == "https://huggingface.co/owner/repo"
+    assert len(calls) == 1
+    assert calls[0] != export_dir
+    assert not calls[0].exists()
+    assert len(api.create_calls) == 1
+    assert len(api.upload_calls) == 1
 
 
-@pytest.mark.parametrize("record_kind", ["old_version", "forged_partial", "parameter_mismatch"])
-def test_push_refuses_untrusted_v3_evidence_before_network(
-    tmp_path: Path, record_kind: str
+@pytest.mark.parametrize(
+    "record_kind",
+    ["old_version", "forged_partial", "parameter_mismatch", "false_metrics"],
+)
+def test_push_refuses_untrusted_or_unreproduced_evidence_before_network(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    record_kind: str,
 ) -> None:
     export_dir = tmp_path / "hub"
     _export_new_layout(export_dir)
     results = tmp_path / "results.json"
     _write_results_record(export_dir, results)
     record = json.loads(results.read_text(encoding="utf-8"))
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", lambda _: fresh_record)
     if record_kind == "old_version":
-        record["schema_version"] = "aptivra.model_card_eval.v2"
+        record["schema_version"] = "aptivra.model_card_eval.v3"
     elif record_kind == "forged_partial":
         record = {
             "checkpoint": record["checkpoint"],
@@ -570,9 +698,14 @@ def test_push_refuses_untrusted_v3_evidence_before_network(
                 "baselines": {"unigram_bpb": 8},
             },
         }
-    else:
+    elif record_kind == "parameter_mismatch":
         record["model"]["backbone_parameters"] -= 1
         record["model"]["router_parameters"] += 1
+    else:
+        metric = record["evaluation"]["heldout_prompt_answer_bpb"]
+        metric["mean"] = 0.0
+        metric["min"] = 0.0
+        metric["max"] = 0.0
     results.write_text(json.dumps(record), encoding="utf-8")
     api = _RecordingApi()
 
@@ -593,6 +726,14 @@ def test_push_cli_dry_run_prints_exact_plan_without_network(
     _export_new_layout(export_dir)
     results = tmp_path / "results.json"
     _write_results_record(export_dir, results)
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    evaluation_calls: list[Path] = []
+
+    def evaluate(path: Path) -> dict[str, object]:
+        evaluation_calls.append(path)
+        return fresh_record
+
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", evaluate)
     script = Path(__file__).resolve().parents[1] / "scripts" / "push_to_hf.py"
     monkeypatch.setattr(
         sys,
@@ -612,12 +753,21 @@ def test_push_cli_dry_run_prints_exact_plan_without_network(
     runpy.run_path(str(script), run_name="__main__")
 
     lines = capsys.readouterr().out.splitlines()
-    expected = ["Files to upload:", *(f"  {name}" for name in HUB_PUBLICATION_FILES)]
+    expected = ["Files to upload:"]
+    expected.extend(
+        f"  {name}  sha256:{sha256_file(export_dir / name)}"
+        if name != "README.md"
+        else f"  {name}  sha256:{lines[1 + len(HUB_LAYOUT_FILES)].split('sha256:', 1)[1]}"
+        for name in HUB_PUBLICATION_FILES
+    )
     expected += [
         "Remote files to delete:",
         *(f"  {pattern}" for pattern in LEGACY_HUB_DELETE_PATTERNS),
     ]
     assert lines == expected
+    assert len(evaluation_calls) == 1
+    assert evaluation_calls[0] != export_dir
+    assert not evaluation_calls[0].exists()
 
 
 def test_layout_metadata_records_checkpoint_truth(tmp_path: Path) -> None:

@@ -1,7 +1,6 @@
 """Unit tests for evaluation metrics, harness, task stream isolation, and contamination guards."""
 
 import json
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,12 @@ import torch
 import torch.nn as nn
 
 from aptivra.baselines.sequential import SequentialBaselineTrainer
-from aptivra.eval.harness import ContinualEvalHarness, IncrementalEvaluationRun
+from aptivra.eval.harness import (
+    ContinualEvalHarness,
+    EvaluationInfrastructureError,
+    IncrementalEvaluationRun,
+    PredictFunction,
+)
 from aptivra.eval.metrics import (
     compute_average_accuracy,
     compute_backward_transfer,
@@ -19,6 +23,7 @@ from aptivra.eval.metrics import (
     compute_max_forgetting,
 )
 from aptivra.model.config import ModelConfig
+from aptivra.tasks import code_sandbox
 from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
 from aptivra.tasks.stream import ContinualTaskStream, TaskStreamSplit
 from scripts.run_baselines import run_single_baseline
@@ -170,7 +175,8 @@ def test_eval_harness(tmp_path: Path) -> None:
     harness = ContinualEvalHarness(stream)
 
     # Dummy predictor function that returns target solution for test instances
-    def oracle_predict(prompt: str) -> str:
+    def oracle_predict(prompt: str, stop_token_ids: tuple[int, ...]) -> str:
+        del stop_token_ids
         # Search all instances for matching prompt
         for fam in stream.families:
             split = stream.get_split(fam.family_id)
@@ -179,7 +185,8 @@ def test_eval_harness(tmp_path: Path) -> None:
                     return inst.target_solution
         return "WRONG_ANSWER"
 
-    def random_predict(prompt: str) -> str:
+    def random_predict(prompt: str, stop_token_ids: tuple[int, ...]) -> str:
+        del prompt, stop_token_ids
         return "RANDOM_GUESS"
 
     # Test single task evaluation
@@ -208,7 +215,29 @@ def test_eval_harness(tmp_path: Path) -> None:
         data = json.loads(line)
         assert data["average_accuracy"] == 1.0
         assert "backward_transfer" in data
-        assert data["metadata"]["harness_version"] == "continual-eval-v2"
+        assert data["metadata"]["harness_version"] == "continual-eval-v3"
+
+
+def test_harness_refuses_accuracy_when_verifier_could_not_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = ContinualTaskStream(1, 1, 1, seed=7)
+    harness = ContinualEvalHarness(stream)
+    evaluation = harness.start_run()
+    family = stream.families[8]
+    instance = stream.get_split(family.family_id).test[0]
+
+    def fail_temp_directory(*_args: object, **_kwargs: object) -> None:
+        raise FileNotFoundError("no writable temporary directory")
+
+    monkeypatch.setattr(code_sandbox.tempfile, "TemporaryDirectory", fail_temp_directory)
+
+    with pytest.raises(EvaluationInfrastructureError, match="could not run"):
+        evaluation.measure_untrained(
+            lambda _prompt, stop_token_ids: instance.target_solution
+        )
+
+    assert np.isnan(evaluation.random_baseline_accs[8])
 
 
 class _ExactVerifier(MechanicalVerifier):
@@ -269,8 +298,8 @@ class _TinyConflictingModel(nn.Module):
             loss.backward()
             optimizer.step()
 
-    def predict(self, prompt: str) -> str:
-        del prompt
+    def predict(self, prompt: str, *, stop_token_ids: tuple[int, ...]) -> str:
+        del prompt, stop_token_ids
         return "A" if int(torch.argmax(self.logits).item()) == 0 else "B"
 
 
@@ -314,7 +343,7 @@ def test_baseline_entry_point_records_chronological_rows(
     def measure_post_cycle_spy(
         evaluation: IncrementalEvaluationRun,
         cycle_idx: int,
-        predict_fn: Callable[[str], str],
+        predict_fn: PredictFunction,
     ) -> None:
         events.append(("evaluate", cycle_idx))
         original_measure_post_cycle(evaluation, cycle_idx, predict_fn)

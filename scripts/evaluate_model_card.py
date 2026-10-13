@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 
 from aptivra.eval.model_card_eval import (
-    DEFAULT_HELDOUT_TEXT,
     evaluate_export_dir,
     load_prompt_answers,
     write_evaluation_record,
@@ -34,17 +33,11 @@ def main() -> None:
         if args.trained_prompts_json is not None
         else None
     )
-    heldout_text = (
-        args.heldout_text_file.read_text(encoding="utf-8")
-        if args.heldout_text_file is not None
-        else None
-    )
-
     record = evaluate_export_dir(
         args.export_dir,
         trained_prompts=trained_prompts,
         heldout_prompts_path=args.heldout_prompts_json,
-        heldout_text=heldout_text if heldout_text is not None else DEFAULT_HELDOUT_TEXT,
+        heldout_text_path=args.heldout_text_file,
         hub_revision=args.hub_revision,
     )
     write_evaluation_record(record, args.output)

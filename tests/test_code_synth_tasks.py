@@ -12,7 +12,7 @@ import pytest
 
 from aptivra.tasks import code_sandbox, sandbox_worker
 from aptivra.tasks.algo_synth import AlgoSynthTaskFamily, AlgoSynthVerifier
-from aptivra.tasks.base import TaskFamily
+from aptivra.tasks.base import TaskFamily, TaskInstance
 from aptivra.tasks.bug_fixer import BugFixerTaskFamily, BugFixerVerifier
 from aptivra.tasks.code_sandbox import (
     SandboxConfig,
@@ -21,7 +21,232 @@ from aptivra.tasks.code_sandbox import (
 )
 from aptivra.tasks.docstring_code import DocstringToCodeTaskFamily, DocstringToCodeVerifier
 from aptivra.tasks.python_microsynth import PythonMicroSynthTaskFamily
+from aptivra.tasks.sandbox_policy import ALLOWED_BUILTINS
 from aptivra.tasks.type_inferrer import TypeInferrerTaskFamily, TypeInferrerVerifier
+
+
+def _function_instance(
+    family: TaskFamily,
+    function_name: str,
+    test_cases: list[tuple[Any, Any]],
+) -> TaskInstance:
+    return TaskInstance(
+        task_id=f"builtin_corpus_{family.family_id}",
+        task_family=family.family_id,
+        prompt=f"Implement {function_name}.",
+        target_solution=f"def {function_name}(*args):\n    raise NotImplementedError",
+        metadata={"fn_name": function_name, "test_cases": test_cases},
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def is_palindrome(s):\n    return s == s[::-1]",
+        "def is_palindrome(s):\n    return list(s) == list(reversed(s))",
+        (
+            "def is_palindrome(s):\n"
+            "    for index in range(len(s) // 2):\n"
+            "        if s[index] != s[-index - 1]:\n"
+            "            return False\n"
+            "    return True"
+        ),
+        (
+            "def is_palindrome(s):\n"
+            "    return sum(left != right for left, right in zip(s, reversed(s))) == 0"
+        ),
+    ],
+    ids=["slicing", "reversed", "loop", "zip-comprehension"],
+)
+def test_algo_synth_accepts_distinct_correct_python_idioms(source: str) -> None:
+    family = AlgoSynthTaskFamily()
+    instance = _function_instance(
+        family,
+        "is_palindrome",
+        [("racecar", True), ("hello", False), ("", True), ("abccba", True)],
+    )
+
+    assert family.verifier.verify(instance, source).passed is True
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        (
+            "def count_vowels(s):\n"
+            "    return sum(1 for character in s.lower() if character in 'aeiou')"
+        ),
+        (
+            "def count_vowels(s):\n"
+            "    total = 0\n"
+            "    for _, character in enumerate(s.lower()):\n"
+            "        if character in 'aeiou':\n"
+            "            total += 1\n"
+            "    return total"
+        ),
+        (
+            "def count_vowels(s):\n"
+            "    def visit(index):\n"
+            "        if index == len(s):\n"
+            "            return 0\n"
+            "        return int(s[index].lower() in 'aeiou') + visit(index + 1)\n"
+            "    return visit(0)"
+        ),
+    ],
+    ids=["comprehension", "enumerate-loop", "recursion"],
+)
+def test_docstring_code_accepts_distinct_correct_python_idioms(source: str) -> None:
+    family = DocstringToCodeTaskFamily()
+    instance = _function_instance(
+        family,
+        "count_vowels",
+        [("hello", 2), ("xyz", 0), ("AEIOU", 5), ("", 0)],
+    )
+
+    assert family.verifier.verify(instance, source).passed is True
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def order_values(values):\n    return sorted(values)",
+        (
+            "def order_values(values):\n"
+            "    result = list(values)\n"
+            "    for end in range(len(result), 0, -1):\n"
+            "        for index in range(1, end):\n"
+            "            if result[index - 1] > result[index]:\n"
+            "                result[index - 1], result[index] = (\n"
+            "                    result[index], result[index - 1]\n"
+            "                )\n"
+            "    return result"
+        ),
+        (
+            "def order_values(values):\n"
+            "    if len(values) < 2:\n"
+            "        return list(values)\n"
+            "    pivot = values[0]\n"
+            "    lower = [value for value in values[1:] if value <= pivot]\n"
+            "    upper = [value for value in values[1:] if value > pivot]\n"
+            "    return order_values(lower) + [pivot] + order_values(upper)"
+        ),
+    ],
+    ids=["sorted", "nested-loops", "recursive-comprehensions"],
+)
+def test_bug_fixer_accepts_distinct_correct_python_idioms(source: str) -> None:
+    family = BugFixerTaskFamily()
+    instance = _function_instance(
+        family,
+        "order_values",
+        [([3, 1, 2], [1, 2, 3]), ([], []), ([2, 1, 2], [1, 2, 2])],
+    )
+
+    assert family.verifier.verify(instance, source).passed is True
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "res = sum(number * number for number in range(1, 6))",
+        "res = 0\nfor number in range(1, 6):\n    res += number * number",
+        (
+            "res = sum(index * value for index, value in "
+            "enumerate(range(1, 6), start=1))"
+        ),
+        (
+            "def sum_squares(number):\n"
+            "    if number == 0:\n"
+            "        return 0\n"
+            "    return number * number + sum_squares(number - 1)\n"
+            "res = sum_squares(5)"
+        ),
+    ],
+    ids=["comprehension", "loop", "enumerate", "recursion"],
+)
+def test_python_microsynth_accepts_distinct_correct_python_idioms(source: str) -> None:
+    family = PythonMicroSynthTaskFamily()
+    instance = TaskInstance(
+        task_id="builtin_corpus_microsynth",
+        task_family=family.family_id,
+        prompt="Set res to the sum of squares from one through five.",
+        target_solution="55",
+    )
+
+    assert family.verifier.verify(instance, source).passed is True
+
+
+@pytest.mark.parametrize(
+    ("family", "instance", "broken_source"),
+    [
+        (
+            AlgoSynthTaskFamily(),
+            _function_instance(
+                AlgoSynthTaskFamily(),
+                "is_palindrome",
+                [("racecar", True), ("hello", False)],
+            ),
+            "def is_palindrome(s):\n    return False",
+        ),
+        (
+            DocstringToCodeTaskFamily(),
+            _function_instance(
+                DocstringToCodeTaskFamily(),
+                "count_vowels",
+                [("hello", 2), ("xyz", 0)],
+            ),
+            "def count_vowels(s):\n    return len(s)",
+        ),
+        (
+            BugFixerTaskFamily(),
+            _function_instance(
+                BugFixerTaskFamily(),
+                "order_values",
+                [([3, 1, 2], [1, 2, 3]), ([], [])],
+            ),
+            "def order_values(values):\n    return list(values)",
+        ),
+        (
+            PythonMicroSynthTaskFamily(),
+            TaskInstance(
+                task_id="builtin_corpus_microsynth_failures",
+                task_family="T8_python_microsynth",
+                prompt="Set res to 55.",
+                target_solution="55",
+            ),
+            "res = 54",
+        ),
+    ],
+    ids=["algo", "docstring", "bug-fixer", "micro-synth"],
+)
+def test_code_task_families_reject_hostile_and_broken_solutions(
+    family: TaskFamily,
+    instance: TaskInstance,
+    broken_source: str,
+) -> None:
+    hostile = family.verifier.verify(instance, "import os")
+    broken = family.verifier.verify(instance, broken_source)
+
+    assert hostile.passed is False
+    assert "Security Error: Forbidden import" in (hostile.error_message or "")
+    assert broken.passed is False
+
+
+def test_generated_code_builtin_policy_is_fixed_and_excludes_dangerous_names() -> None:
+    assert {
+        "enumerate",
+        "reversed",
+        "sorted",
+        "zip",
+    } <= ALLOWED_BUILTINS.keys()
+    assert {
+        "__import__",
+        "compile",
+        "eval",
+        "exec",
+        "input",
+        "open",
+        "print",
+    }.isdisjoint(ALLOWED_BUILTINS)
 
 
 def test_algo_synth_task_family() -> None:
@@ -84,6 +309,7 @@ def test_generated_code_timeout_is_a_bounded_verification_failure(family: TaskFa
     result = family.verifier.verify(instance, "while True:\n    pass")
 
     assert result.passed is False
+    assert result.execution_status == "completed"
     assert "timed out" in (result.error_message or "")
     assert time.perf_counter() - started < 3.0
 
@@ -159,7 +385,6 @@ def test_verifier_child_gets_sanitized_environment_and_temporary_cwd(
     result = verify_snippet_source(
         "res = 1",
         "1",
-        builtin_names=("int",),
         config=SandboxConfig(timeout_seconds=1.0, memory_limit_mb=512),
     )
 
@@ -170,6 +395,26 @@ def test_verifier_child_gets_sanitized_environment_and_temporary_cwd(
     child_cwd = captured["cwd"]
     assert isinstance(child_cwd, str)
     assert not os.path.exists(child_cwd)
+
+
+def test_verifier_temp_directory_failure_is_structured_infrastructure_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_temp_directory(*_args: object, **_kwargs: object) -> None:
+        raise FileNotFoundError("no writable temporary directory")
+
+    monkeypatch.setattr(code_sandbox.tempfile, "TemporaryDirectory", fail_temp_directory)
+
+    result = verify_snippet_source(
+        "res = 1",
+        "1",
+        config=SandboxConfig(timeout_seconds=1.0, memory_limit_mb=512),
+    )
+
+    assert result.passed is False
+    assert result.execution_status == "infrastructure_error"
+    assert result.ran_in_child_process is False
+    assert "temporary directory" in (result.error_message or "")
 
 
 def test_sandbox_rejects_invalid_or_oversized_source_before_starting_child() -> None:

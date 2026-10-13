@@ -36,8 +36,12 @@ def run_single_baseline(
         raise ValueError(f"Unknown baseline type: {baseline_type}")
     trainer = trainer_type(model_config)
 
-    def predict(prompt: str) -> str:
-        return trainer.predict(prompt, max_new_tokens=max_new_tokens)
+    def predict(prompt: str, stop_token_ids: tuple[int, ...]) -> str:
+        return trainer.predict(
+            prompt,
+            max_new_tokens=max_new_tokens,
+            stop_token_ids=stop_token_ids,
+        )
 
     harness = ContinualEvalHarness(stream)
     evaluation = harness.start_run()

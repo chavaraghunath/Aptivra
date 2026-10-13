@@ -49,7 +49,7 @@ class EWCBaselineTrainer(BaselineTrainer):
         subset = train_instances[:sample_size]
         for inst in subset:
             p_toks = self.encode_text(inst.prompt)
-            s_toks = self.encode_text(inst.target_solution + "\n")
+            s_toks = self.encode_training_target(inst)
             full_seq = (
                 torch.cat([p_toks, s_toks])[: self.config.max_seq_len].unsqueeze(0).to(self.device)
             )
@@ -97,7 +97,7 @@ class EWCBaselineTrainer(BaselineTrainer):
 
                 for inst in batch:
                     p_toks = self.encode_text(inst.prompt)
-                    s_toks = self.encode_text(inst.target_solution + "\n")
+                    s_toks = self.encode_training_target(inst)
                     full_seq = torch.cat([p_toks, s_toks])[: self.config.max_seq_len]
 
                     target_seq = full_seq.clone()

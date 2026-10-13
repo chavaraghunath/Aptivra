@@ -5,6 +5,7 @@ import random
 from typing import override
 
 from aptivra.tasks.base import (
+    MULTI_LINE_STOP_CHARACTERS,
     MechanicalVerifier,
     TaskFamily,
     TaskInstance,
@@ -14,26 +15,16 @@ from aptivra.tasks.base import (
 )
 from aptivra.tasks.code_sandbox import verify_snippet_source
 
-_SNIPPET_BUILTINS = (
-    "abs",
-    "min",
-    "max",
-    "sum",
-    "len",
-    "range",
-    "list",
-    "str",
-    "int",
-    "bool",
-)
-
 
 class PythonMicroSynthVerifier(MechanicalVerifier):
-    """Mechanical verifier for restricted Python micro-synthesis tasks via AST & sandboxed exec."""
+    """Verify Python micro-synthesis with AST checks and child-process containment."""
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
         expected = normalize_verifier_text(instance.target_solution)
+        expected_result = instance.metadata.get("expected_result")
+        if not isinstance(expected_result, str):
+            expected_result = expected
         extracted = extract_python_code(model_output)
         if extracted is None:
             return VerifierResult(
@@ -50,14 +41,14 @@ class PythonMicroSynthVerifier(MechanicalVerifier):
 
         result = verify_snippet_source(
             cleaned_output,
-            expected,
-            builtin_names=_SNIPPET_BUILTINS,
+            expected_result,
         )
         return VerifierResult(
             passed=result.passed,
             expected=expected,
             actual=result.actual if result.actual is not None else cleaned_output,
             error_message=result.error_message,
+            execution_status=result.execution_status,
         )
 
 
@@ -69,6 +60,8 @@ class PythonMicroSynthTaskFamily(TaskFamily):
             family_id="T8_python_microsynth",
             name="Python Micro-Synthesis",
             description="Synthesize Python snippets (e.g. factorial, GCD, vowel count).",
+            answer_stop_characters=MULTI_LINE_STOP_CHARACTERS,
+            training_terminator="\x00",
         )
         self._verifier = PythonMicroSynthVerifier()
 
@@ -110,13 +103,16 @@ class PythonMicroSynthTaskFamily(TaskFamily):
                 prompt = f"Write Python code to set `res` to sum of squares from 1 to {n} ="
                 target_sol = str(sol_val)
 
+            target_sol = f"res = (\n    {target_sol}\n)"
             instances.append(
                 TaskInstance(
                     task_id=f"{self.family_id}_s{seed}_i{i}",
                     task_family=self.family_id,
                     prompt=prompt,
                     target_solution=target_sol,
-                    metadata={"mode": mode},
+                    metadata={"mode": mode, "expected_result": str(sol_val)},
+                    answer_stop_characters=self.answer_stop_characters,
+                    training_terminator=self.training_terminator,
                 )
             )
 

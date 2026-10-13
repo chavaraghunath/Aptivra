@@ -50,7 +50,21 @@ tokens = model.generate(**inputs, max_new_tokens=96, do_sample=False)
 reliably. Byte `0` is both padding and EOS, while byte `10` (newline) is also configured as a
 stop ID. Keep prompt plus generation within 512 bytes.
 The raw returned suffix retains byte `0` or `10` when either ends generation; trim it only in a
-display layer when that presentation behavior is desired.
+display layer when that presentation behavior is desired. This published Hub tokenizer contract
+is intentionally unchanged.
+
+The continual-learning evaluation harness has a task-level contract that is more specific than
+the published Hub configuration. Single-line families T1–T7 stop at byte `0` or byte `10` and
+train with a final byte `10`. Multi-line code families T8–T12 must preserve embedded newlines, so
+they stop only at byte `0` and their supervised targets end with byte `0`. The harness passes the
+same family-declared stop IDs to bounded generation and removes the first retained family stop
+before verification. Consequently, stock Hub generation still treats byte `10` as an EOS ID and
+is not a drop-in implementation of the T8–T12 harness generation contract; callers evaluating
+those families must use the task-aware harness and a sufficient `max_new_tokens` bound. No Hub
+tokenizer file or remote-code behavior is changed by this local evaluation rule.
+The maintained continual-learning config defaults this bound to `128`, which covers the current
+generated targets; lower experiment overrides can intentionally truncate answers and reduce
+measured accuracy.
 
 ## I — MLX (Apple Silicon)
 
@@ -80,9 +94,17 @@ python scripts/push_to_hf.py \
   --dry-run
 ```
 
-The dry run performs no network access and lists every upload and approved legacy deletion.
-Remove `--dry-run` only after reviewing that plan. Publishing requires a fresh strict-v3 results
-record whose checkpoint/config/provenance hashes, bundled held-out set identity, sample counts,
-finite metrics, and measured parameter totals match the files being uploaded. The held-out gate
-compares answer-span BpB only with baselines scored on those same bytes. The same commit uploads
-the rendered `README.md` and removes only the explicitly approved legacy Hub paths.
+The dry run performs no network access and lists every upload with its SHA-256 plus every approved
+legacy deletion. Remove `--dry-run` only after reviewing that plan. Dry-run and live publication
+copy only the allowlisted inputs into a fresh mode-`0700` staging directory, evaluate that copy,
+render the card there, verify every staged hash immediately before the planned upload, and remove
+the staging directory on success or failure. Source mutations after staging cannot change the
+uploaded bytes. The worst-case temporary disk cost is one additional full weights copy—about
+1 GB for a 1 GB `model.safetensors`—plus the small configuration, tokenizer, code, provenance,
+and card files. A supplied strict-v4 record is optional and
+must reproduce every fresh metric within the configured tolerance; it cannot control the rendered
+card or suppress the usability notice. Records identify both bundled held-out sets by name and
+SHA-256, and the text corpus must satisfy the configured minimum byte count. The losses establish
+byte prediction only on those inputs, not factual accuracy, answer correctness, instruction
+following, safety, or performance elsewhere. The same commit uploads the rendered `README.md` and
+removes only the explicitly approved legacy Hub paths.

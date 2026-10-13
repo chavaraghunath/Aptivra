@@ -1,4 +1,8 @@
-"""Milestone Genesis Phase 3: Autonomous Experimenter & Scientific Verifier."""
+"""Autonomous experiments using generated-code child-process containment.
+
+The child runner bounds hangs and accidental failures during evaluation. It is not a
+security boundary against hostile code.
+"""
 
 import time
 from dataclasses import dataclass
@@ -41,7 +45,7 @@ class AutoExperimenterEngine:
         """Executes verification and integrates verified hypotheses into semantic hypergraph.
 
         Instead of heuristic confidence checks, this synthesizes an empirical test script,
-        executes it in the restricted sandbox, and formally validates input/output invariants.
+        executes it with child-process containment, and validates input/output invariants.
         """
         start_time = time.perf_counter()
 
@@ -62,7 +66,7 @@ class AutoExperimenterEngine:
         evidence_notes = []
 
         try:
-            # 1. Compile in sandboxed runtime
+            # 1. Validate in the generated-code child runner
             self.tool_synthesizer.synthesize_tool(
                 tool_name=test_tool_name,
                 signature="(x: float, y: float) -> bool",

@@ -117,8 +117,8 @@ def test_python_microsynth_verifier() -> None:
         res = family.verifier.verify(inst, inst.target_solution)
         assert res.passed
 
-        # Verify executable python block matching
-        code_output = f"```python\nres = {inst.target_solution}\n```"
+        # Verify a distinct executable Python block with the same result.
+        code_output = f"```python\nres = {inst.metadata['expected_result']}\n```"
         res_code = family.verifier.verify(inst, code_output)
         assert res_code.passed
 

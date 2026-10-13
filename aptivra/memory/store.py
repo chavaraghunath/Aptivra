@@ -7,7 +7,7 @@ from typing import Any
 import torch
 
 from aptivra.memory.retrieval import VectorEmbeddingIndex
-from aptivra.tasks.base import VerifierResult
+from aptivra.tasks.base import SINGLE_LINE_STOP_CHARACTERS, VerifierResult
 
 
 @dataclass
@@ -22,6 +22,8 @@ class EpisodicRecord:
     retrieval_count: int = 0
     verification_count: int = 1
     metadata: dict[str, Any] = field(default_factory=dict)
+    answer_stop_characters: tuple[str, ...] = SINGLE_LINE_STOP_CHARACTERS
+    training_terminator: str = "\n"
 
 
 class EpisodicStore:
@@ -38,6 +40,8 @@ class EpisodicStore:
         verifier_result: VerifierResult,
         task_family: str,
         metadata: dict[str, Any] | None = None,
+        answer_stop_characters: tuple[str, ...] = SINGLE_LINE_STOP_CHARACTERS,
+        training_terminator: str = "\n",
     ) -> bool:
         """Admits record to store IF AND ONLY IF verifier_result.passed is True."""
         if not verifier_result.passed:
@@ -52,6 +56,8 @@ class EpisodicStore:
             target_solution=target_solution,
             verifier_passed=True,
             metadata=metadata or {},
+            answer_stop_characters=answer_stop_characters,
+            training_terminator=training_terminator,
         )
 
         self.records[rec_id] = record

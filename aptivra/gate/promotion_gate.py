@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from aptivra.eval.harness import PredictFunction
 from aptivra.gate.stats import StatisticalTester
 from aptivra.tasks.base import TaskInstance
 
@@ -29,12 +30,12 @@ class PromotionGate:
 
     def evaluate_candidate(
         self,
-        curr_predict_fn: Callable[[str], str],
-        cand_predict_fn: Callable[[str], str],
+        curr_predict_fn: PredictFunction,
+        cand_predict_fn: PredictFunction,
         new_task_val_instances: list[TaskInstance],
         held_out_regression_suite: list[TaskInstance],
-        verifier_eval_fn: Callable[[Callable[[str], str], list[TaskInstance]], float],
-        loss_eval_fn: Callable[[Callable[[str], str], list[TaskInstance]], np.ndarray],
+        verifier_eval_fn: Callable[[PredictFunction, list[TaskInstance]], float],
+        loss_eval_fn: Callable[[PredictFunction, list[TaskInstance]], np.ndarray],
     ) -> PromotionResult:
         """Evaluates candidate checkpoint against current baseline.
 
@@ -55,11 +56,11 @@ class PromotionGate:
         self,
         current_val_accuracy: float,
         current_losses: np.ndarray,
-        cand_predict_fn: Callable[[str], str],
+        cand_predict_fn: PredictFunction,
         new_task_val_instances: list[TaskInstance],
         held_out_regression_suite: list[TaskInstance],
-        verifier_eval_fn: Callable[[Callable[[str], str], list[TaskInstance]], float],
-        loss_eval_fn: Callable[[Callable[[str], str], list[TaskInstance]], np.ndarray],
+        verifier_eval_fn: Callable[[PredictFunction, list[TaskInstance]], float],
+        loss_eval_fn: Callable[[PredictFunction, list[TaskInstance]], np.ndarray],
         rollback_fn: Callable[[], None],
     ) -> PromotionResult:
         """Evaluate a live candidate against cached promoted-state measurements.

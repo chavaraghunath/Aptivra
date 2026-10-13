@@ -15,7 +15,7 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `task_stream.num_test_per_task` | global | integer | `300` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.seed` | global | integer | `42` | 0–2^31-1 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.max_generation_attempts` | global | integer | `100` | 1–1000 | researcher | yes | — | `configs/task_stream.yaml` | no |
-| `evaluation.max_new_tokens` | global | integer | `32` | 1–512 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `evaluation.max_new_tokens` | global | integer | `128` | 1–512 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `model.d_model` | global | integer | `512` | 64–2048 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.n_layers` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.n_heads` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
@@ -45,8 +45,10 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `model_card_release_gate.heldout_bpb_unigram_margin_bits` | global | float | `0.0` | ≥ 0.0 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 | `model_card_release_gate.minimum_trained_prompt_samples` | global | integer | `7` | ≥ 1 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 | `model_card_release_gate.minimum_heldout_prompt_samples` | global | integer | `24` | ≥ 1 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `verifier_sandbox.timeout_seconds` | service | float | `1.0` | 0.05–30.0 seconds (validated) | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
-| `verifier_sandbox.memory_limit_mb` | service | integer | `512` | 64–2048 MiB (validated; applied where supported) | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
+| `model_card_release_gate.minimum_heldout_text_bytes` | global | integer | `8192` | ≥ 1 (validated; bundled corpus is larger) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.supplied_record_metric_tolerance` | global | float | `0.000001` | 0.0–0.001 inclusive (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `verifier_sandbox.timeout_seconds` | service | float | `1.0` | 0.05–30.0 seconds (validated); bounds generated-code hangs in a child process, not a security boundary against hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
+| `verifier_sandbox.memory_limit_mb` | service | integer | `512` | 64–2048 MiB (validated; applied where supported); contains accidental resource use, not hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
 
 ## Column meanings
 
@@ -77,3 +79,4 @@ ADR and link it below.
 | Episodic Store Write Gate Policy | Hard invariant requiring 100% verifier correctness ($v\_result = 1$) for episodic admission | [ADR-0004](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0004-episodic-store-retrieval-method.md) |
 | Statistical Test for Promotion Gate | Mathematical decision boundary ($\alpha = 0.05$ paired statistical test) for model promotion | [ADR-0005](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0005-statistical-test-for-promotion-gate.md) |
 | Tiered Memory Runtime & Pure C Engine | Architecture for NVMe expert streaming, usage-heat expert pinning, and pure C runtime export | [ADR-0006](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0006-multitier-nvme-expert-tiering-and-c-engine.md) |
+| Generated-code execution containment | Child-process execution, timeout, and process-group termination semantics; explicitly not a security boundary | [ADR-0007](adr/0007-generated-code-execution-containment.md) |

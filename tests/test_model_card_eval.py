@@ -12,6 +12,7 @@ from safetensors.torch import save_file
 from aptivra.eval import model_card_eval
 from aptivra.eval.model_card_eval import (
     DEFAULT_HELDOUT_PROMPTS_PATH,
+    DEFAULT_HELDOUT_TEXT_PATH,
     PromptAnswer,
     answer_span_bits_per_byte,
     count_export_parameters,
@@ -106,7 +107,7 @@ def test_answer_span_scoring_rejects_empty_answer() -> None:
         answer_span_bits_per_byte(model, "prompt", "")
 
 
-def test_versioned_heldout_set_has_required_coverage_and_no_training_answers() -> None:
+def test_versioned_heldout_sets_have_required_coverage_and_no_training_strings() -> None:
     heldout = load_prompt_answers(DEFAULT_HELDOUT_PROMPTS_PATH)
     assert len(heldout) >= 24
     assert {item.category for item in heldout} == {
@@ -124,6 +125,15 @@ def test_versioned_heldout_set_has_required_coverage_and_no_training_answers() -
     heldout_answers = {item.answer for item in heldout}
     assert len(heldout_answers) == len(heldout)
     assert heldout_answers.isdisjoint(identity_answers | chat_answers)
+
+    heldout_text = DEFAULT_HELDOUT_TEXT_PATH.read_text(encoding="utf-8")
+    assert len(heldout_text.encode("utf-8")) >= 8192
+    training_strings: set[str] = set()
+    for instance in ModelIdentityTaskFamily().generate_instances(count=7, seed=42):
+        training_strings.update((instance.prompt, instance.target_solution))
+    for question, prompt, answer in IDENTITY_CHAT_TEMPLATES:
+        training_strings.update((question, prompt, answer))
+    assert all(value not in heldout_text for value in training_strings)
 
 
 def test_legacy_parameter_count_deduplicates_tied_embedding_and_output_head(
@@ -170,7 +180,7 @@ def test_hub_parameter_count_rejects_incorrect_packaging_metadata(tmp_path: Path
         count_export_parameters(tmp_path)
 
 
-def test_hub_evaluation_records_v3_weights_prompt_set_and_provenance(tmp_path: Path) -> None:
+def test_hub_evaluation_records_v4_weights_corpora_and_provenance(tmp_path: Path) -> None:
     cfg = _tiny_config(max_seq_len=192)
     model = BackboneTransformer(cfg)
     router = GatingRouter(d_model=cfg.d_model, initial_num_experts=1)
@@ -181,7 +191,7 @@ def test_hub_evaluation_records_v3_weights_prompt_set_and_provenance(tmp_path: P
         trained_prompts=[PromptAnswer(prompt="a", answer="b")],
     )
 
-    assert record["schema_version"] == "aptivra.model_card_eval.v3"
+    assert record["schema_version"] == "aptivra.model_card_eval.v4"
     checkpoint = record["checkpoint"]
     assert isinstance(checkpoint, dict)
     assert checkpoint["model_safetensors_sha256"] == sha256_file(
@@ -196,6 +206,11 @@ def test_hub_evaluation_records_v3_weights_prompt_set_and_provenance(tmp_path: P
         "name": DEFAULT_HELDOUT_PROMPTS_PATH.name,
         "sha256": sha256_file(DEFAULT_HELDOUT_PROMPTS_PATH),
         "samples": 24,
+    }
+    assert evaluation["heldout_text_set"] == {
+        "name": DEFAULT_HELDOUT_TEXT_PATH.name,
+        "sha256": sha256_file(DEFAULT_HELDOUT_TEXT_PATH),
+        "bytes": DEFAULT_HELDOUT_TEXT_PATH.stat().st_size,
     }
     tokenizer = record["tokenizer"]
     assert tokenizer == {
@@ -377,6 +392,41 @@ def test_sequence_metric_rejects_invalid_target_and_model_output() -> None:
         model_card_eval._sequence_bits_per_byte(
             InvalidOutputModel(), ids, target_start=1
         )
+
+
+def test_sequence_metric_moves_targets_to_the_logits_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = _tiny_config()
+
+    class RelocatedLogitsModel:
+        config = cfg
+        device = torch.device("cpu")
+
+        def eval(self) -> object:
+            return self
+
+        def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+            return torch.empty((1, input_ids.shape[1], 256), device="meta")
+
+    def fake_cross_entropy(
+        logits: torch.Tensor,
+        targets: torch.Tensor,
+        *,
+        reduction: str,
+    ) -> torch.Tensor:
+        assert logits.device.type == "meta"
+        assert targets.device == logits.device
+        assert reduction == "sum"
+        return torch.tensor(1.0)
+
+    monkeypatch.setattr(model_card_eval.F, "cross_entropy", fake_cross_entropy)
+    score = model_card_eval._sequence_bits_per_byte(
+        RelocatedLogitsModel(),
+        torch.tensor([1, 2], dtype=torch.long),
+        target_start=1,
+    )
+    assert score == pytest.approx(1.0 / model_card_eval.math.log(2))
 
 
 def _export_tiny(export_dir: Path, cfg: ModelConfig, *, memorized: bool) -> Path:

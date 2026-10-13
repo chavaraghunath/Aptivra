@@ -1,4 +1,6 @@
-# Resource limits for executing one generated-code verification item.
+# Operational containment for one generated-code execution. The child process, timeout,
+# process-group termination, AST checks, and resource limits contain hangs and accidents;
+# they are not a security boundary against hostile code.
 verifier_sandbox:
   timeout_seconds: 1.0
   memory_limit_mb: 512

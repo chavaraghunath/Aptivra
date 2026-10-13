@@ -6,4 +6,4 @@ task_stream:
   max_generation_attempts: 100
 
 evaluation:
-  max_new_tokens: 32
+  max_new_tokens: 128

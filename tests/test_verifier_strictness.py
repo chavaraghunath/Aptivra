@@ -79,6 +79,6 @@ def test_python_microsynth_requires_exact_value_or_executable_res_assignment() -
     family = PythonMicroSynthTaskFamily()
     instance = family.generate_instances(1, seed=42)[0]
     assert family.verifier.verify(instance, instance.target_solution).passed is True
-    assert family.verifier.verify(instance, f"x = 0\n{instance.target_solution}").passed is False
-    wrong_value = int(instance.target_solution) + 1
+    assert family.verifier.verify(instance, "x = 0").passed is False
+    wrong_value = int(instance.metadata["expected_result"]) + 1
     assert family.verifier.verify(instance, f"res = {wrong_value}").passed is False

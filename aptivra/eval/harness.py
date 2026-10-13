@@ -1,9 +1,8 @@
 """Continual Learning Evaluation Harness and Logger."""
 
 import json
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -14,10 +13,45 @@ from aptivra.eval.metrics import (
     compute_forward_transfer,
     compute_max_forgetting,
 )
-from aptivra.tasks.base import TaskInstance
-from aptivra.tasks.stream import ContinualTaskStream
+from aptivra.tasks.base import (
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    extract_model_answer,
+)
+from aptivra.tasks.stream import TaskStreamSplit
 
-HARNESS_VERSION = "continual-eval-v2"
+HARNESS_VERSION = "continual-eval-v3"
+
+
+class PredictFunction(Protocol):
+    """Task-aware generation callback used for every harness measurement."""
+
+    def __call__(
+        self,
+        prompt: str,
+        *,
+        stop_token_ids: tuple[int, ...],
+    ) -> str:
+        """Generate at most the runner-configured token bound."""
+        ...
+
+
+class EvaluationInfrastructureError(RuntimeError):
+    """Raised when an evaluation item could not be executed reliably."""
+
+
+class TaskStream(Protocol):
+    """Structural task-stream interface consumed by the evaluator."""
+
+    families: list[TaskFamily]
+    num_train_per_task: int
+    num_val_per_task: int
+    num_test_per_task: int
+
+    def get_split(self, family_id: str) -> TaskStreamSplit:
+        """Return the materialized train/validation/test split."""
+        ...
 
 
 def _optional_matrix(matrix: np.ndarray) -> list[list[float | None]]:
@@ -36,14 +70,14 @@ def _optional_vector(vector: np.ndarray) -> list[float | None]:
 class ContinualEvalHarness:
     """Evaluation harness running predictions against mechanical verifiers across stream tasks."""
 
-    def __init__(self, task_stream: ContinualTaskStream) -> None:
+    def __init__(self, task_stream: TaskStream) -> None:
         self.stream = task_stream
         self.num_tasks = len(self.stream.families)
         self.task_names = [f.family_id for f in self.stream.families]
 
     def evaluate_task(
         self,
-        predict_fn: Callable[[str], str],
+        predict_fn: PredictFunction,
         task_idx: int,
         use_val_split: bool = False,
     ) -> float:
@@ -51,21 +85,75 @@ class ContinualEvalHarness:
         family = self.stream.families[task_idx]
         split = self.stream.get_split(family.family_id)
         instances: list[TaskInstance] = split.val if use_val_split else split.test
-        verifier = family.verifier
-
         if not instances:
             raise ValueError(
                 f"Cannot measure task '{family.family_id}': evaluation split is empty."
             )
 
-        passed_count = 0
-        for inst in instances:
-            output = predict_fn(inst.prompt)
-            res = verifier.verify(inst, output)
-            if res.passed:
-                passed_count += 1
+        return self.evaluate_instances(predict_fn, instances)
 
+    @staticmethod
+    def verify_prediction(
+        predict_fn: PredictFunction,
+        family: TaskFamily,
+        instance: TaskInstance,
+    ) -> tuple[str, VerifierResult]:
+        """Generate, task-truncate, and verify one answer at the harness boundary."""
+        raw_output, answer = ContinualEvalHarness._generate_answer(
+            predict_fn, family, instance
+        )
+        result = family.verifier.verify(instance, answer)
+        if result.execution_status == "infrastructure_error":
+            raise EvaluationInfrastructureError(
+                f"Evaluation item '{instance.task_id}' could not run: "
+                f"{result.error_message or 'unknown infrastructure failure'}"
+            )
+        return raw_output, result
+
+    def predict_answer(
+        self,
+        predict_fn: PredictFunction,
+        instance: TaskInstance,
+    ) -> str:
+        """Return one extracted answer using the instance family's declared rule."""
+        family = self._family(instance.task_family)
+        _, answer = self._generate_answer(predict_fn, family, instance)
+        return answer
+
+    @staticmethod
+    def _generate_answer(
+        predict_fn: PredictFunction,
+        family: TaskFamily,
+        instance: TaskInstance,
+    ) -> tuple[str, str]:
+        """Apply the family stop rule once to generation and extraction."""
+        raw_output = predict_fn(
+            instance.prompt,
+            stop_token_ids=family.stop_token_ids,
+        )
+        answer = extract_model_answer(raw_output, family.answer_stop_characters)
+        return raw_output, answer
+
+    def evaluate_instances(
+        self,
+        predict_fn: PredictFunction,
+        instances: list[TaskInstance],
+    ) -> float:
+        """Evaluate generated answers, refusing a score when any item cannot run."""
+        if not instances:
+            return 1.0
+        passed_count = 0
+        for instance in instances:
+            family = self._family(instance.task_family)
+            _, result = self.verify_prediction(predict_fn, family, instance)
+            passed_count += int(result.passed)
         return float(passed_count / len(instances))
+
+    def _family(self, family_id: str) -> TaskFamily:
+        for family in self.stream.families:
+            if family.family_id == family_id:
+                return family
+        raise KeyError(f"Task family '{family_id}' not found in evaluation stream.")
 
     def start_run(self) -> "IncrementalEvaluationRun":
         """Create an incremental run that never retains a live model callback."""
@@ -107,7 +195,7 @@ class IncrementalEvaluationRun:
         self.random_baseline_accs = np.full(harness.num_tasks, np.nan, dtype=np.float64)
         self._next_cycle = 0
 
-    def measure_untrained(self, predict_fn: Callable[[str], str]) -> None:
+    def measure_untrained(self, predict_fn: PredictFunction) -> None:
         """Measure the real, initialized-but-untrained baseline ``b_j``."""
         if self._next_cycle != 0 or not np.isnan(self.random_baseline_accs).all():
             raise RuntimeError(
@@ -118,7 +206,7 @@ class IncrementalEvaluationRun:
                 predict_fn, task_idx
             )
 
-    def measure_post_cycle(self, cycle_idx: int, predict_fn: Callable[[str], str]) -> None:
+    def measure_post_cycle(self, cycle_idx: int, predict_fn: PredictFunction) -> None:
         """Measure row ``cycle_idx`` immediately after that task's accepted state."""
         if cycle_idx != self._next_cycle:
             raise ValueError(

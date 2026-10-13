@@ -1,8 +1,24 @@
 """Base interfaces and data structures for task families and mechanical verifiers."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass, field, replace
+from typing import Any, Literal
+
+SINGLE_LINE_STOP_CHARACTERS = ("\x00", "\n")
+MULTI_LINE_STOP_CHARACTERS = ("\x00",)
+ExecutionStatus = Literal["completed", "infrastructure_error"]
+
+
+def extract_model_answer(raw_output: str, stop_characters: tuple[str, ...]) -> str:
+    """Return generated text before the first task-declared stop byte.
+
+    Generation retains the emitted stop byte, so the harness removes it before
+    verification. Everything from the first declared stop onward is outside the
+    answer. No other normalization or truncation is performed here.
+    """
+    stop_offsets = (raw_output.find(character) for character in stop_characters)
+    first_stop = min((offset for offset in stop_offsets if offset >= 0), default=-1)
+    return raw_output if first_stop < 0 else raw_output[:first_stop]
 
 
 def normalize_verifier_text(value: str) -> str:
@@ -56,6 +72,12 @@ class TaskInstance:
     prompt: str
     target_solution: str
     metadata: dict[str, Any] = field(default_factory=dict)
+    answer_stop_characters: tuple[str, ...] = SINGLE_LINE_STOP_CHARACTERS
+    training_terminator: str = "\n"
+
+    def training_target(self) -> str:
+        """Return the supervised target including its learnable stop byte."""
+        return f"{self.target_solution}{self.training_terminator}"
 
 
 @dataclass(frozen=True)
@@ -66,6 +88,7 @@ class VerifierResult:
     expected: str
     actual: str
     error_message: str | None = None
+    execution_status: ExecutionStatus = "completed"
 
 
 class MechanicalVerifier(ABC):
@@ -80,10 +103,31 @@ class MechanicalVerifier(ABC):
 class TaskFamily(ABC):
     """Abstract base class for a continual learning task family."""
 
-    def __init__(self, family_id: str, name: str, description: str) -> None:
+    def __init__(
+        self,
+        family_id: str,
+        name: str,
+        description: str,
+        *,
+        answer_stop_characters: tuple[str, ...] = SINGLE_LINE_STOP_CHARACTERS,
+        training_terminator: str = "\n",
+    ) -> None:
+        if not answer_stop_characters:
+            raise ValueError("task family must declare at least one answer stop character")
+        if training_terminator not in answer_stop_characters:
+            raise ValueError("training terminator must be one of the answer stop characters")
+        if any(len(character.encode("utf-8")) != 1 for character in answer_stop_characters):
+            raise ValueError("answer stop characters must each encode to one byte")
         self.family_id = family_id
         self.name = name
         self.description = description
+        self.answer_stop_characters = answer_stop_characters
+        self.training_terminator = training_terminator
+
+    @property
+    def stop_token_ids(self) -> tuple[int, ...]:
+        """Return byte-token IDs that stop generation for this family."""
+        return tuple(ord(character) for character in self.answer_stop_characters)
 
     @property
     @abstractmethod
@@ -115,6 +159,11 @@ class TaskFamily(ABC):
                 max(remaining * 2, 1), seed=seed + attempt * 10_000
             )
             for instance in candidates:
+                instance = replace(
+                    instance,
+                    answer_stop_characters=self.answer_stop_characters,
+                    training_terminator=self.training_terminator,
+                )
                 key = (instance.task_family, instance.prompt, instance.target_solution)
                 if key in excluded_keys or key in unique_keys:
                     continue
