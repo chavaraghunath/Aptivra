@@ -34,16 +34,16 @@ class FourPhaseBenchmarkReport:
         return self.phase1_sensorimotor_score
 
     @property
-    def curiosity_entropy(self) -> float:
-        return 1.48
+    def curiosity_entropy(self) -> float | None:
+        return None
 
     @property
-    def causal_induction_rate(self) -> float:
-        return 0.89
+    def causal_induction_rate(self) -> float | None:
+        return None
 
     @property
-    def zero_forgetting_retention(self) -> float:
-        return 1.0
+    def zero_forgetting_retention(self) -> float | None:
+        return None
 
 
 # Backward-compatibility alias

@@ -5,6 +5,28 @@
 
 ---
 
+## Erratum — 2026-10-13
+
+This document is retained as historical experiment reporting, but several sections must not be
+used as current evidence:
+
+- **Invalid BWT/FWT and promotion-gate results:** every BWT/FWT value in Sections 3, 4, 9, and
+  10 is invalid because the harness evaluated only the final model instead of preserving and
+  evaluating the model at each training cycle. Promotion-gate conclusions derived from that
+  harness are also invalid until the harness is repaired.
+- **Unsupported recall and prefetch figures:** no executable source in this repository produces
+  the reported recall@5 `91.4%` or prefetch hit rate `98.2%`. They remain in the historical text
+  below but are not accepted as measured results.
+- **Chance-level Phase 5 loss:** the Phase 5 multi-domain table reports losses around `ln(256)`,
+  consistent with chance-level byte prediction, not learned MCP skill capability.
+- **Position embedding correction:** Section 2 says RoPE, but the implemented backbone uses a
+  learned absolute position embedding (`aptivra/model/transformer.py`).
+
+Model cards, README claims, and release notes must use fresh machine-readable evaluation records
+instead of the invalidated figures below.
+
+---
+
 ## 1. Executive Summary & Hypothesis H1 Verdict
 
 - **Hypothesis H1:** At 50M–200M parameters, Aptivra's tiered memory with gated consolidation outperforms naive sequential fine-tuning on a continual task stream on both new-task accuracy ($A_T$) and retention of earlier tasks ($BWT$).
@@ -20,7 +42,7 @@
 
 ## 2. Experimental Setup & System Architecture
 
-- **Backbone Architecture:** Decoder-only Transformer ($d_{\text{model}} = 512$, $n_{\text{layers}} = 8$, $n_{\text{heads}} = 8$, $d_{\text{ff}} = 2048$, RMSNorm, SwiGLU, RoPE).
+- **Backbone Architecture:** Decoder-only Transformer ($d_{\text{model}} = 512$, $n_{\text{layers}} = 8$, $n_{\text{heads}} = 8$, $d_{\text{ff}} = 2048$, RMSNorm, SwiGLU, learned absolute position embedding). Historical note: this line previously said RoPE; the code uses `pos_embedding`.
 - **Task Stream:** 8 sequential task families ($T_1$ Modular Arithmetic, $T_2$ String Transforms, $T_3$ List Operations, $T_4$ Syntax Matching, $T_5$ Boolean Logic, $T_6$ Sequence Completion, $T_7$ State Machines, $T_8$ Python MicroSynth).
 - **Mechanical Verifiers:** 100% deterministic ground-truth verification on all target solutions ($v\_result \in \{0, 1\}$).
 - **Quality Gates:** 0 lint errors (`ruff`), 0 type errors (`mypy --strict`), $96.11\%$ test coverage across 34 tests.
@@ -28,6 +50,10 @@
 ---
 
 ## 3. Comparative Performance Matrix ($A_T$, BWT, FWT, FLOPs)
+
+**ERRATUM:** BWT and FWT columns in this table are invalid because of the final-model-only
+evaluation harness defect. Accuracy and FLOP values remain historical experiment outputs, not
+model-card claims.
 
 All metrics are evaluated across 3 independent seeds (42, 43, 44) with $95\%$ confidence intervals.
 
@@ -43,6 +69,9 @@ All metrics are evaluated across 3 independent seeds (42, 43, 44) with $95\%$ co
 
 ## 4. Milestone M5 Ablation Study
 
+**ERRATUM:** BWT values in this table are invalid because of the final-model-only evaluation
+harness defect.
+
 | Ablation Configuration | Avg Accuracy ($A_T$) | Backward Transfer (BWT) | Total FLOPs | Primary Impact |
 |---|---|---|---|---|
 | **Full Aptivra** | $0.040 \pm 0.009$ | $0.000 \pm 0.000$ | $3.33 \times 10^{13}$ | Baseline Aptivra system |
@@ -55,6 +84,9 @@ All metrics are evaluated across 3 independent seeds (42, 43, 44) with $95\%$ co
 ---
 
 ## 5. Statistical Significance & Kill Criterion Audit
+
+**ERRATUM:** Any promotion-gate or retention conclusion depending on the invalid BWT/FWT harness
+must be treated as invalid until the harness is repaired.
 
 - **Statistical Test:** Paired t-test / Wilcoxon signed-rank test ($\alpha = 0.05$) across held-out regression suites.
 - **FLOP Parity Audit:** Measured floating-point operations ($6 \cdot P \cdot N_{\text{tokens}}$) recorded synchronously per training step.
@@ -86,17 +118,17 @@ All metrics are evaluated across 3 independent seeds (42, 43, 44) with $95\%$ co
 - **Status:** Phase 2 Complete (Milestones 2.1 – 2.5 Delivered)
 - **Quality Gates:** 0 lint errors (`ruff check .`), 0 type errors (`mypy --strict`), **96.17% test coverage** across 44 unit and integration tests.
 - **Architectural Upgrades Delivered:**
-  1. **Verifier-Grounded Contrastive Projection ($T_1$):** InfoNCE contrastive memory encoder (`ContrastiveMemoryEncoder`) optimizes prompt-solution embeddings using deterministic verifier feedback ($v\_result \in \{0, 1\}$), achieving zero-shot candidate recall@5 accuracy of **$91.4\%$** (up from $32.1\%$ unprojected).
+  1. **Verifier-Grounded Contrastive Projection ($T_1$):** InfoNCE contrastive memory encoder (`ContrastiveMemoryEncoder`) optimizes prompt-solution embeddings using deterministic verifier feedback ($v\_result \in \{0, 1\}$), achieving zero-shot candidate recall@5 accuracy of **$91.4\%$** (up from $32.1\%$ unprojected). **ERRATUM:** no executable source for this figure was found in this repository.
   2. **Soft Top-2 MoE Gating Router ($T_2$):** Soft top-$k$ routing ($k=2$) with auxiliary load-balancing loss ($\mathcal{L}_{\text{balance}} = N_{\text{exp}} \sum f_i P_i$) eliminates hard single-expert freezing, maintaining uniform expert utilization ($< 8.2\%$ load variance).
   3. **200M Parameter Backbone Scaling:** `configs/backbone_200m.yaml` provisioned ($d_{\text{model}} = 1024, n_{\text{layers}} = 16, n_{\text{heads}} = 16, d_{\text{ff}} = 4096$).
-  4. **Tiered Memory Runtime (TMR) C Engine:** Async multi-tier NVMe/RAM export (`MultitierExporter`), 1-layer lookahead prefetching loader (`MultitierLoader`), and routing heat logging (`.expert_usage`), achieving **$98.2\%$ prefetch cache hit rate** during 1-layer lookahead simulation.
+  4. **Tiered Memory Runtime (TMR) C Engine:** Async multi-tier NVMe/RAM export (`MultitierExporter`), 1-layer lookahead prefetching loader (`MultitierLoader`), and routing heat logging (`.expert_usage`), achieving **$98.2\%$ prefetch cache hit rate** during 1-layer lookahead simulation. **ERRATUM:** no executable source for this figure was found in this repository.
 
 | Milestone | Feature Component | Verification Status | Primary Impact / Metric |
 |---|---|---|---|
-| **M2.1** | Contrastive $T_1$ Projection Head | **VERIFIED** (100% test pass) | Recall@5 increased from $32.1\%$ to $91.4\%$ |
+| **M2.1** | Contrastive $T_1$ Projection Head | **ERRATUM: unsupported metric** | Recall@5 increased from $32.1\%$ to $91.4\%$ |
 | **M2.2** | Soft Top-2 MoE Router | **VERIFIED** (100% test pass) | Load variance $< 8.2\%$, zero routing starvation |
 | **M2.3** | 200M Backbone Config | **PROVISIONED** | Model capacity scaled to $1024$ hidden dim |
-| **M2.4** | Tiered Memory Runtime (TMR) Exporter | **VERIFIED** (100% test pass) | Prefetch hit rate $98.2\%$, zero accuracy loss |
+| **M2.4** | Tiered Memory Runtime (TMR) Exporter | **ERRATUM: unsupported metric** | Prefetch hit rate $98.2\%$, zero accuracy loss |
 | **M2.5** | Full-Stack Quality Gates | **VERIFIED** (Code 0) | Coverage $96.17\%$, strict mypy 0 errors |
 
 ---
@@ -113,6 +145,9 @@ All metrics are evaluated across 3 independent seeds (42, 43, 44) with $95\%$ co
   - **EWC Baseline:** $A_T = 0.0354 \pm 0.0144$ ($1.94 \times 10^{14}$ FLOPs)
 
 ### Comparative 200M Performance Matrix ($A_T$, BWT, FWT, FLOPs)
+
+**ERRATUM:** BWT and FWT columns in this table are invalid because of the final-model-only
+evaluation harness defect. Do not use them for retention or transfer claims.
 
 All metrics evaluated across 3 independent seeds (42, 43, 44) with 95% confidence intervals.
 
@@ -131,6 +166,9 @@ All metrics evaluated across 3 independent seeds (42, 43, 44) with 95% confidenc
 ---
 
 ## 10. Phase 3 200M Scale Milestone Ablation Study
+
+**ERRATUM:** BWT values in this table are invalid because of the final-model-only evaluation
+harness defect.
 
 | Ablation Configuration | Avg Accuracy ($A_T$) | Backward Transfer (BWT) | Total FLOPs | Primary Architectural Impact |
 |---|---|---|---|---|
@@ -164,6 +202,11 @@ All metrics evaluated across 3 independent seeds (42, 43, 44) with 95% confidenc
 ---
 
 ## 12. Phase 5 Multi-Domain, Self-Identity, MCP Skills Expertise & GGUF Local Inference CLI Report
+
+**ERRATUM:** the average losses in this section are near `ln(256)`, so this table records
+chance-level byte prediction rather than demonstrated identity, conversation, or MCP skill
+capability. The identity training strings also include unsupported capability claims; this
+erratum does not alter the training data.
 
 - **Status:** Phase 5 Complete (Milestones 5.1 – 5.5 Delivered & Deployed)
 - **Quality Gates:** 0 lint errors (`ruff check .`), 0 type errors (`mypy --strict aptivra`), **100% test pass rate** across all unit and integration test suites.
@@ -202,7 +245,6 @@ Evaluated across 3 independent seeds (42, 43, 44) with $95\%$ confidence interva
 | **M5.4** | GGUF v3 Exporter (FP16 & Q8_0) | **VERIFIED** (Code 0) | `aptivra-200m-fp16.gguf` (543MB), `aptivra-200m-q8_0.gguf` (1.08GB) |
 | **M5.5** | Local C-Engine GGUF Inference CLI | **VERIFIED** (Code 0) | `./multitier_c/aptivra-cli` parses 172 tensors & 12 KVs |
 | **M5.6** | Hugging Face Model Hub Release | **PUBLISHED** | [raghunath1/aptivra-200m-tiered-memory](https://huggingface.co/raghunath1/aptivra-200m-tiered-memory) |
-
 
 
 

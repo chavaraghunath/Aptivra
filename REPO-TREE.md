@@ -163,7 +163,7 @@
 - `LICENSE` — Software license terms.
 - `SUPPORT.md` — Support channels and guidelines.
 - `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, and pytest.
-- `configs/` — YAML configuration files for model architectures, task streams, ablation experiments, and inference/chat server defaults (`inference.yaml`).
+- `configs/` — YAML configuration files for model architectures, task streams, ablation experiments, inference/chat server defaults (`inference.yaml`), and measured-results model-card release gates.
 - `deploy/` — Deployment bridges for extended run options: Hugging Face hub Python stubs, Docker CUDA/CPU, Ollama/LM Studio notes.
 - `docs/` — Architectural documentation, design specifications, and ADRs.
   - `docs/run-options.md` — G–J run paths for `raghunath1/aptivra-200m-tiered-memory`.
@@ -174,8 +174,8 @@
   - `aptivra/model/` — Decoder-only backbone transformer architecture, RMSNorm, SwiGLU, and isolated AttentionInterface.
   - `aptivra/baselines/` — Continual learning baseline trainers (Naive Sequential, Replay-Only, EWC-Only, Joint Multitask).
   - `aptivra/tasks/` — Sequential task family generators, mechanical verifiers, and task stream manager.
-  - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, and metrics calculation.
-  - `aptivra/export/` — Export utilities serializing backbone state and T2 expert pools for Tiered C runtime execution.
+  - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, metrics calculation, and model-card measurement record generation.
+  - `aptivra/export/` — Export utilities serializing backbone state and T2 expert pools for Tiered C runtime execution, plus measured-results model-card rendering.
   - `aptivra/inference/` — MoE causal LM loader, byte tokenizer, and generation for Hub checkpoints.
   - `aptivra/huggingface/` — In-repo Transformers config/model wrappers (Hub copies live under `deploy/huggingface_hub/`).
   - `aptivra/agents/` — Dynamic tool synthesis and sandboxed execution engine (Phase 3).
@@ -192,8 +192,7 @@
   - `aptivra/world_model/` — Continuous latent state-space H-JEPA world model predicting transitions in representation space.
   - `aptivra/genesis.py` — Top-level unified cognitive architecture facade orchestrating all 10 engines across all 4 phases.
 - `multitier_c/` — High-throughput C ABI sharding runtime with zero-copy mmap hot-swapping and HDC associative search.
-- `scripts/` — Execution, benchmarking, and export scripts.
+- `scripts/` — Execution, benchmarking, evaluation, and export scripts.
 - `tests/` — Pytest unit and integration test suite.
-
 
 

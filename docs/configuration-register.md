@@ -39,6 +39,7 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `inference.chat.single_turn` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.sanitize_replies` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.max_reply_chars` | service | integer | `280` | 32–2048 | operator | yes | — | `configs/inference.yaml` | no |
+| `model_card_release_gate.heldout_bpb_unigram_margin_bits` | global | float | `0.0` | 0.0–8.0 | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 
 ## Column meanings
 
@@ -69,4 +70,3 @@ ADR and link it below.
 | Episodic Store Write Gate Policy | Hard invariant requiring 100% verifier correctness ($v\_result = 1$) for episodic admission | [ADR-0004](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0004-episodic-store-retrieval-method.md) |
 | Statistical Test for Promotion Gate | Mathematical decision boundary ($\alpha = 0.05$ paired statistical test) for model promotion | [ADR-0005](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0005-statistical-test-for-promotion-gate.md) |
 | Tiered Memory Runtime & Pure C Engine | Architecture for NVMe expert streaming, usage-heat expert pinning, and pure C runtime export | [ADR-0006](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0006-multitier-nvme-expert-tiering-and-c-engine.md) |
-
