@@ -1,0 +1,15 @@
+# CPU reference image (Linux/macOS Docker without GPU passthrough)
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY pyproject.toml README.md /app/
+COPY aptivra /app/aptivra
+COPY configs /app/configs
+COPY scripts /app/scripts
+COPY deploy /app/deploy
+
+RUN pip install --no-cache-dir -e ".[hf]"
+
+ENV MODEL_DIR=/model
+EXPOSE 8080
+CMD ["python", "scripts/run_chat_server.py", "--host", "0.0.0.0", "--export-dir", "/model"]

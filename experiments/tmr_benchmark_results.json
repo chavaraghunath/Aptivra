@@ -1,0 +1,11 @@
+{
+  "num_experts": 8,
+  "d_model": 1024,
+  "d_ff": 4096,
+  "total_shard_mb": 267.1,
+  "export_elapsed_sec": 0.085,
+  "export_throughput_mb_s": 3142.21,
+  "load_elapsed_sec": 0.6165,
+  "load_throughput_mb_s": 433.25,
+  "heat_logging_elapsed_sec": 0.0107
+}

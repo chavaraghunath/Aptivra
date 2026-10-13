@@ -1,0 +1,9 @@
+# Backbone Model Config (85M params for Phase 1 main benchmark)
+vocab_size: 256
+d_model: 768
+n_layers: 12
+n_heads: 12
+d_ff: 3072
+max_seq_len: 512
+dropout: 0.1
+device: "auto"

@@ -1,0 +1,19 @@
+# Aptivra inference & chat server defaults (see docs/configuration-register.md)
+model_repo_id: raghunath1/aptivra-200m-tiered-memory
+local_export_dir: scratch/hf_export
+device: auto
+max_new_tokens: 96
+# Training optimizes backbone logits only; MoE at inference causes train/serve skew.
+use_moe_at_inference: false
+server:
+  host: 127.0.0.1
+  port: 8080
+  model_name: aptivra-200m-tiered-memory
+chat:
+  gradio_host: 127.0.0.1
+  gradio_port: 7860
+  title: Aptivra Chat
+  # Multi-turn poisons context when prior replies drift; use single-turn for stable UI.
+  single_turn: true
+  sanitize_replies: true
+  max_reply_chars: 280

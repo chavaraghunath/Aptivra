@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/sync-repo-tree.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

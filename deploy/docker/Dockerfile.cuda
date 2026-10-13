@@ -1,0 +1,23 @@
+# Option J: Linux NVIDIA CUDA inference (remote GPU hosts — not macOS Docker CUDA)
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml README.md /app/
+COPY aptivra /app/aptivra
+COPY configs /app/configs
+COPY scripts /app/scripts
+COPY deploy /app/deploy
+
+RUN pip3 install --no-cache-dir -e ".[hf]" \
+    && pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu124
+
+ENV APTIVRA_DEVICE=cuda
+ENV MODEL_DIR=/model
+
+EXPOSE 8080
+CMD ["python3", "scripts/run_chat_server.py", "--host", "0.0.0.0", "--export-dir", "/model"]

@@ -1,0 +1,24 @@
+# Environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Model weights and export staging (published to the Hub, never to git)
+scratch/
+*.pt
+*.gguf
+*.safetensors
+
+# C build outputs
+multitier_c/*.o
+multitier_c/aptivra-cli
+
+# Local session state
+.remember/
+.DS_Store
