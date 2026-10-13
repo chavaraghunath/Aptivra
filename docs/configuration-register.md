@@ -20,6 +20,7 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `model.n_layers` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.n_heads` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.d_ff` | global | integer | `2048` | 256–8192 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
+| `model.max_seq_len` | global | integer | `512` | 1–512 | researcher | yes | — | `configs/backbone_200m.yaml` | no |
 | `baseline.learning_rate` | service | float | `0.0001` | 1e-6–1e-2 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `baseline.replay_capacity` | service | integer | `500` | 10–50000 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `baseline.ewc_lambda` | service | float | `400.0` | 0.1–10000.0 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
@@ -28,7 +29,7 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `multitier.prefetch_lookahead_layers` | service | integer | `1` | 0–4 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `multitier.hot_expert_pin_gb` | service | float | `4.0` | 0.0–128.0 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `inference.model_repo_id` | global | string | `raghunath1/aptivra-200m-tiered-memory` | non-empty HF repo id | operator | yes | — | `configs/inference.yaml` | no |
-| `inference.local_export_dir` | global | path | `scratch/hf_export` | directory with multitier shards | operator | yes | — | `configs/inference.yaml` | no |
+| `inference.local_export_dir` | global | path | `scratch/hf_export` | directory with the Transformers layout or legacy multitier shards | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.device` | global | enum | `auto` | `auto`, `cuda`, `mps`, `cpu` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.max_new_tokens` | global | integer | `96` | 1–512 | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.use_moe_at_inference` | global | boolean | `false` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |

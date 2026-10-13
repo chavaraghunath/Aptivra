@@ -5,6 +5,7 @@ from typing import cast
 
 import torch
 import torch.nn as nn
+from safetensors.torch import load_file
 
 from aptivra.experts.expert import ExpertModule
 from aptivra.experts.router import GatingRouter
@@ -58,8 +59,48 @@ class AptivraCausalLM(nn.Module):
         model_config: ModelConfig | None = None,
     ) -> "AptivraCausalLM":
         export_path = Path(export_dir)
-        loader = MultitierLoader(export_path)
         cfg = model_config or model_config_from_export_dir(export_path, device="auto")
+        safetensors_path = export_path / "model.safetensors"
+        if safetensors_path.is_file():
+            import json
+
+            config_path = export_path / "config.json"
+            if not config_path.is_file():
+                raise FileNotFoundError(
+                    f"config.json is required with model.safetensors: {config_path}"
+                )
+            config_data = json.loads(config_path.read_text(encoding="utf-8"))
+            num_experts = int(config_data["num_experts"])
+            top_k_experts = int(config_data.get("top_k_experts", 2))
+            d_expert = int(config_data.get("d_expert", 128))
+            router = GatingRouter(
+                d_model=cfg.d_model,
+                initial_num_experts=num_experts,
+                top_k=top_k_experts,
+            )
+            backbone = BackboneTransformer(cfg)
+            experts = [
+                ExpertModule(i, cfg.d_model, d_expert=d_expert) for i in range(num_experts)
+            ]
+            loaded = load_file(safetensors_path, device="cpu")
+            assembled = cls(
+                cfg,
+                backbone,
+                router,
+                experts,
+                use_moe_at_inference=bool(config_data.get("use_moe_at_inference", False)),
+            )
+            incompatible = assembled.load_state_dict(loaded, strict=False)
+            allowed_missing = {"backbone.lm_head.weight"}
+            if set(incompatible.missing_keys) != allowed_missing or incompatible.unexpected_keys:
+                raise RuntimeError(
+                    "Invalid model.safetensors keys: "
+                    f"missing={incompatible.missing_keys}, "
+                    f"unexpected={incompatible.unexpected_keys}"
+                )
+            return assembled.to(cfg.get_device())
+
+        loader = MultitierLoader(export_path)
         backbone, router, experts = loader.load_model(cfg)
         device = cfg.get_device()
         backbone = backbone.to(device)

@@ -77,6 +77,10 @@ class MultitierExporter:
             expert_shard_paths=expert_shard_paths,
             metadata={
                 "vocab_size": model_config.vocab_size,
+                "n_heads": model_config.n_heads,
+                "d_ff": model_config.d_ff,
+                "max_seq_len": model_config.max_seq_len,
+                "dropout": model_config.dropout,
                 "execution_platform": "tiered_c",
                 "nvme_streaming_enabled": True,
             },
@@ -111,6 +115,10 @@ class MultitierLoader:
         if not dense_full_path.exists():
             raise FileNotFoundError(f"Dense backbone shard missing: {dense_full_path}")
 
+        router_path = self.export_dir / "dense" / "router.pt"
+        if not router_path.exists():
+            raise FileNotFoundError(f"Router shard missing: {router_path}")
+
         # Verify all expert shards exist
         for exp_rel in manifest.expert_shard_paths:
             exp_full = self.export_dir / exp_rel
@@ -135,8 +143,7 @@ class MultitierLoader:
             d_model=model_config.d_model, initial_num_experts=manifest.num_experts
         )
         router_path = self.export_dir / "dense" / "router.pt"
-        if router_path.exists():
-            router.load_state_dict(torch.load(router_path, weights_only=True))
+        router.load_state_dict(torch.load(router_path, weights_only=True))
 
         # Restore Expert Modules
         experts: list[ExpertModule] = []

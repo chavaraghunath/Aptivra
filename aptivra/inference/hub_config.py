@@ -32,8 +32,9 @@ def model_config_from_export_dir(
         vocab_size=int(manifest.metadata.get("vocab_size", 256)),
         d_model=manifest.d_model,
         n_layers=manifest.n_layers,
-        n_heads=16,
-        d_ff=4096,
+        n_heads=int(manifest.metadata.get("n_heads", 16)),
+        d_ff=int(manifest.metadata.get("d_ff", 4096)),
         max_seq_len=int(manifest.metadata.get("max_seq_len", 512)),
+        dropout=float(manifest.metadata.get("dropout", 0.1)),
         device=device,
     )

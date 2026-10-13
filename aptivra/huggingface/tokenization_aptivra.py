@@ -1,0 +1,54 @@
+"""Transformers-compatible UTF-8 byte tokenizer for Aptivra."""
+
+from pathlib import Path
+from typing import Any
+
+from transformers import PreTrainedTokenizer
+
+
+class AptivraByteTokenizer(PreTrainedTokenizer):
+    """A reversible 256-entry tokenizer mapping token IDs directly to UTF-8 bytes."""
+
+    vocab_files_names: dict[str, str] = {}
+    model_input_names = ["input_ids", "attention_mask"]
+
+    def __init__(self, model_max_length: int = 512, **kwargs: Any) -> None:
+        self._vocab = {chr(value): value for value in range(256)}
+        kwargs.setdefault("pad_token", chr(0))
+        kwargs.setdefault("eos_token", chr(0))
+        kwargs.setdefault("model_max_length", model_max_length)
+        kwargs.setdefault("padding_side", "right")
+        kwargs.setdefault("truncation_side", "left")
+        super().__init__(**kwargs)
+
+    @property
+    def vocab_size(self) -> int:
+        return 256
+
+    def get_vocab(self) -> dict[str, int]:
+        return {**self._vocab, **self.added_tokens_encoder}
+
+    def _tokenize(self, text: str, **kwargs: Any) -> list[str]:
+        del kwargs
+        return [chr(value) for value in text.encode("utf-8")]
+
+    def _convert_token_to_id(self, token: str) -> int:
+        return self._vocab.get(token, 0)
+
+    def _convert_id_to_token(self, index: int) -> str:
+        if not 0 <= index < 256:
+            raise ValueError(f"Byte token ID out of range: {index}")
+        return chr(index)
+
+    def convert_tokens_to_string(self, tokens: list[str]) -> str:
+        return bytes(ord(token) for token in tokens).decode("utf-8", errors="ignore")
+
+    def save_vocabulary(
+        self,
+        save_directory: str,
+        filename_prefix: str | None = None,
+    ) -> tuple[str, ...]:
+        del filename_prefix
+        if not Path(save_directory).is_dir():
+            raise ValueError(f"Vocabulary save path is not a directory: {save_directory}")
+        return ()
