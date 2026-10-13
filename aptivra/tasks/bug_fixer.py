@@ -4,7 +4,13 @@ import ast
 import random
 from typing import Any, override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    extract_python_code,
+)
 
 
 class BugFixerVerifier(MechanicalVerifier):
@@ -13,15 +19,10 @@ class BugFixerVerifier(MechanicalVerifier):
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
         expected = instance.target_solution.strip()
-        cleaned_output = model_output.strip()
-
-        if "```python" in cleaned_output:
-            cleaned_output = cleaned_output.split("```python")[1].split("```")[0].strip()
-        elif "```" in cleaned_output:
-            cleaned_output = cleaned_output.split("```")[1].split("```")[0].strip()
-
-        if cleaned_output == expected:
-            return VerifierResult(passed=True, expected=expected, actual=cleaned_output)
+        extracted = extract_python_code(model_output)
+        if extracted is None:
+            return VerifierResult(False, expected, model_output.strip(), "Unterminated code fence.")
+        cleaned_output = extracted
 
         try:
             parsed_ast = ast.parse(cleaned_output)
@@ -52,6 +53,14 @@ class BugFixerVerifier(MechanicalVerifier):
 
             test_cases: list[tuple[Any, Any]] = instance.metadata.get("test_cases", [])
             fn_name: str = instance.metadata.get("fn_name", "")
+
+            if not fn_name or not test_cases:
+                return VerifierResult(
+                    passed=False,
+                    expected=expected,
+                    actual=cleaned_output,
+                    error_message="Verifier metadata requires a function name and test cases.",
+                )
 
             if fn_name not in sandbox_globals:
                 return VerifierResult(
@@ -110,7 +119,7 @@ class BugFixerTaskFamily(TaskFamily):
                 "test_cases": [(5, [1, 2, 3, 4, 5]), (1, [1])],
             },
             {
-                "fn_name": "wrong_operator",
+                "fn_name": "add_num",
                 "prompt": "# Fix bug: def add_num(a, b): return a - b\n",
                 "solution": "def add_num(a, b):\n    return a + b",
                 "test_cases": [((2, 3), 5), ((-1, 1), 0)],
@@ -120,12 +129,16 @@ class BugFixerTaskFamily(TaskFamily):
         instances: list[TaskInstance] = []
         for i in range(count):
             tpl = rng.choice(templates)
+            base_name = str(tpl["fn_name"])
+            fn_name = f"{base_name}_{seed}_{i}"
+            prompt = str(tpl["prompt"]).replace(base_name, fn_name)
+            solution = str(tpl["solution"]).replace(base_name, fn_name)
             inst = TaskInstance(
                 task_id=f"t11_{i:04d}",
                 task_family=self.family_id,
-                prompt=tpl["prompt"],
-                target_solution=tpl["solution"],
-                metadata={"fn_name": tpl["fn_name"], "test_cases": tpl["test_cases"]},
+                prompt=prompt,
+                target_solution=solution,
+                metadata={"fn_name": fn_name, "test_cases": tpl["test_cases"]},
             )
             instances.append(inst)
         return instances

@@ -5,7 +5,14 @@ import math
 import random
 from typing import Any, override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    extract_python_code,
+    normalize_verifier_text,
+)
 
 
 class PythonMicroSynthVerifier(MechanicalVerifier):
@@ -13,14 +20,16 @@ class PythonMicroSynthVerifier(MechanicalVerifier):
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution.strip()
-        cleaned_output = model_output.strip()
-
-        # Extract markdown python code block if present
-        if "```python" in cleaned_output:
-            cleaned_output = cleaned_output.split("```python")[1].split("```")[0].strip()
-        elif "```" in cleaned_output:
-            cleaned_output = cleaned_output.split("```")[1].split("```")[0].strip()
+        expected = normalize_verifier_text(instance.target_solution)
+        extracted = extract_python_code(model_output)
+        if extracted is None:
+            return VerifierResult(
+                passed=False,
+                expected=expected,
+                actual=model_output.strip(),
+                error_message="Invalid output: unterminated code fence.",
+            )
+        cleaned_output = extracted
 
         # Check exact string match first
         if cleaned_output == expected:
@@ -83,14 +92,11 @@ class PythonMicroSynthVerifier(MechanicalVerifier):
                     error_message=None if passed else f"Expected '{expected}', got '{actual_res}'",
                 )
 
-            # Fallback: compare output as integer or string
-            actual_res = cleaned_output.split()[-1] if cleaned_output.split() else ""
-            passed = actual_res == expected
             return VerifierResult(
-                passed=passed,
+                passed=False,
                 expected=expected,
-                actual=actual_res,
-                error_message=None if passed else f"Expected '{expected}', got '{actual_res}'",
+                actual=cleaned_output,
+                error_message="Executable output did not define 'res'.",
             )
 
         except Exception as e:

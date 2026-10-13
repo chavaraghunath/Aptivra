@@ -9,6 +9,7 @@ from aptivra.tasks.base import (
     TaskFamily,
     TaskInstance,
     VerifierResult,
+    exact_match_result,
 )
 
 
@@ -16,16 +17,7 @@ class MCPSkillVerifier(MechanicalVerifier):
     """Mechanical verifier for MCP skill task instances."""
 
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution
-        passed = expected in model_output or (
-            len(model_output.strip()) > 0 and "pass" in model_output
-        )
-        return VerifierResult(
-            passed=passed,
-            expected=expected,
-            actual=model_output,
-            error_message=None if passed else "Model output did not match expected skill pattern",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class MCPSkillTaskFamily(TaskFamily):

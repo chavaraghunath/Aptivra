@@ -3,7 +3,13 @@
 import random
 from typing import override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    exact_match_result,
+)
 
 
 class ListOperationsVerifier(MechanicalVerifier):
@@ -11,19 +17,7 @@ class ListOperationsVerifier(MechanicalVerifier):
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution.strip()
-        cleaned = model_output.strip().replace("[", "").replace("]", "").replace(",", " ")
-        cleaned_str = " ".join(cleaned.split())
-        exp_clean = expected.replace("[", "").replace("]", "").replace(",", " ")
-        expected_str = " ".join(exp_clean.split())
-
-        passed = cleaned_str == expected_str
-        return VerifierResult(
-            passed=passed,
-            expected=expected,
-            actual=cleaned_str,
-            error_message=None if passed else f"Expected '{expected}', got '{cleaned_str}'",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class ListOperationsTaskFamily(TaskFamily):

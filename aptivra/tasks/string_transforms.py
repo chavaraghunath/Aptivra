@@ -4,7 +4,13 @@ import random
 import string
 from typing import override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    exact_match_result,
+)
 
 
 class StringTransformVerifier(MechanicalVerifier):
@@ -12,18 +18,7 @@ class StringTransformVerifier(MechanicalVerifier):
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution.strip()
-        cleaned_output = model_output.strip().split()[-1] if model_output.strip() else ""
-
-        passed = (cleaned_output == expected) or (model_output.strip() == expected)
-        actual = expected if passed else cleaned_output
-
-        return VerifierResult(
-            passed=passed,
-            expected=expected,
-            actual=actual,
-            error_message=None if passed else f"Expected '{expected}', got '{cleaned_output}'",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class StringTransformTaskFamily(TaskFamily):

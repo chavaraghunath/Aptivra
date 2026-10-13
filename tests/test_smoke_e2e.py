@@ -1,5 +1,6 @@
 """Laptop smoke test verifying full Aptivra pipeline, baselines, and eval harness."""
 
+import json
 from pathlib import Path
 
 from aptivra.baselines.replay import ReplayBaselineTrainer
@@ -47,10 +48,20 @@ def test_aptivra_pipeline_end_to_end_smoke(tmp_path: Path) -> None:
     cons_cfg = ConsolidationConfig(epochs=1)
 
     log_file = tmp_path / "smoke_aptivra.jsonl"
-    run_single_aptivra(model_cfg, cons_cfg, stream, log_file)
+    run_single_aptivra(model_cfg, cons_cfg, stream, log_file, max_new_tokens=2)
 
     assert log_file.exists()
     assert log_file.stat().st_size > 0
+    record = json.loads(log_file.read_text(encoding="utf-8").strip())
+    metadata = record["metadata"]
+    assert metadata["harness_version"] == "continual-eval-v2"
+    assert metadata["rows_evaluated_per_cycle"] is True
+    assert metadata["split_sizes"] == {
+        "train_per_task": 5,
+        "val_per_task": 2,
+        "test_per_task": 2,
+    }
+    assert metadata["max_new_tokens"] == 2
 
 
 def test_consolidation_cycle_and_gate_smoke() -> None:
@@ -71,8 +82,11 @@ def test_consolidation_cycle_and_gate_smoke() -> None:
     res = cycle.run_cycle(0, stream.families[0].family_id, split0.train)
     assert res["loss"] >= 0.0
 
-    # Test harness evaluation matrix
+    # Test incremental harness evaluation without retaining a live bound method.
     harness = ContinualEvalHarness(stream)
-    metrics = harness.evaluate_matrix([cycle.predict] * len(stream.families))
-    assert 0.0 <= metrics.average_accuracy <= 1.0
-    assert isinstance(metrics.backward_transfer, float)
+    evaluation = harness.start_run()
+    evaluation.measure_untrained(cycle.predict)
+    evaluation.measure_post_cycle(0, cycle.predict)
+    metrics = evaluation.finalize()
+    assert metrics.average_accuracy is None
+    assert metrics.backward_transfer is None

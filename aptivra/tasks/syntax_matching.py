@@ -3,7 +3,13 @@
 import random
 from typing import override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    exact_match_result,
+)
 
 
 class SyntaxMatchingVerifier(MechanicalVerifier):
@@ -11,16 +17,7 @@ class SyntaxMatchingVerifier(MechanicalVerifier):
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution.strip()
-        actual = model_output.strip().split()[-1] if model_output.strip() else ""
-
-        passed = (actual == expected) or (model_output.strip() == expected)
-        return VerifierResult(
-            passed=passed,
-            expected=expected,
-            actual=expected if passed else actual,
-            error_message=None if passed else f"Expected '{expected}', got '{actual}'",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class SyntaxMatchingTaskFamily(TaskFamily):
