@@ -3,21 +3,28 @@
 Aptivra is a research codebase for byte-level causal-model experiments, continual-learning
 harnesses, tiered export formats, and prototype inference wrappers. The repository contains a
 decoder-only Transformer backbone, a soft Top-2 MoE router and expert modules, evaluation
-harnesses, GGUF/export utilities, and documentation of negative results.
+harnesses, a self-contained Transformers export, local export utilities, and documentation of
+negative results. The packaged checkpoint contains 271,361,024 unique parameters and has a
+512-byte context window.
 
 The published checkpoint must not be described as a usable general language model unless a
-machine-readable evaluation record shows held-out bits per byte beating the unigram byte
-baseline. The current audit found memorization on seen identity prompts and poor held-out byte
+machine-readable v3 evaluation record shows held-out answer-span bits per byte beating the
+unigram baseline fitted to those same answer bytes. The current audit found low loss on some
+seen identity prompts but poor held-out byte
 prediction; see `docs/RESULTS.md` for the erratum and historical context.
 
 ## What Is Measured
 
 - The exported backbone/router/expert parameter count is measured by
   `aptivra.eval.model_card_eval.count_export_parameters`.
-- Model-card metrics are generated from a JSON record written by
-  `scripts/evaluate_model_card.py`; absent fields render as `not measured`.
+- Model-card metrics are generated from a strict v3 JSON record written by
+  `scripts/evaluate_model_card.py`; invalid or incomplete evidence fails the release gate closed.
+- Hub packaging consists of one `model.safetensors`, configuration/tokenizer metadata,
+  `conversion-provenance.json`, and self-contained remote code loaded by stock Transformers
+  with `trust_remote_code=True`.
 - The code uses learned absolute position embeddings in `aptivra/model/transformer.py`.
-- The C CLI currently parses GGUF headers; it is not a measured C inference engine.
+- GGUF is a local FP32/FP16 export option only. GGUF files are not part of the Hub release, and
+  the C CLI currently parses their headers rather than providing a measured inference engine.
 - AID-Bench checks subsystem invariants in `aptivra/benchmarks/aid_bench.py`; it is not a model
   capability score.
 
@@ -56,8 +63,10 @@ PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python -m mypy 
 
 ## Model-Card Evaluation
 
-Model weights are expected in an export directory such as `scratch/hf_export` with
-`dense/backbone.pt`, `dense/router.pt`, expert shards, and `multitier_manifest.json`.
+Model weights are expected in a Hub-layout directory such as `scratch/hf_export`, containing
+`model.safetensors`, `config.json`, `conversion-provenance.json`, tokenizer metadata, and the
+three remote-code modules. Convert a legacy shard layout first; conversion records source shard
+hashes, source layout, optional source Hub revision, and converter version in the provenance file.
 
 ```bash
 PYTHONPATH=$PWD python -m scripts.evaluate_model_card \
@@ -70,12 +79,34 @@ Render the Hugging Face README from that record through
 `aptivra.export.model_card.generate_model_card_readme`. The release gate threshold is configured
 in `configs/model_card_release_gate.yaml` and registered in `docs/configuration-register.md`.
 
+## Load the Hub Layout
+
+The remote-code files are self-contained; installing Aptivra is not required to load a published
+snapshot with stock Transformers.
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+repo_id = "raghunath1/aptivra-200m-tiered-memory"
+tokenizer = AutoTokenizer.from_pretrained(repo_id, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(repo_id, trust_remote_code=True)
+inputs = tokenizer("User: hello\nAssistant:", return_tensors="pt")
+output = model.generate(**inputs, max_new_tokens=96, do_sample=False)
+```
+
+Set `max_new_tokens`: the checkpoint did not learn to emit an end byte reliably. Byte `0` is
+both padding and EOS in the tokenizer metadata, and byte `10` (newline) is also a generation
+stop ID. Raw package text and Transformers token sequences both retain the first emitted stop
+byte; display clients may trim it explicitly. The combined prompt and generated sequence cannot
+exceed the 512-byte context window.
+
 ## Common Commands
 
 ```bash
 python scripts/run_aptivra.py --config configs/backbone_50m.yaml
 python scripts/run_baselines.py --config configs/backbone_50m.yaml
 python scripts/run_aid_bench.py
+# Local interoperability artifact only; never uploaded to the Hub:
 python scripts/export_gguf.py --output-dir scratch/hf_export/gguf --quant-type fp16
 ```
 

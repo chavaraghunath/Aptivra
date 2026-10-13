@@ -9,13 +9,14 @@ from pathlib import Path
 import yaml
 
 from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.chat_prompt import format_chat_prompt
 from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
+from aptivra.inference.chat_prompt import format_chat_prompt
 from aptivra.inference.chat_quality import (
     canonical_prefix_ok,
     default_identity_cases,
     passes_case,
 )
+from aptivra.inference.hub_config import model_config_from_export_dir
 
 
 def _canonical_match(user_message: str, raw: str) -> bool:
@@ -24,7 +25,6 @@ def _canonical_match(user_message: str, raw: str) -> bool:
         if label.lower().rstrip("?") == q.rstrip("?"):
             return canonical_prefix_ok(raw, target, min_ratio=0.55)
     return False
-from aptivra.inference.hub_config import model_config_from_export_dir
 
 
 def main() -> None:
@@ -58,7 +58,10 @@ def main() -> None:
             failed += 1
 
     if failed:
-        print(f"\n{failed} case(s) failed. Re-run scripts/repair_chat_backbone.py before pushing to HF.")
+        print(
+            f"\n{failed} case(s) failed. Re-run scripts/repair_chat_backbone.py "
+            "before pushing to HF."
+        )
         sys.exit(1)
     print("\nAll identity chat checks passed (raw model, no sanitization).")
 

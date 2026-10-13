@@ -29,6 +29,19 @@ Aptivra's promotion gate evaluates candidate model checkpoints generated after a
 - Rigorous statistical guardrail against catastrophic forgetting: random noise or small evaluation fluctuations will not trigger false rejections, while systematic regressions will reliably reject candidate checkpoints.
 - Fully transparent and auditable model promotion history with exact $p$-values logged per cycle.
 
+### Rejection state semantics
+
+A rejected candidate is treated as if its learning never became promoted state. The rollback
+therefore restores backbone parameters and buffers; router/expert weights, topology, maturity,
+and training modes; the main optimizer; T1 records, retrieval index, encoder, and optimizer;
+the replay buffer; EWC Fisher and optimal-parameter state; and Python, NumPy, Torch CPU, CUDA,
+and MPS random-number generator state. Restoring RNG state makes the next cycle deterministic
+relative to a run that never trained the rejected candidate.
+
+`total_flops` is deliberately not restored because the rejected attempt consumed that compute.
+The gate decision and diagnostics likewise remain as immutable audit history. Transient
+gradients are not promoted state and are cleared by the next optimizer step.
+
 ### Negative / Trade-offs
 - Requires evaluating candidate checkpoints over the full held-out regression suite at every consolidation cycle, incurring evaluation compute overhead.
 - A strict $\alpha = 0.05$ threshold may occasionally reject candidate checkpoints that have minor trade-offs but high new-task gain; hyperparameter tuning during consolidation must focus on preservation.

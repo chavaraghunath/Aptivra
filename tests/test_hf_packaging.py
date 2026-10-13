@@ -3,22 +3,44 @@
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
+import os
 import pickle
+import runpy
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 import torch
 from safetensors.torch import load_file, save_file
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, dynamic_module_utils
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    LogitsProcessor,
+    dynamic_module_utils,
+)
 
+from aptivra.eval.model_card_eval import (
+    DEFAULT_HELDOUT_PROMPTS_PATH,
+    PromptAnswer,
+    evaluate_export_dir,
+    sha256_file,
+)
+from aptivra.eval.model_card_schema import PROVENANCE_FILENAME
 from aptivra.experts.expert import ExpertModule
 from aptivra.experts.router import GatingRouter
 from aptivra.export import hf_conversion
 from aptivra.export.hf_conversion import convert_legacy_export_to_huggingface
 from aptivra.export.hf_hub_artifacts import HUB_LAYOUT_FILES, export_huggingface_hub_layout
-from aptivra.export.hf_push import push_aptivra_model_to_hf
+from aptivra.export.hf_push import (
+    HUB_PUBLICATION_FILES,
+    LEGACY_HUB_DELETE_PATTERNS,
+    prepare_hf_publication,
+    push_aptivra_model_to_hf,
+)
 from aptivra.export.multitier import MultitierExporter
 from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.model.config import ModelConfig
@@ -101,31 +123,57 @@ def test_stock_transformers_load_is_self_contained_and_numerically_identical(
         torch.testing.assert_close(hub_logits, package_logits, rtol=1e-6, atol=1e-7)
 
 
-def test_transformers_generate_matches_package_greedy_bytes(
+@pytest.mark.parametrize(
+    "forced_bytes",
+    ([0], [65, 0], [10], [65, 10], [65, 66], [32, 65, 32]),
+)
+def test_transformers_generate_matches_package_stop_byte_contract(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    forced_bytes: list[int],
 ) -> None:
     export_dir = tmp_path / "hub"
     package_model = _export_new_layout(export_dir)
-    with torch.no_grad():
-        package_model.backbone.token_embedding.weight.zero_()
-    export_huggingface_hub_layout(
-        export_dir,
-        package_model.backbone,
-        package_model.router,
-        package_model.experts,
-        package_model.config,
-    )
     _set_modules_cache(monkeypatch, tmp_path / "modules")
     tokenizer = AutoTokenizer.from_pretrained(export_dir, trust_remote_code=True)
     hub_model = AutoModelForCausalLM.from_pretrained(export_dir, trust_remote_code=True).eval()
 
     prompt = "Aptivra"
-    package_text = package_model.generate(prompt, max_new_tokens=4)
+    prompt_length = len(prompt.encode("utf-8"))
+
+    def forced_forward(input_ids: torch.Tensor) -> torch.Tensor:
+        generated = input_ids.shape[1] - prompt_length
+        token = forced_bytes[min(generated, len(forced_bytes) - 1)]
+        logits = torch.full(
+            (1, input_ids.shape[1], package_model.config.vocab_size),
+            float("-inf"),
+        )
+        logits[0, -1, token] = 0.0
+        return logits
+
+    monkeypatch.setattr(package_model, "forward", forced_forward)
+
+    class ForceBytes(LogitsProcessor):
+        def __call__(
+            self, input_ids: torch.Tensor, scores: torch.Tensor
+        ) -> torch.Tensor:
+            generated = input_ids.shape[1] - prompt_length
+            token = forced_bytes[min(generated, len(forced_bytes) - 1)]
+            forced = torch.full_like(scores, float("-inf"))
+            forced[:, token] = 0.0
+            return forced
+
+    package_text = package_model.generate(prompt, max_new_tokens=len(forced_bytes))
     encoded = tokenizer(prompt, return_tensors="pt")
-    generated = hub_model.generate(**encoded, max_new_tokens=4, do_sample=False)
+    generated = hub_model.generate(
+        **encoded,
+        max_new_tokens=len(forced_bytes),
+        do_sample=False,
+        logits_processor=[ForceBytes()],
+    )
     suffix = generated[0, encoded["input_ids"].shape[1] :].tolist()
-    assert bytes(suffix) == package_text.encode("utf-8")
+    hub_text = tokenizer.decode(suffix, skip_special_tokens=False)
+    assert hub_text == package_text == bytes(forced_bytes).decode("utf-8")
 
 
 @pytest.mark.parametrize("text", ["héllo 世界 🙂", "", "context-" * 8])
@@ -170,6 +218,7 @@ def test_conversion_is_transactional_and_rejects_missing_or_corrupt_shards(
             model_config=missing_config,
         )
     assert not (missing_output / "model.safetensors").exists()
+    assert not (missing_output / PROVENANCE_FILENAME).exists()
 
     corrupt_source = tmp_path / "corrupt"
     corrupt_config = _export_legacy(corrupt_source)
@@ -182,6 +231,7 @@ def test_conversion_is_transactional_and_rejects_missing_or_corrupt_shards(
             model_config=corrupt_config,
         )
     assert not (corrupt_output / "model.safetensors").exists()
+    assert not (corrupt_output / PROVENANCE_FILENAME).exists()
 
 
 def test_conversion_rejects_perturbed_consolidated_tensor_without_installing(
@@ -206,6 +256,105 @@ def test_conversion_rejects_perturbed_consolidated_tensor_without_installing(
     with pytest.raises(RuntimeError, match="Converted logits mismatch"):
         convert_legacy_export_to_huggingface(source, output, model_config=config)
     assert not (output / "model.safetensors").exists()
+    assert not (output / PROVENANCE_FILENAME).exists()
+
+
+@pytest.mark.parametrize("position_state", [None, torch.ones(16)])
+def test_conversion_rejects_missing_or_malformed_position_embedding(
+    tmp_path: Path,
+    position_state: torch.Tensor | None,
+) -> None:
+    source = tmp_path / "legacy"
+    config = _export_legacy(source)
+    backbone_path = source / "dense" / "backbone.pt"
+    state = torch.load(backbone_path, map_location="cpu", weights_only=True)
+    if position_state is None:
+        del state["pos_embedding.weight"]
+    else:
+        state["pos_embedding.weight"] = position_state
+    torch.save(state, backbone_path)
+
+    output = tmp_path / "output"
+    with pytest.raises(RuntimeError, match="pos_embedding.weight"):
+        convert_legacy_export_to_huggingface(source, output, model_config=config)
+    assert not (output / "model.safetensors").exists()
+
+
+def test_conversion_uses_checkpoint_context_instead_of_stale_config(tmp_path: Path) -> None:
+    source = tmp_path / "legacy"
+    config = _export_legacy(source)
+    stale_config = ModelConfig(
+        d_model=config.d_model,
+        n_layers=config.n_layers,
+        n_heads=config.n_heads,
+        d_ff=config.d_ff,
+        max_seq_len=8,
+        dropout=config.dropout,
+        device="cpu",
+    )
+
+    weights = convert_legacy_export_to_huggingface(
+        source,
+        tmp_path / "output",
+        model_config=stale_config,
+    )
+    payload = json.loads(weights.with_name("config.json").read_text(encoding="utf-8"))
+    assert payload["max_seq_len"] == config.max_seq_len == 16
+
+
+def test_conversion_writes_source_shard_provenance_and_revision(tmp_path: Path) -> None:
+    source = tmp_path / "legacy"
+    config = _export_legacy(source)
+    expected_backbone_hash = sha256_file(source / "dense" / "backbone.pt")
+    output = tmp_path / "output"
+
+    convert_legacy_export_to_huggingface(
+        source,
+        output,
+        model_config=config,
+        source_hub_revision="source-revision",
+    )
+
+    provenance_path = output / PROVENANCE_FILENAME
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    assert provenance["source_layout"] == "legacy_multitier"
+    assert provenance["source_manifest_version"] == "1.0.0"
+    assert provenance["source_hub_revision"] == "source-revision"
+    assert provenance["source_shards_sha256"]["dense/backbone.pt"] == (
+        expected_backbone_hash
+    )
+    assert provenance["source_shards_sha256"]["dense/router.pt"] == sha256_file(
+        source / "dense" / "router.pt"
+    )
+    assert provenance["model_safetensors_sha256"] == sha256_file(
+        output / "model.safetensors"
+    )
+    assert isinstance(provenance["converter_version"], str)
+    record = evaluate_export_dir(
+        output,
+        trained_prompts=[PromptAnswer("a", "b")],
+        heldout_prompts=[PromptAnswer("a", "b")],
+        heldout_text="ab",
+        hub_revision="source-revision",
+    )
+    checkpoint = record["checkpoint"]
+    assert isinstance(checkpoint, dict)
+    assert checkpoint["backbone_sha256"] == expected_backbone_hash
+    assert checkpoint["source_hub_revision"] == "source-revision"
+
+
+def test_conversion_rejects_non_finite_legacy_weights(tmp_path: Path) -> None:
+    source = tmp_path / "legacy"
+    config = _export_legacy(source)
+    backbone_path = source / "dense" / "backbone.pt"
+    state = torch.load(backbone_path, map_location="cpu", weights_only=True)
+    state["token_embedding.weight"][0, 0] = torch.nan
+    torch.save(state, backbone_path)
+
+    output = tmp_path / "output"
+    with pytest.raises(RuntimeError, match="non-finite tensor"):
+        convert_legacy_export_to_huggingface(source, output, model_config=config)
+    assert not (output / "model.safetensors").exists()
 
 
 class _RecordingApi:
@@ -220,22 +369,117 @@ class _RecordingApi:
         self.upload_calls.append(kwargs)
 
 
+def _write_results_record(
+    export_dir: Path,
+    output: Path,
+    *,
+    weights_hash: str | None = None,
+) -> None:
+    weights = export_dir / "model.safetensors"
+    digest = weights_hash or hashlib.sha256(weights.read_bytes()).hexdigest()
+    config = json.loads((export_dir / "config.json").read_text(encoding="utf-8"))
+    provenance_path = export_dir / PROVENANCE_FILENAME
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    provenance["model_safetensors_sha256"] = digest
+    state = load_file(weights)
+    counts = {"backbone": 0, "router": 0, "experts": 0}
+    for name, tensor in state.items():
+        counts[name.split(".", 1)[0]] += tensor.numel()
+
+    def metric(mean: float, samples: int, unigram: float) -> dict[str, object]:
+        summary = {"mean": mean, "min": mean, "max": mean, "samples": samples}
+        return {
+            **summary,
+            "evaluated_bytes": samples,
+            "baselines": {
+                "uniform_bpb": {
+                    "mean": 8.0,
+                    "min": 8.0,
+                    "max": 8.0,
+                    "samples": samples,
+                },
+                "unigram_bpb": {
+                    "mean": unigram,
+                    "min": unigram,
+                    "max": unigram,
+                    "samples": samples,
+                },
+                "unigram_fit": "evaluated_bytes",
+            },
+        }
+
+    output.write_text(
+        json.dumps(
+            {
+                "schema_version": "aptivra.model_card_eval.v3",
+                "timestamp_utc": "2026-10-14T00:00:00+00:00",
+                "checkpoint": {
+                    "model_safetensors_sha256": digest,
+                    "config_sha256": sha256_file(export_dir / "config.json"),
+                    "provenance_sha256": sha256_file(provenance_path),
+                    "backbone_sha256": provenance["source_shards_sha256"].get(
+                        "dense/backbone.pt"
+                    ),
+                    "source_hub_revision": provenance["source_hub_revision"],
+                    "provenance": provenance,
+                },
+                "model": {
+                    "backbone_parameters": counts["backbone"],
+                    "router_parameters": counts["router"],
+                    "expert_parameters": counts["experts"],
+                    "total_parameters": sum(counts.values()),
+                    "config_parameter_count": config["parameter_count"],
+                    "context_length": config["max_seq_len"],
+                    "vocab_size": config["vocab_size"],
+                    "position_embedding": "learned_absolute",
+                },
+                "evaluation": {
+                    "moe_enabled": False,
+                    "heldout_prompt_set": {
+                        "name": DEFAULT_HELDOUT_PROMPTS_PATH.name,
+                        "sha256": sha256_file(DEFAULT_HELDOUT_PROMPTS_PATH),
+                        "samples": 24,
+                    },
+                    "trained_prompt_answer_bpb": metric(5.0, 7, 4.0),
+                    "heldout_prompt_answer_bpb": metric(5.0, 24, 4.0),
+                    "heldout_text_bpb": {
+                        "value": 5.0,
+                        "evaluated_bytes": 10,
+                        "baselines": {
+                            "uniform_bpb": 8.0,
+                            "unigram_bpb": 4.0,
+                            "unigram_fit": "evaluated_bytes",
+                        },
+                    },
+                },
+                "tokenizer": {
+                    "padding_token_id": 0,
+                    "end_of_sequence_token_ids": [0, 10],
+                    "newline_stop_token_id": 10,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    weights_mtime = weights.stat().st_mtime_ns
+    os.utime(output, ns=(weights_mtime + 1_000_000_000, weights_mtime + 1_000_000_000))
+
+
 def test_push_uploads_only_new_layout_with_injected_client(tmp_path: Path) -> None:
     config, backbone, router, experts = _tiny_components()
     export_dir = tmp_path / "upload"
-    export_dir.mkdir()
+    export_huggingface_hub_layout(export_dir, backbone, router, experts, config)
     (export_dir / "legacy.pt").write_bytes(b"legacy")
     (export_dir / "legacy.gguf").write_bytes(b"legacy")
     (export_dir / "multitier_manifest.json").write_text("{}", encoding="utf-8")
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
     api = _RecordingApi()
 
     url = push_aptivra_model_to_hf(
         "owner/repo",
-        backbone,
-        router,
-        experts,
-        config,
         export_dir,
+        results,
         api=api,
     )
 
@@ -243,10 +487,137 @@ def test_push_uploads_only_new_layout_with_injected_client(tmp_path: Path) -> No
     assert len(api.create_calls) == 1
     assert len(api.upload_calls) == 1
     allowed = api.upload_calls[0]["allow_patterns"]
-    assert allowed == list(HUB_LAYOUT_FILES)
+    assert allowed == list(HUB_PUBLICATION_FILES)
+    assert api.upload_calls[0]["delete_patterns"] == list(LEGACY_HUB_DELETE_PATTERNS)
     assert all(not name.endswith((".pt", ".gguf")) for name in allowed)
     assert all("manifest" not in name for name in allowed)
-    assert {path.name for path in export_dir.iterdir()} >= set(HUB_LAYOUT_FILES)
+    assert {path.name for path in export_dir.iterdir()} >= set(HUB_PUBLICATION_FILES)
+    assert "owner/repo" in (export_dir / "README.md").read_text(encoding="utf-8")
+    assert PROVENANCE_FILENAME in allowed
+
+
+@pytest.mark.parametrize(
+    ("record_kind", "error_type", "message"),
+    [
+        ("missing", FileNotFoundError, "results record not found"),
+        ("missing_hash", ValueError, "model_safetensors_sha256"),
+        ("wrong_hash", ValueError, "does not match export"),
+        ("stale", ValueError, "older than model.safetensors"),
+    ],
+)
+def test_push_refuses_invalid_or_stale_evidence_before_network(
+    tmp_path: Path,
+    record_kind: str,
+    error_type: type[Exception],
+    message: str,
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    results = tmp_path / "results.json"
+    if record_kind == "missing_hash":
+        results.write_text(json.dumps({"checkpoint": {}}), encoding="utf-8")
+    elif record_kind == "wrong_hash":
+        _write_results_record(export_dir, results, weights_hash="0" * 64)
+    elif record_kind == "stale":
+        _write_results_record(export_dir, results)
+        weights_mtime = (export_dir / "model.safetensors").stat().st_mtime_ns
+        os.utime(results, ns=(weights_mtime - 1, weights_mtime - 1))
+    api = _RecordingApi()
+
+    with pytest.raises(error_type, match=message):
+        push_aptivra_model_to_hf("owner/repo", export_dir, results, api=api)
+
+    assert api.create_calls == []
+    assert api.upload_calls == []
+    assert not (export_dir / "README.md").exists()
+
+
+def test_prepare_refuses_incomplete_layout(tmp_path: Path) -> None:
+    results = tmp_path / "results.json"
+    results.write_text("{}", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="Hub layout is incomplete"):
+        prepare_hf_publication("owner/repo", tmp_path / "missing-layout", results)
+
+
+def test_push_refuses_missing_results_record_before_network(tmp_path: Path) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    api = _RecordingApi()
+
+    with pytest.raises(ValueError, match="results record is required"):
+        push_aptivra_model_to_hf("owner/repo", export_dir, api=api)
+
+    assert api.create_calls == []
+    assert api.upload_calls == []
+
+
+@pytest.mark.parametrize("record_kind", ["old_version", "forged_partial", "parameter_mismatch"])
+def test_push_refuses_untrusted_v3_evidence_before_network(
+    tmp_path: Path, record_kind: str
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
+    record = json.loads(results.read_text(encoding="utf-8"))
+    if record_kind == "old_version":
+        record["schema_version"] = "aptivra.model_card_eval.v2"
+    elif record_kind == "forged_partial":
+        record = {
+            "checkpoint": record["checkpoint"],
+            "evaluation": {
+                "heldout_prompt_answer_bpb": {"mean": 0},
+                "baselines": {"unigram_bpb": 8},
+            },
+        }
+    else:
+        record["model"]["backbone_parameters"] -= 1
+        record["model"]["router_parameters"] += 1
+    results.write_text(json.dumps(record), encoding="utf-8")
+    api = _RecordingApi()
+
+    with pytest.raises(ValueError):
+        push_aptivra_model_to_hf("owner/repo", export_dir, results, api=api)
+
+    assert api.create_calls == []
+    assert api.upload_calls == []
+    assert not (export_dir / "README.md").exists()
+
+
+def test_push_cli_dry_run_prints_exact_plan_without_network(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
+    script = Path(__file__).resolve().parents[1] / "scripts" / "push_to_hf.py"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(script),
+            "--repo-id",
+            "owner/repo",
+            "--export-dir",
+            str(export_dir),
+            "--results-record",
+            str(results),
+            "--dry-run",
+        ],
+    )
+
+    runpy.run_path(str(script), run_name="__main__")
+
+    lines = capsys.readouterr().out.splitlines()
+    expected = ["Files to upload:", *(f"  {name}" for name in HUB_PUBLICATION_FILES)]
+    expected += [
+        "Remote files to delete:",
+        *(f"  {pattern}" for pattern in LEGACY_HUB_DELETE_PATTERNS),
+    ]
+    assert lines == expected
 
 
 def test_layout_metadata_records_checkpoint_truth(tmp_path: Path) -> None:

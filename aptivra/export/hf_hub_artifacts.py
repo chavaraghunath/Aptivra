@@ -7,12 +7,14 @@ import os
 import shutil
 import tempfile
 from collections.abc import Iterable
+from importlib.metadata import version
 from pathlib import Path
 
 import torch
 import torch.nn as nn
 from safetensors.torch import save_file
 
+from aptivra.eval.model_card_schema import PROVENANCE_FILENAME, PROVENANCE_SCHEMA_VERSION
 from aptivra.experts.expert import ExpertModule
 from aptivra.experts.router import GatingRouter
 from aptivra.model.config import ModelConfig
@@ -28,6 +30,7 @@ HUB_LAYOUT_FILES = (
     "tokenization_aptivra.py",
     "tokenizer_config.json",
     "special_tokens_map.json",
+    PROVENANCE_FILENAME,
 )
 
 
@@ -56,6 +59,43 @@ def _atomic_save_safetensors(path: Path, state_dict: dict[str, torch.Tensor]) ->
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_export_provenance(
+    export_dir: Path,
+    *,
+    source_layout: str,
+    source_manifest_version: str | None,
+    source_shards_sha256: dict[str, str],
+    source_hub_revision: str | None,
+) -> Path:
+    """Write provenance for the exact consolidated weights in ``export_dir``."""
+    provenance_path = export_dir / PROVENANCE_FILENAME
+    _atomic_write_json(
+        provenance_path,
+        {
+            "schema_version": PROVENANCE_SCHEMA_VERSION,
+            "source_layout": source_layout,
+            "source_manifest_version": source_manifest_version,
+            "source_shards_sha256": source_shards_sha256,
+            "source_hub_revision": source_hub_revision,
+            "converter_version": version("aptivra"),
+            "model_safetensors_sha256": _sha256_file(
+                export_dir / "model.safetensors"
+            ),
+        },
+    )
+    return provenance_path
 
 
 def consolidated_state_dict(
@@ -182,4 +222,11 @@ def export_huggingface_hub_layout(
     )
     weights_path = export_path / "model.safetensors"
     _atomic_save_safetensors(weights_path, consolidated_state_dict(model, router, experts))
+    write_export_provenance(
+        export_path,
+        source_layout="native_huggingface",
+        source_manifest_version=None,
+        source_shards_sha256={},
+        source_hub_revision=None,
+    )
     return weights_path

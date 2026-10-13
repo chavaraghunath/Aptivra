@@ -1,6 +1,5 @@
 """T10: Docstring-to-Code Python Synthesis Task Family and Mechanical Verifier."""
 
-import ast
 import random
 from typing import Any, override
 
@@ -10,6 +9,21 @@ from aptivra.tasks.base import (
     TaskInstance,
     VerifierResult,
     extract_python_code,
+)
+from aptivra.tasks.code_sandbox import verify_function_source
+
+_FUNCTION_BUILTINS = (
+    "range",
+    "len",
+    "min",
+    "max",
+    "abs",
+    "sorted",
+    "sum",
+    "list",
+    "bool",
+    "str",
+    "int",
 )
 
 
@@ -24,73 +38,27 @@ class DocstringToCodeVerifier(MechanicalVerifier):
             return VerifierResult(False, expected, model_output.strip(), "Unterminated code fence.")
         cleaned_output = extracted
 
-        try:
-            parsed_ast = ast.parse(cleaned_output)
-            for node in ast.walk(parsed_ast):
-                if isinstance(node, ast.Import | ast.ImportFrom):
-                    return VerifierResult(
-                        passed=False,
-                        expected=expected,
-                        actual=cleaned_output,
-                        error_message="Security Error: Forbidden import.",
-                    )
-
-            sandbox_globals: dict[str, Any] = {
-                "__builtins__": {
-                    "range": range,
-                    "len": len,
-                    "min": min,
-                    "max": max,
-                    "abs": abs,
-                    "sorted": sorted,
-                    "sum": sum,
-                    "list": list,
-                    "bool": bool,
-                    "str": str,
-                    "int": int,
-                }
-            }
-            exec(compile(parsed_ast, filename="<string>", mode="exec"), sandbox_globals)
-
-            test_cases: list[tuple[Any, Any]] = instance.metadata.get("test_cases", [])
-            fn_name: str = instance.metadata.get("fn_name", "")
-
-            if not fn_name or not test_cases:
-                return VerifierResult(
-                    passed=False,
-                    expected=expected,
-                    actual=cleaned_output,
-                    error_message="Verifier metadata requires a function name and test cases.",
-                )
-
-            if fn_name not in sandbox_globals:
-                return VerifierResult(
-                    passed=False,
-                    expected=expected,
-                    actual=cleaned_output,
-                    error_message=f"Function '{fn_name}' not defined.",
-                )
-
-            fn = sandbox_globals[fn_name]
-            for test_in, expected_out in test_cases:
-                res = fn(*test_in) if isinstance(test_in, tuple) else fn(test_in)
-                if res != expected_out:
-                    err_msg = f"Test failed for {test_in}: got {res}, want {expected_out}"
-                    return VerifierResult(
-                        passed=False,
-                        expected=expected,
-                        actual=cleaned_output,
-                        error_message=err_msg,
-                    )
-
-            return VerifierResult(passed=True, expected=expected, actual=cleaned_output)
-        except Exception as err:
+        test_cases: list[tuple[Any, Any]] = instance.metadata.get("test_cases", [])
+        fn_name: str = instance.metadata.get("fn_name", "")
+        if not fn_name or not test_cases:
             return VerifierResult(
                 passed=False,
                 expected=expected,
                 actual=cleaned_output,
-                error_message=f"Execution Error: {err}",
+                error_message="Verifier metadata requires a function name and test cases.",
             )
+        result = verify_function_source(
+            cleaned_output,
+            fn_name,
+            test_cases,
+            builtin_names=_FUNCTION_BUILTINS,
+        )
+        return VerifierResult(
+            passed=result.passed,
+            expected=expected,
+            actual=cleaned_output,
+            error_message=result.error_message,
+        )
 
 
 class DocstringToCodeTaskFamily(TaskFamily):

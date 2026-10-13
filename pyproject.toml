@@ -38,6 +38,9 @@ dev = [
     "transformers>=4.40.0",
 ]
 
+[tool.setuptools.package-data]
+"aptivra.eval" = ["*.json"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

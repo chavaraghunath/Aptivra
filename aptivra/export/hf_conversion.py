@@ -10,7 +10,12 @@ from pathlib import Path
 
 import torch
 
-from aptivra.export.hf_hub_artifacts import HUB_LAYOUT_FILES, export_huggingface_hub_layout
+from aptivra.eval.model_card_eval import sha256_file
+from aptivra.export.hf_hub_artifacts import (
+    HUB_LAYOUT_FILES,
+    export_huggingface_hub_layout,
+    write_export_provenance,
+)
 from aptivra.export.multitier import MultitierLoader
 from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.inference.hub_config import model_config_from_export_dir
@@ -94,12 +99,24 @@ def convert_legacy_export_to_huggingface(
     output_dir: Path | str | None = None,
     *,
     model_config: ModelConfig | None = None,
+    source_hub_revision: str | None = None,
 ) -> Path:
     """Converts legacy shards only after strict two-mode logits parity succeeds."""
     source_path = Path(source_dir)
     destination = Path(output_dir) if output_dir is not None else source_path
     config = _checkpoint_config(source_path, model_config)
+    loader = MultitierLoader(source_path)
+    manifest = loader.load_manifest()
     legacy = _load_legacy_model(source_path, config)
+    source_paths = [
+        Path("multitier_manifest.json"),
+        Path(manifest.dense_shard_path),
+        Path("dense/router.pt"),
+        *(Path(path) for path in manifest.expert_shard_paths),
+    ]
+    source_hashes = {
+        path.as_posix(): sha256_file(source_path / path) for path in source_paths
+    }
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
@@ -114,6 +131,13 @@ def convert_legacy_export_to_huggingface(
             legacy.experts,
             config,
             use_moe_at_inference=False,
+        )
+        write_export_provenance(
+            staging,
+            source_layout="legacy_multitier",
+            source_manifest_version=manifest.version,
+            source_shards_sha256=source_hashes,
+            source_hub_revision=source_hub_revision,
         )
         converted = AptivraCausalLM.from_export_dir(staging, model_config=config).eval()
         _verify_logits_parity(legacy, converted)

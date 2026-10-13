@@ -14,7 +14,13 @@ from typing import Protocol, cast
 
 import torch
 import torch.nn.functional as F
+from safetensors.torch import load_file
 
+from aptivra.eval.model_card_schema import (
+    EVALUATION_SCHEMA_VERSION,
+    PROVENANCE_FILENAME,
+    ConversionProvenance,
+)
 from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.model.config import ModelConfig
@@ -27,6 +33,7 @@ class PromptAnswer:
 
     prompt: str
     answer: str
+    category: str | None = None
 
 
 class ByteCausalModel(Protocol):
@@ -42,16 +49,7 @@ class ByteCausalModel(Protocol):
         """Returns next-byte logits."""
 
 
-DEFAULT_HELDOUT_PROMPTS: tuple[PromptAnswer, ...] = (
-    PromptAnswer(
-        prompt="User: State the checkpoint evaluation policy.\nAssistant:",
-        answer="Report only measurements produced by the evaluation record.",
-    ),
-    PromptAnswer(
-        prompt="User: Is this checkpoint a general assistant?\nAssistant:",
-        answer="No. It is a research prototype unless held-out byte prediction beats baseline.",
-    ),
-)
+DEFAULT_HELDOUT_PROMPTS_PATH = Path(__file__).with_name("model_card_heldout_v1.json")
 
 DEFAULT_HELDOUT_TEXT = (
     "A model card is an audit document. It should separate measured facts from hypotheses, "
@@ -77,20 +75,72 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _unique_tensor_count(state: dict[str, object]) -> int:
+    """Counts exact tensor aliases once while preserving distinct storage views."""
+    seen: set[tuple[int, int, tuple[int, ...], tuple[int, ...]]] = set()
+    total = 0
+    for value in state.values():
+        if not isinstance(value, torch.Tensor):
+            continue
+        identity = (
+            value.untyped_storage().data_ptr(),
+            int(value.storage_offset()),
+            tuple(value.size()),
+            tuple(value.stride()),
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
+        total += value.numel()
+    return total
+
+
 def count_state_dict_parameters(path: Path) -> int:
-    """Counts tensor parameters in a saved PyTorch state dict."""
+    """Counts unique tensor parameters in a saved PyTorch state dict."""
     state = torch.load(path, map_location="cpu", weights_only=True)
     if not isinstance(state, dict):
         raise ValueError(f"checkpoint is not a state dict: {path}")
-    total = 0
-    for value in state.values():
-        if isinstance(value, torch.Tensor):
-            total += value.numel()
-    return total
+    return _unique_tensor_count(state)
+
+
+def _count_hub_parameters(export_dir: Path) -> dict[str, int]:
+    weights_path = export_dir / "model.safetensors"
+    state = load_file(weights_path, device="cpu")
+    groups = {"backbone": 0, "router": 0, "experts": 0}
+    for name, tensor in state.items():
+        prefix = name.split(".", 1)[0]
+        if prefix not in groups:
+            raise ValueError(f"unrecognized model.safetensors parameter: {name}")
+        groups[prefix] += tensor.numel()
+    total = sum(groups.values())
+
+    config_path = export_dir / "config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError(f"config.json is required with model.safetensors: {config_path}")
+    config_data = json.loads(config_path.read_text(encoding="utf-8"))
+    if not isinstance(config_data, dict):
+        raise ValueError("config.json must contain a JSON object")
+    declared_count = config_data.get("parameter_count")
+    if declared_count is not None:
+        if isinstance(declared_count, bool) or not isinstance(declared_count, int):
+            raise ValueError("config.json parameter_count must be an integer")
+        if declared_count != total:
+            raise ValueError(
+                "config.json parameter_count does not match model.safetensors: "
+                f"declared={declared_count}, measured={total}"
+            )
+    return {
+        "backbone_parameters": groups["backbone"],
+        "router_parameters": groups["router"],
+        "expert_parameters": groups["experts"],
+        "total_parameters": total,
+    }
 
 
 def count_export_parameters(export_dir: Path) -> dict[str, int]:
     """Counts backbone, router, expert, and total parameters for an export directory."""
+    if (export_dir / "model.safetensors").is_file():
+        return _count_hub_parameters(export_dir)
     dense_dir = export_dir / "dense"
     backbone = count_state_dict_parameters(dense_dir / "backbone.pt")
     router_path = dense_dir / "router.pt"
@@ -115,9 +165,13 @@ def uniform_bits_per_byte(vocab_size: int) -> float:
 
 def unigram_bits_per_byte(text: str) -> float:
     """Computes empirical unigram entropy for a byte string."""
-    data = text.encode("utf-8")
+    return unigram_bits_per_bytes(text.encode("utf-8"))
+
+
+def unigram_bits_per_bytes(data: bytes) -> float:
+    """Computes empirical unigram entropy for the exact evaluated bytes."""
     if not data:
-        raise ValueError("unigram baseline text must not be empty")
+        raise ValueError("unigram baseline bytes must not be empty")
     counts = Counter(data)
     total = len(data)
     entropy = 0.0
@@ -125,6 +179,27 @@ def unigram_bits_per_byte(text: str) -> float:
         probability = count / total
         entropy -= probability * math.log2(probability)
     return entropy
+
+
+def _answer_metric(
+    scores: Sequence[float],
+    answers: Sequence[PromptAnswer],
+    vocab_size: int,
+) -> dict[str, object]:
+    answer_bytes = [item.answer.encode("utf-8") for item in answers]
+    if any(not data for data in answer_bytes):
+        raise ValueError("answers must not be empty")
+    uniform_scores = [uniform_bits_per_byte(vocab_size) for _ in answer_bytes]
+    unigram_scores = [unigram_bits_per_bytes(data) for data in answer_bytes]
+    return {
+        **summarize_bits_per_byte(scores),
+        "evaluated_bytes": sum(len(data) for data in answer_bytes),
+        "baselines": {
+            "uniform_bpb": summarize_bits_per_byte(uniform_scores),
+            "unigram_bpb": summarize_bits_per_byte(unigram_scores),
+            "unigram_fit": "evaluated_bytes",
+        },
+    }
 
 
 def answer_span_bits_per_byte(model: ByteCausalModel, prompt: str, answer: str) -> float:
@@ -161,13 +236,26 @@ def evaluate_export_dir(
     export_dir: Path,
     *,
     trained_prompts: Sequence[PromptAnswer] | None = None,
-    heldout_prompts: Sequence[PromptAnswer] = DEFAULT_HELDOUT_PROMPTS,
+    heldout_prompts: Sequence[PromptAnswer] | None = None,
+    heldout_prompts_path: Path | None = None,
     heldout_text: str = DEFAULT_HELDOUT_TEXT,
     hub_revision: str | None = None,
     model_loader: Callable[[Path], ByteCausalModel] | None = None,
 ) -> dict[str, object]:
     """Evaluates an exported checkpoint and returns one JSON-serializable record."""
     export_path = Path(export_dir)
+    if heldout_prompts is not None and heldout_prompts_path is not None:
+        raise ValueError("provide heldout_prompts or heldout_prompts_path, not both")
+    prompt_set_path = heldout_prompts_path or DEFAULT_HELDOUT_PROMPTS_PATH
+    if heldout_prompts is None:
+        heldout = load_prompt_answers(prompt_set_path)
+        prompt_set_name = prompt_set_path.name
+        prompt_set_sha256 = sha256_file(prompt_set_path)
+    else:
+        heldout = list(heldout_prompts)
+        prompt_set_name = "inline"
+        prompt_set_sha256 = _prompt_answers_sha256(heldout)
+
     cfg = model_config_from_export_dir(export_path, device="cpu")
     loader = model_loader or _load_aptivra_model
     model = loader(export_path)
@@ -182,32 +270,97 @@ def evaluate_export_dir(
         answer_span_bits_per_byte(model, item.prompt, item.answer) for item in trained
     ]
     heldout_scores = [
-        answer_span_bits_per_byte(model, item.prompt, item.answer) for item in heldout_prompts
+        answer_span_bits_per_byte(model, item.prompt, item.answer) for item in heldout
     ]
     param_counts = count_export_parameters(export_path)
 
+    weights_path = export_path / "model.safetensors"
+    if not weights_path.is_file():
+        raise FileNotFoundError(
+            "model-card evaluation requires a converted model.safetensors Hub layout"
+        )
+
+    provenance_path = export_path / PROVENANCE_FILENAME
+    provenance = ConversionProvenance.model_validate(_load_json_object(provenance_path))
+    if hub_revision is not None and hub_revision != provenance.source_hub_revision:
+        raise ValueError(
+            "hub_revision must be recorded during conversion and match export provenance"
+        )
+    backbone_sha256 = provenance.source_shards_sha256.get("dense/backbone.pt")
+    checkpoint: dict[str, object] = {
+        "model_safetensors_sha256": sha256_file(weights_path),
+        "config_sha256": sha256_file(export_path / "config.json"),
+        "provenance_sha256": sha256_file(provenance_path),
+        "backbone_sha256": backbone_sha256,
+        "source_hub_revision": provenance.source_hub_revision,
+        "provenance": provenance.model_dump(mode="json"),
+    }
+
+    config_data = _load_json_object(export_path / "config.json")
+    eos_token_ids = config_data.get("eos_token_id")
+    if isinstance(eos_token_ids, int) and not isinstance(eos_token_ids, bool):
+        eos_token_ids = [eos_token_ids]
+    if not (
+        isinstance(eos_token_ids, list)
+        and all(isinstance(item, int) and not isinstance(item, bool) for item in eos_token_ids)
+    ):
+        eos_token_ids = None
+    pad_token_id = config_data.get("pad_token_id")
+    if isinstance(pad_token_id, bool) or not isinstance(pad_token_id, int):
+        pad_token_id = None
+
+    declared_parameter_count = config_data.get("parameter_count")
+    if isinstance(declared_parameter_count, bool) or not isinstance(
+        declared_parameter_count, int
+    ):
+        raise ValueError("config.json parameter_count must be an integer")
+
+    heldout_text_bytes = heldout_text.encode("utf-8")
+    if len(heldout_text_bytes) < 2:
+        raise ValueError("held-out text must contain at least two bytes")
+    scored_text_bytes = heldout_text_bytes[1:]
+    heldout_text_score = whole_text_bits_per_byte(model, heldout_text)
+
     record: dict[str, object] = {
-        "schema_version": "aptivra.model_card_eval.v1",
+        "schema_version": EVALUATION_SCHEMA_VERSION,
         "timestamp_utc": datetime.now(tz=UTC).isoformat(),
-        "checkpoint": {
-            "hub_revision": hub_revision,
-            "backbone_sha256": sha256_file(export_path / "dense" / "backbone.pt"),
-        },
+        "checkpoint": checkpoint,
         "model": {
             **param_counts,
+            "config_parameter_count": declared_parameter_count,
             "context_length": cfg.max_seq_len,
             "vocab_size": cfg.vocab_size,
             "position_embedding": "learned_absolute",
         },
         "evaluation": {
             "moe_enabled": False,
-            "trained_prompt_answer_bpb": summarize_bits_per_byte(trained_scores),
-            "heldout_prompt_answer_bpb": summarize_bits_per_byte(heldout_scores),
-            "heldout_text_bpb": whole_text_bits_per_byte(model, heldout_text),
-            "baselines": {
-                "uniform_bpb": uniform_bits_per_byte(cfg.vocab_size),
-                "unigram_bpb": unigram_bits_per_byte(heldout_text),
+            "heldout_prompt_set": {
+                "name": prompt_set_name,
+                "sha256": prompt_set_sha256,
+                "samples": len(heldout),
             },
+            "trained_prompt_answer_bpb": _answer_metric(
+                trained_scores, trained, cfg.vocab_size
+            ),
+            "heldout_prompt_answer_bpb": _answer_metric(
+                heldout_scores, heldout, cfg.vocab_size
+            ),
+            "heldout_text_bpb": {
+                "value": heldout_text_score,
+                "evaluated_bytes": len(scored_text_bytes),
+                "baselines": {
+                    "uniform_bpb": uniform_bits_per_byte(cfg.vocab_size),
+                    "unigram_bpb": unigram_bits_per_bytes(scored_text_bytes),
+                    "unigram_fit": "evaluated_bytes",
+                },
+            },
+        },
+        "tokenizer": {
+            "padding_token_id": pad_token_id,
+            "end_of_sequence_token_ids": eos_token_ids,
+            "newline_stop_token_id": (
+                ord("\n") if eos_token_ids is not None and ord("\n") in eos_token_ids else None
+            ),
         },
     }
     return record
@@ -230,10 +383,31 @@ def load_prompt_answers(path: Path) -> list[PromptAnswer]:
             raise ValueError("each prompt-answer item must be an object")
         prompt = item.get("prompt")
         answer = item.get("answer")
+        category = item.get("category")
         if not isinstance(prompt, str) or not isinstance(answer, str):
             raise ValueError("each prompt-answer item must contain string prompt and answer")
-        pairs.append(PromptAnswer(prompt=prompt, answer=answer))
+        if category is not None and not isinstance(category, str):
+            raise ValueError("prompt-answer category must be a string when present")
+        pairs.append(PromptAnswer(prompt=prompt, answer=answer, category=category))
     return pairs
+
+
+def _load_json_object(path: Path) -> dict[str, object]:
+    if not path.is_file():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(f"JSON file must contain an object: {path}")
+    return cast(dict[str, object], raw)
+
+
+def _prompt_answers_sha256(pairs: Sequence[PromptAnswer]) -> str:
+    payload = [
+        {"prompt": pair.prompt, "answer": pair.answer, "category": pair.category}
+        for pair in pairs
+    ]
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _load_aptivra_model(export_dir: Path) -> ByteCausalModel:

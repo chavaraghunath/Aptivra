@@ -10,14 +10,16 @@ import torch.nn as nn
 
 from aptivra.baselines.base import BaselineTrainer
 from aptivra.export.multitier import MultitierExporter, MultitierLoader
+from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
 from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.tasks.base import TaskFamily, TaskInstance
-from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
 from aptivra.tasks.conversational import ConversationalTaskFamily
 from aptivra.tasks.identity import ModelIdentityTaskFamily
 
 
-def _build_chat_instances(repeats: int, *, include_conversational: bool = True) -> list[TaskInstance]:
+def _build_chat_instances(
+    repeats: int, *, include_conversational: bool = True
+) -> list[TaskInstance]:
     families: list[TaskFamily] = [ModelIdentityTaskFamily()]
     if include_conversational:
         families.append(ConversationalTaskFamily())
@@ -65,7 +67,10 @@ def finetune_backbone_for_chat(
     optimizer = torch.optim.AdamW(backbone.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss(ignore_index=-100)
 
-    instances = _build_chat_instances(repeats=repeats, include_conversational=include_conversational)
+    instances = _build_chat_instances(
+        repeats=repeats,
+        include_conversational=include_conversational,
+    )
 
     best_loss = float("inf")
     best_state: dict[str, torch.Tensor] | None = None

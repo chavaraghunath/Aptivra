@@ -42,7 +42,11 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `inference.chat.single_turn` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.sanitize_replies` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.max_reply_chars` | service | integer | `280` | 32–2048 | operator | yes | — | `configs/inference.yaml` | no |
-| `model_card_release_gate.heldout_bpb_unigram_margin_bits` | global | float | `0.0` | 0.0–8.0 | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.heldout_bpb_unigram_margin_bits` | global | float | `0.0` | ≥ 0.0 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.minimum_trained_prompt_samples` | global | integer | `7` | ≥ 1 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.minimum_heldout_prompt_samples` | global | integer | `24` | ≥ 1 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `verifier_sandbox.timeout_seconds` | service | float | `1.0` | 0.05–30.0 seconds (validated) | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
+| `verifier_sandbox.memory_limit_mb` | service | integer | `512` | 64–2048 MiB (validated; applied where supported) | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
 
 ## Column meanings
 

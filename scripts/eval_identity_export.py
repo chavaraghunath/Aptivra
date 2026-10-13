@@ -57,7 +57,16 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
-    print(json.dumps({"tag": args.tag, "identity_accuracy": accuracy, "passed": passed, "total": len(instances)}))
+    print(
+        json.dumps(
+            {
+                "tag": args.tag,
+                "identity_accuracy": accuracy,
+                "passed": passed,
+                "total": len(instances),
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

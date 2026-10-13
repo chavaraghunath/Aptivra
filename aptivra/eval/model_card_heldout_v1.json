@@ -1,0 +1,122 @@
+[
+  {
+    "category": "general_knowledge",
+    "prompt": "User: What is the capital of France?\nAssistant:",
+    "answer": "Paris is the capital of France."
+  },
+  {
+    "category": "general_knowledge",
+    "prompt": "User: Which ocean is the largest?\nAssistant:",
+    "answer": "The Pacific Ocean is the largest ocean."
+  },
+  {
+    "category": "general_knowledge",
+    "prompt": "User: What process lets plants turn light into chemical energy?\nAssistant:",
+    "answer": "Plants use photosynthesis to convert light into chemical energy."
+  },
+  {
+    "category": "general_knowledge",
+    "prompt": "User: How many continents are commonly recognized?\nAssistant:",
+    "answer": "Seven continents are commonly recognized."
+  },
+  {
+    "category": "general_knowledge",
+    "prompt": "User: What is the change from liquid water to water vapor called?\nAssistant:",
+    "answer": "That change is called evaporation."
+  },
+  {
+    "category": "general_knowledge",
+    "prompt": "User: Which planet is the largest in the Solar System?\nAssistant:",
+    "answer": "Jupiter is the largest planet in the Solar System."
+  },
+  {
+    "category": "arithmetic",
+    "prompt": "User: What is 19 plus 23?\nAssistant:",
+    "answer": "19 plus 23 equals 42."
+  },
+  {
+    "category": "arithmetic",
+    "prompt": "User: What is 7 multiplied by 7?\nAssistant:",
+    "answer": "7 multiplied by 7 equals 49."
+  },
+  {
+    "category": "arithmetic",
+    "prompt": "User: What is 84 divided by 7?\nAssistant:",
+    "answer": "84 divided by 7 equals 12."
+  },
+  {
+    "category": "arithmetic",
+    "prompt": "User: Subtract 75 from 125.\nAssistant:",
+    "answer": "125 minus 75 equals 50."
+  },
+  {
+    "category": "arithmetic",
+    "prompt": "User: What is one quarter of 20?\nAssistant:",
+    "answer": "One quarter of 20 is 5."
+  },
+  {
+    "category": "arithmetic",
+    "prompt": "User: What is 9 squared?\nAssistant:",
+    "answer": "9 squared equals 81."
+  },
+  {
+    "category": "short_code",
+    "prompt": "User: Write a Python expression that returns the length of items.\nAssistant:",
+    "answer": "len(items)"
+  },
+  {
+    "category": "short_code",
+    "prompt": "User: Write a Python statement that appends value to values.\nAssistant:",
+    "answer": "values.append(value)"
+  },
+  {
+    "category": "short_code",
+    "prompt": "User: Write a Python expression that joins words with spaces.\nAssistant:",
+    "answer": "\" \".join(words)"
+  },
+  {
+    "category": "short_code",
+    "prompt": "User: Write a Python expression that tests whether key is in mapping.\nAssistant:",
+    "answer": "key in mapping"
+  },
+  {
+    "category": "short_code",
+    "prompt": "User: Write a Python expression that makes text lowercase.\nAssistant:",
+    "answer": "text.lower()"
+  },
+  {
+    "category": "short_code",
+    "prompt": "User: Write a Python expression that sums the numbers sequence.\nAssistant:",
+    "answer": "sum(numbers)"
+  },
+  {
+    "category": "plain_conversation",
+    "prompt": "User: Thank you for explaining that.\nAssistant:",
+    "answer": "You're welcome."
+  },
+  {
+    "category": "plain_conversation",
+    "prompt": "User: Good morning.\nAssistant:",
+    "answer": "Good morning. How can I help?"
+  },
+  {
+    "category": "plain_conversation",
+    "prompt": "User: I need a moment to think.\nAssistant:",
+    "answer": "Take your time."
+  },
+  {
+    "category": "plain_conversation",
+    "prompt": "User: Could you repeat the question?\nAssistant:",
+    "answer": "Certainly. Which question should I repeat?"
+  },
+  {
+    "category": "plain_conversation",
+    "prompt": "User: I finished the first step.\nAssistant:",
+    "answer": "All right. What would you like to do next?"
+  },
+  {
+    "category": "plain_conversation",
+    "prompt": "User: That answer makes sense now.\nAssistant:",
+    "answer": "I'm glad the explanation is clear."
+  }
+]

@@ -167,4 +167,4 @@ class AptivraCausalLM(nn.Module):
         text = self.tokenizer.decode(new_tokens)
         if "User:" in text:
             text = text.split("User:", 1)[0]
-        return text.strip()
+        return text

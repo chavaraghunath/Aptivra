@@ -92,7 +92,7 @@ def run_single_aptivra(
                 current_losses = loss_eval_wrapper(
                     predict, held_out_regression_suite, cycle
                 )
-                cycle.save_weight_snapshot(snapshot_path)
+                cycle.save_promotion_snapshot(snapshot_path)
 
             # 1. Populate T1 memory with verifier-verified examples if enabled
             if cons_config.use_t1_memory:
@@ -122,7 +122,7 @@ def run_single_aptivra(
                         pfn, insts, stream
                     ),
                     loss_eval_fn=lambda pfn, insts: loss_eval_wrapper(pfn, insts, cycle),
-                    rollback_fn=lambda: cycle.restore_weight_snapshot(snapshot_path),
+                    rollback_fn=lambda: cycle.restore_promotion_snapshot(snapshot_path),
                 )
                 promoted = gate_res.promoted
                 gate_results.append(

@@ -1,3 +1,5 @@
 # Release gate for whether a checkpoint may be described as a general language model.
 model_card_release_gate:
   heldout_bpb_unigram_margin_bits: 0.0
+  minimum_trained_prompt_samples: 7
+  minimum_heldout_prompt_samples: 24

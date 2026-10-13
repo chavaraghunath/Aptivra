@@ -1,9 +1,11 @@
-"""Consolidation Cycle execution with ablation toggles."""
+"""Consolidation Cycle execution with transactional promotion rollback."""
 
+import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, override
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -11,7 +13,7 @@ from aptivra.baselines.base import BaselineTrainer
 from aptivra.experts.expert import ExpertModule
 from aptivra.experts.router import GatingRouter
 from aptivra.experts.spawner import ExpertSpawner
-from aptivra.memory.store import EpisodicStore
+from aptivra.memory.store import EpisodicRecord, EpisodicStore
 from aptivra.model.config import ModelConfig
 from aptivra.tasks.base import TaskInstance
 
@@ -71,8 +73,11 @@ class ConsolidationCycle(BaselineTrainer):
         )
         self.optimizer = torch.optim.AdamW(params, lr=self.cons_config.lr)
 
-    def save_weight_snapshot(self, path: Path) -> None:
-        """Persist candidate-independent model weights to disk for promotion rollback."""
+    def save_promotion_snapshot(self, path: Path) -> None:
+        """Persist every learned state component at the promotion boundary.
+
+        ``total_flops`` is intentionally excluded: rejected training still consumed compute.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
         expert_metadata = [
             {
@@ -91,15 +96,44 @@ class ConsolidationCycle(BaselineTrainer):
                 "router_top_k": self.router.top_k,
                 "experts_state": self.experts.state_dict(),
                 "expert_metadata": expert_metadata,
+                "model_training": self.model.training,
+                "router_training": self.router.training,
+                "expert_training": [expert.training for expert in self.experts],
+                "optimizer_state": self.optimizer.state_dict(),
+                "replay_buffer": [self._task_to_dict(item) for item in self.replay_buffer],
+                "fisher_matrices": self.fisher_matrices,
+                "optpar_matrices": self.optpar_matrices,
+                "t1_records": {
+                    key: {
+                        "record_id": record.record_id,
+                        "task_family": record.task_family,
+                        "prompt": record.prompt,
+                        "target_solution": record.target_solution,
+                        "verifier_passed": record.verifier_passed,
+                        "retrieval_count": record.retrieval_count,
+                        "verification_count": record.verification_count,
+                        "metadata": record.metadata,
+                    }
+                    for key, record in self.t1_store.records.items()
+                },
+                "t1_embedding_dim": self.t1_store.index.embedding_dim,
+                "t1_encoder_state": self.t1_store.index.encoder.state_dict(),
+                "t1_encoder_training": self.t1_store.index.encoder.training,
+                "t1_optimizer_state": self.t1_store.index.optimizer.state_dict(),
+                "t1_vectors": self.t1_store.index.vectors,
+                "t1_record_ids": self.t1_store.index.record_ids,
+                "rng_state": self._capture_rng_state(),
             },
             path,
         )
 
-    def restore_weight_snapshot(self, path: Path) -> None:
-        """Restore the promoted model, router, and expert weights from a disk snapshot."""
-        snapshot: dict[str, Any] = torch.load(
-            path, map_location=self.device, weights_only=True
-        )
+    def restore_promotion_snapshot(self, path: Path) -> None:
+        """Restore learned and RNG state while retaining compute already spent."""
+        # The archive is decoded on CPU so host-owned data is never relocated as a
+        # side effect. Module.load_state_dict copies parameters and buffers into each
+        # module's existing device, and Optimizer.load_state_dict applies PyTorch's
+        # parameter-aware policy (including keeping non-capturable step counters on CPU).
+        snapshot: dict[str, Any] = torch.load(path, map_location="cpu", weights_only=True)
         expert_metadata: list[dict[str, Any]] = snapshot["expert_metadata"]
         self.model.load_state_dict(snapshot["model_state"])
 
@@ -126,6 +160,150 @@ class ConsolidationCycle(BaselineTrainer):
         self.experts = restored_experts
         self.experts.load_state_dict(snapshot["experts_state"])
         self._reset_optimizer()
+        self.optimizer.load_state_dict(snapshot["optimizer_state"])
+
+        self.replay_buffer = [
+            TaskInstance(**item) for item in snapshot["replay_buffer"]
+        ]
+        # EWC tensors participate directly in model-device arithmetic and therefore
+        # need an explicit transfer after the deliberately CPU-only archive load.
+        self.fisher_matrices = self._tensor_mappings_to_device(
+            snapshot["fisher_matrices"]
+        )
+        self.optpar_matrices = self._tensor_mappings_to_device(
+            snapshot["optpar_matrices"]
+        )
+
+        self.t1_store = EpisodicStore(
+            embedding_dim=int(snapshot["t1_embedding_dim"]), device=self.device
+        )
+        self.t1_store.records = {
+            key: EpisodicRecord(**record) for key, record in snapshot["t1_records"].items()
+        }
+        self.t1_store.index.encoder.load_state_dict(snapshot["t1_encoder_state"])
+        self.t1_store.index.optimizer.load_state_dict(snapshot["t1_optimizer_state"])
+        self.t1_store.index.vectors = snapshot["t1_vectors"].to(self.device)
+        self.t1_store.index.record_ids = list(snapshot["t1_record_ids"])
+
+        self.model.train(bool(snapshot["model_training"]))
+        self.router.train(bool(snapshot["router_training"]))
+        for expert_module, training in zip(
+            self.experts, snapshot["expert_training"], strict=True
+        ):
+            expert_module.train(bool(training))
+        self.t1_store.index.encoder.train(bool(snapshot["t1_encoder_training"]))
+
+        self._restore_rng_state(snapshot["rng_state"])
+
+    def save_weight_snapshot(self, path: Path) -> None:
+        """Compatibility alias for the now-complete promotion snapshot."""
+        self.save_promotion_snapshot(path)
+
+    def restore_weight_snapshot(self, path: Path) -> None:
+        """Compatibility alias for the now-complete promotion rollback."""
+        self.restore_promotion_snapshot(path)
+
+    @staticmethod
+    def _task_to_dict(item: TaskInstance) -> dict[str, Any]:
+        return {
+            "task_id": item.task_id,
+            "task_family": item.task_family,
+            "prompt": item.prompt,
+            "target_solution": item.target_solution,
+            "metadata": item.metadata,
+        }
+
+    def _tensor_mappings_to_device(
+        self, mappings: list[dict[str, torch.Tensor]]
+    ) -> list[dict[str, torch.Tensor]]:
+        return [
+            {name: tensor.to(self.device) for name, tensor in mapping.items()}
+            for mapping in mappings
+        ]
+
+    def _capture_rng_state(self) -> dict[str, Any]:
+        """Capture every global generator that can affect a consolidation run.
+
+        Python and NumPy are orchestration/task-generation globals. The torch CPU
+        generator is used during module construction, while dropout and random
+        tensors consume the active CUDA or MPS generator when the model uses that
+        accelerator. No custom ``torch.Generator`` exists in this training path.
+
+        Generator states are serialized as bytes or Python primitives, never tensors,
+        so checkpoint device mapping cannot alter their meaning or storage device.
+        Only the active accelerator generator is captured because other accelerator
+        generators do not participate in this single-device execution path.
+        """
+        cuda_state: bytes | None = None
+        mps_state: bytes | None = None
+        if self.device.type == "cuda" and torch.cuda.is_available():
+            cuda_state = self._torch_rng_state_to_bytes(
+                torch.cuda.get_rng_state(self.device)
+            )
+        elif self.device.type == "mps" and torch.backends.mps.is_available():
+            mps_state = self._torch_rng_state_to_bytes(torch.mps.get_rng_state())
+
+        return {
+            "python": random.getstate(),
+            "numpy": self._numpy_rng_state(),
+            "torch_cpu": self._torch_rng_state_to_bytes(torch.get_rng_state()),
+            "torch_cuda": cuda_state,
+            "torch_mps": mps_state,
+        }
+
+    def _restore_rng_state(self, state: dict[str, Any]) -> None:
+        random.setstate(state["python"])
+        self._set_numpy_rng_state(state["numpy"])
+        torch.set_rng_state(self._torch_rng_state_from_bytes(state["torch_cpu"]))
+
+        cuda_state: bytes | None = state["torch_cuda"]
+        if (
+            cuda_state is not None
+            and self.device.type == "cuda"
+            and torch.cuda.is_available()
+        ):
+            torch.cuda.set_rng_state(
+                self._torch_rng_state_from_bytes(cuda_state), self.device
+            )
+
+        mps_state: bytes | None = state["torch_mps"]
+        if (
+            mps_state is not None
+            and self.device.type == "mps"
+            and torch.backends.mps.is_available()
+        ):
+            torch.mps.set_rng_state(self._torch_rng_state_from_bytes(mps_state))
+
+    @staticmethod
+    def _torch_rng_state_to_bytes(state: torch.Tensor) -> bytes:
+        return state.detach().cpu().contiguous().numpy().tobytes()
+
+    @staticmethod
+    def _torch_rng_state_from_bytes(state: bytes) -> torch.Tensor:
+        return torch.tensor(tuple(state), dtype=torch.uint8)
+
+    @staticmethod
+    def _numpy_rng_state() -> dict[str, Any]:
+        algorithm, keys, position, has_gauss, cached_gaussian = np.random.get_state()
+        return {
+            "algorithm": algorithm,
+            "keys": keys.tolist(),
+            "position": position,
+            "has_gauss": has_gauss,
+            "cached_gaussian": cached_gaussian,
+        }
+
+    @staticmethod
+    def _set_numpy_rng_state(state: dict[str, Any]) -> None:
+        np.random.set_state(
+            (
+                state["algorithm"],
+                np.asarray(state["keys"], dtype=np.uint32),
+                state["position"],
+                state["has_gauss"],
+                state["cached_gaussian"],
+            )
+        )
 
     @override
     def train_task(self, task_idx: int, train_instances: list[TaskInstance]) -> dict[str, Any]:
