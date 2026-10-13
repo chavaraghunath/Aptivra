@@ -20,6 +20,20 @@ _SANITIZE = True
 _MAX_REPLY_CHARS = 280
 
 
+def checkpoint_weights_path(export_dir: Path) -> Path:
+    """Return the safetensors checkpoint, falling back to the legacy backbone shard."""
+    candidates = (
+        export_dir / "model.safetensors",
+        export_dir / "dense" / "backbone.pt",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        f"No model.safetensors or legacy dense/backbone.pt found in {export_dir}"
+    )
+
+
 def load_inference_config(path: Path) -> dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -101,12 +115,13 @@ def main() -> None:
         raise SystemExit('Install chat UI extras: pip install -e ".[chat]"') from exc
 
     export_path = args.export_dir or Path(cfg["local_export_dir"])
-    backbone_stat = (export_path / "dense" / "backbone.pt").stat()
-    print(f"Loading weights from {export_path.resolve()} (backbone mtime={backbone_stat.st_mtime})")
+    weights_path = checkpoint_weights_path(export_path)
+    weights_stat = weights_path.stat()
+    print(f"Loading weights from {weights_path.resolve()} (mtime={weights_stat.st_mtime})")
 
     lm = get_lm(cfg, args.export_dir, args.from_hub)
     device = lm.device
-    print(f"Loaded Aptivra 200M MoE on device={device}, use_moe={lm.use_moe_at_inference}")
+    print(f"Loaded Aptivra MoE on device={device}, use_moe={lm.use_moe_at_inference}")
 
     smoke = chat_turn("What is your name?", [])
     print(f"Startup smoke reply: {smoke[:120]!r}")

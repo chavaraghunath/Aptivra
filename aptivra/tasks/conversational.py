@@ -6,6 +6,7 @@ from aptivra.tasks.base import (
     TaskFamily,
     TaskInstance,
     VerifierResult,
+    exact_match_result,
 )
 
 
@@ -13,22 +14,7 @@ class ConversationalVerifier(MechanicalVerifier):
     """Mechanical verifier for multi-turn conversational dialog instances."""
 
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution
-        output_lower = model_output.strip().lower()
-
-        # Check turn response structure and target intent resolution
-        has_text = len(output_lower) > 0
-        matches_expected = expected.lower() in output_lower or "assistant:" in output_lower
-
-        passed = has_text and matches_expected
-        return VerifierResult(
-            passed=passed,
-            expected=expected,
-            actual=model_output,
-            error_message=None
-            if passed
-            else "Model output failed conversational structure or turn completion",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class ConversationalTaskFamily(TaskFamily):

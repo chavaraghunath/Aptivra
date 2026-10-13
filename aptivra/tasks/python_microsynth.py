@@ -1,11 +1,31 @@
 """Restricted Python Micro-Synthesis Task Family and Mechanical Verifier."""
 
-import ast
 import math
 import random
-from typing import Any, override
+from typing import override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    extract_python_code,
+    normalize_verifier_text,
+)
+from aptivra.tasks.code_sandbox import verify_snippet_source
+
+_SNIPPET_BUILTINS = (
+    "abs",
+    "min",
+    "max",
+    "sum",
+    "len",
+    "range",
+    "list",
+    "str",
+    "int",
+    "bool",
+)
 
 
 class PythonMicroSynthVerifier(MechanicalVerifier):
@@ -13,93 +33,32 @@ class PythonMicroSynthVerifier(MechanicalVerifier):
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution.strip()
-        cleaned_output = model_output.strip()
-
-        # Extract markdown python code block if present
-        if "```python" in cleaned_output:
-            cleaned_output = cleaned_output.split("```python")[1].split("```")[0].strip()
-        elif "```" in cleaned_output:
-            cleaned_output = cleaned_output.split("```")[1].split("```")[0].strip()
+        expected = normalize_verifier_text(instance.target_solution)
+        extracted = extract_python_code(model_output)
+        if extracted is None:
+            return VerifierResult(
+                passed=False,
+                expected=expected,
+                actual=model_output.strip(),
+                error_message="Invalid output: unterminated code fence.",
+            )
+        cleaned_output = extracted
 
         # Check exact string match first
         if cleaned_output == expected:
             return VerifierResult(passed=True, expected=expected, actual=cleaned_output)
 
-        # Execute in sandboxed restricted globals namespace
-        try:
-            parsed_ast = ast.parse(cleaned_output)
-
-            # Security guard: Ensure no dangerous imports or calls in AST
-            for node in ast.walk(parsed_ast):
-                if isinstance(node, ast.Import | ast.ImportFrom):
-                    return VerifierResult(
-                        passed=False,
-                        expected=expected,
-                        actual=cleaned_output,
-                        error_message="Security Error: Forbidden imports in synthesis.",
-                    )
-                if isinstance(node, ast.Name) and node.id in {"eval", "exec", "open", "__import__"}:
-                    return VerifierResult(
-                        passed=False,
-                        expected=expected,
-                        actual=cleaned_output,
-                        error_message=f"Security Error: Forbidden function '{node.id}'",
-                    )
-
-            # Sandboxed execution environment
-            restricted_globals: dict[str, Any] = {
-                "__builtins__": {
-                    "abs": abs,
-                    "min": min,
-                    "max": max,
-                    "sum": sum,
-                    "len": len,
-                    "range": range,
-                    "list": list,
-                    "str": str,
-                    "int": int,
-                    "bool": bool,
-                },
-                "math": math,
-            }
-            local_vars: dict[str, Any] = {}
-
-            # Execute code safely
-            exec(
-                compile(parsed_ast, filename="<string>", mode="exec"),
-                restricted_globals,
-                local_vars,
-            )
-
-            # Result retrieval: check 'res' or return value
-            if "res" in local_vars:
-                actual_res = str(local_vars["res"]).strip()
-                passed = actual_res == expected
-                return VerifierResult(
-                    passed=passed,
-                    expected=expected,
-                    actual=actual_res,
-                    error_message=None if passed else f"Expected '{expected}', got '{actual_res}'",
-                )
-
-            # Fallback: compare output as integer or string
-            actual_res = cleaned_output.split()[-1] if cleaned_output.split() else ""
-            passed = actual_res == expected
-            return VerifierResult(
-                passed=passed,
-                expected=expected,
-                actual=actual_res,
-                error_message=None if passed else f"Expected '{expected}', got '{actual_res}'",
-            )
-
-        except Exception as e:
-            return VerifierResult(
-                passed=False,
-                expected=expected,
-                actual=cleaned_output,
-                error_message=f"Execution error: {e}",
-            )
+        result = verify_snippet_source(
+            cleaned_output,
+            expected,
+            builtin_names=_SNIPPET_BUILTINS,
+        )
+        return VerifierResult(
+            passed=result.passed,
+            expected=expected,
+            actual=result.actual if result.actual is not None else cleaned_output,
+            error_message=result.error_message,
+        )
 
 
 class PythonMicroSynthTaskFamily(TaskFamily):

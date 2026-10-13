@@ -163,19 +163,19 @@
 - `LICENSE` — Software license terms.
 - `SUPPORT.md` — Support channels and guidelines.
 - `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, and pytest.
-- `configs/` — YAML configuration files for model architectures, task streams, ablation experiments, and inference/chat server defaults (`inference.yaml`).
-- `deploy/` — Deployment bridges for extended run options: Hugging Face hub Python stubs, Docker CUDA/CPU, Ollama/LM Studio notes.
+- `configs/` — YAML configuration files for model architectures, task streams, ablation experiments, inference/chat server defaults (`inference.yaml`), measured-results model-card release gates, and generated-code verifier resource limits.
+- `deploy/` — Deployment bridges for extended run options: self-contained Hugging Face remote-code modules, Docker CUDA/CPU, and Ollama/LM Studio bridge notes.
 - `docs/` — Architectural documentation, design specifications, and ADRs.
-  - `docs/run-options.md` — G–J run paths for `raghunath1/aptivra-200m-tiered-memory`.
+  - `docs/run-options.md` — G–J run paths, Hub-layout constraints, and measured-results publication workflow for `raghunath1/aptivra-200m-tiered-memory`.
   - `docs/DESIGN.md` — Master Phase 1 architecture and design specification.
   - `docs/configuration-register.md` — Register of all runtime-tunable configurations.
   - `docs/adr/` — Architecture Decision Records capturing foundational technical decisions.
 - `aptivra/` — Core Python package containing models, memory systems, experts, task stream, and eval harness.
   - `aptivra/model/` — Decoder-only backbone transformer architecture, RMSNorm, SwiGLU, and isolated AttentionInterface.
   - `aptivra/baselines/` — Continual learning baseline trainers (Naive Sequential, Replay-Only, EWC-Only, Joint Multitask).
-  - `aptivra/tasks/` — Sequential task family generators, mechanical verifiers, and task stream manager.
-  - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, and metrics calculation.
-  - `aptivra/export/` — Export utilities serializing backbone state and T2 expert pools for Tiered C runtime execution.
+  - `aptivra/tasks/` — Sequential task family generators, subprocess-isolated mechanical verifiers, and task stream manager.
+  - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, metrics calculation, model-card measurement records, and the versioned held-out prompt set.
+  - `aptivra/export/` — Self-contained Transformers packaging and legacy conversion, Tiered C and local-format export utilities, and measured-results model-card rendering.
   - `aptivra/inference/` — MoE causal LM loader, byte tokenizer, and generation for Hub checkpoints.
   - `aptivra/huggingface/` — In-repo Transformers config/model wrappers (Hub copies live under `deploy/huggingface_hub/`).
   - `aptivra/agents/` — Dynamic tool synthesis and sandboxed execution engine (Phase 3).
@@ -192,8 +192,5 @@
   - `aptivra/world_model/` — Continuous latent state-space H-JEPA world model predicting transitions in representation space.
   - `aptivra/genesis.py` — Top-level unified cognitive architecture facade orchestrating all 10 engines across all 4 phases.
 - `multitier_c/` — High-throughput C ABI sharding runtime with zero-copy mmap hot-swapping and HDC associative search.
-- `scripts/` — Execution, benchmarking, and export scripts.
+- `scripts/` — Execution, benchmarking, evaluation, and export scripts.
 - `tests/` — Pytest unit and integration test suite.
-
-
-

@@ -12,6 +12,8 @@ import torch.nn as nn
 import torch.optim as optim
 
 from aptivra.baselines.base import BaselineTrainer
+from aptivra.eval.model_card_eval import evaluate_export_dir, write_evaluation_record
+from aptivra.export.hf_hub_artifacts import export_huggingface_hub_layout
 from aptivra.export.hf_push import push_aptivra_model_to_hf
 from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.memory.hybrid_store import HybridMemoryStore
@@ -30,11 +32,14 @@ def train_multidomain_conversational(
     push_hf: bool = True,
     hf_repo_id: str = "raghunath1/aptivra-200m-tiered-memory",
     *,
+    hf_results_record: str | None = None,
     include_conversational: bool = False,
     include_multitasking: bool = False,
     run_sleep_cycle: bool = False,
 ) -> None:
     """Executes self-identity, multi-domain, conversational, and multi-tasking training for Aptivra 200M MoE."""
+    if push_hf and hf_results_record is None:
+        raise ValueError("hf_results_record is required when push_hf is enabled")
     seeds = seeds or [42]
     out_path = Path(output_jsonl)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -224,16 +229,24 @@ def train_multidomain_conversational(
     )
     print(f"Re-exported multitier shards to {export_dir.resolve()}")
 
-    # 4. Export updated GGUF binaries and push to Hugging Face Hub
+    # 4. Build, evaluate, and publish the stock-Transformers layout.
     if push_hf:
-        print(f"\nPushing trained Aptivra model & GGUF binaries to Hugging Face: '{hf_repo_id}'...")
+        assert hf_results_record is not None
+        export_huggingface_hub_layout(
+            export_dir,
+            backbone_cpu,
+            router_cpu,
+            experts_cpu,
+            model_config,
+        )
+        results_path = Path(hf_results_record)
+        record = evaluate_export_dir(export_dir)
+        write_evaluation_record(record, results_path)
+        print(f"\nPushing evaluated Aptivra Transformers layout to: '{hf_repo_id}'...")
         push_aptivra_model_to_hf(
             repo_id=hf_repo_id,
-            model=backbone,
-            router=router,
-            experts=experts,
-            model_config=model_config,
-            export_dir="scratch/hf_export",
+            export_dir=export_dir,
+            results_record=results_path,
         )
 
 
@@ -252,6 +265,11 @@ def main() -> None:
     parser.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44])
     parser.add_argument("--no-hf-push", action="store_true", help="Disable Hugging Face upload")
     parser.add_argument(
+        "--hf-results-record",
+        type=Path,
+        help="Path where the required fresh pre-publication evaluation record is written",
+    )
+    parser.add_argument(
         "--include-conversational",
         action="store_true",
         help="Include conversational task family (can hurt byte-LM identity)",
@@ -267,6 +285,8 @@ def main() -> None:
         help="Run synaptic prune sleep (destructive to chat; off by default)",
     )
     args = parser.parse_args()
+    if not args.no_hf_push and args.hf_results_record is None:
+        parser.error("--hf-results-record is required unless --no-hf-push is set")
 
     train_multidomain_conversational(
         config_path=args.config,
@@ -275,6 +295,9 @@ def main() -> None:
         num_steps_per_task=args.steps_per_task,
         seeds=args.seeds,
         push_hf=not args.no_hf_push,
+        hf_results_record=(
+            str(args.hf_results_record) if args.hf_results_record is not None else None
+        ),
         include_conversational=args.include_conversational,
         include_multitasking=args.include_multitasking,
         run_sleep_cycle=args.run_sleep_cycle,

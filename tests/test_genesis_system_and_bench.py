@@ -40,8 +40,8 @@ def test_aptivra_genesis_lifecycle_and_bench() -> None:
     bench = AIDevelopmentalBenchmark()
     report = bench.evaluate_infant_milestone(agent)
     assert report.sensorimotor_score > 0.8
-    assert report.zero_forgetting_retention == 1.0
-    assert report.curiosity_entropy > 1.0
+    assert report.zero_forgetting_retention is None
+    assert report.curiosity_entropy is None
 
 
 def torch_no_grad():

@@ -38,7 +38,14 @@ def main() -> None:
     parser.add_argument("--skip-a", action="store_true")
     parser.add_argument("--skip-b", action="store_true")
     parser.add_argument("--repo-id", type=str, default="raghunath1/aptivra-200m-tiered-memory")
+    parser.add_argument(
+        "--results-record",
+        type=Path,
+        help="Path where Phase B writes the required fresh model-card evaluation record",
+    )
     args = parser.parse_args()
+    if not args.skip_b and args.results_record is None:
+        parser.error("--results-record is required unless --skip-b is set")
 
     root = Path(__file__).resolve().parents[1]
     py = root / ".venv" / "bin" / "python"
@@ -128,6 +135,24 @@ def main() -> None:
         )
         print("=== Phase B: raw chat quality gate ===")
         run([str(py), "scripts/verify_chat_quality.py", "--export-dir", str(export)], cwd=root)
+        print("=== Phase B: stock-Transformers conversion ===")
+        run(
+            [str(py), "scripts/convert_legacy_hf_export.py", str(export)],
+            cwd=root,
+        )
+        assert args.results_record is not None
+        print("=== Phase B: model-card evaluation ===")
+        run(
+            [
+                str(py),
+                "scripts/evaluate_model_card.py",
+                "--export-dir",
+                str(export),
+                "--output",
+                str(args.results_record),
+            ],
+            cwd=root,
+        )
         print("=== Phase B: Hugging Face push ===")
         run(
             [
@@ -137,6 +162,8 @@ def main() -> None:
                 args.repo_id,
                 "--export-dir",
                 str(export),
+                "--results-record",
+                str(args.results_record),
             ],
             cwd=root,
         )

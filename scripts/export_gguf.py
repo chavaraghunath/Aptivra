@@ -1,4 +1,4 @@
-"""CLI script to export Aptivra 200M model to GGUF format."""
+"""CLI script to export the Aptivra 271,361,024-parameter model to GGUF."""
 
 import argparse
 from pathlib import Path
@@ -11,11 +11,13 @@ from aptivra.model.transformer import BackboneTransformer
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Export Aptivra 200M model to GGUF format")
+    parser = argparse.ArgumentParser(
+        description="Export the Aptivra 271,361,024-parameter model to GGUF"
+    )
     parser.add_argument("--output-dir", type=str, default="scratch/hf_export/gguf")
     parser.add_argument("--experts", type=int, default=8)
     parser.add_argument(
-        "--quant-type", choices=["fp32", "fp16", "q8_0"], default="fp16", help="Target quantization"
+        "--quant-type", choices=["fp32", "fp16"], default="fp16", help="Target precision"
     )
     args = parser.parse_args()
 
@@ -28,7 +30,7 @@ def main() -> None:
         device="cpu",
     )
 
-    print(f"Initializing Aptivra 200M model with {args.experts} experts...")
+    print(f"Initializing Aptivra 271,361,024-parameter model with {args.experts} experts...")
     model = BackboneTransformer(model_config)
     router = GatingRouter(d_model=model_config.d_model, initial_num_experts=args.experts)
     experts = [ExpertModule(expert_id=i, d_model=model_config.d_model) for i in range(args.experts)]

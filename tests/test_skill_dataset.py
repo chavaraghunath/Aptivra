@@ -13,9 +13,12 @@ def test_mcp_skill_task_family() -> None:
     assert len(instances) == 3
     assert instances[0].task_id == "skill.test.skill_0"
 
-    sol_text = "# Solution for skill.test.skill_0 step 0\npass"
-    res = family.verifier.verify(instances[0], f"Result text containing {sol_text}")
+    sol_text = instances[0].target_solution
+    res = family.verifier.verify(instances[0], sol_text)
     assert res.passed is True
+    assert family.verifier.verify(instances[0], "pass").passed is False
+    prefixed = family.verifier.verify(instances[0], f"Result text containing {sol_text}")
+    assert prefixed.passed is False
 
 
 def test_mcp_skill_repository_loader() -> None:

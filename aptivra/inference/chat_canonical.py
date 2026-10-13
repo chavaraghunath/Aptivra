@@ -46,7 +46,8 @@ IDENTITY_CHAT_TEMPLATES: list[tuple[str, str, str]] = [
     (
         "Explain mixture-of-experts in one sentence.",
         "User: Explain mixture-of-experts in one sentence.\nAssistant:",
-        "Mixture-of-experts routes each token through a small subset of specialist networks (Top-2 here) "
+        "Mixture-of-experts routes each token through a small subset of specialist "
+        "networks (Top-2 here) "
         "so Aptivra adds capacity without running every parameter on every byte.",
     ),
 ]

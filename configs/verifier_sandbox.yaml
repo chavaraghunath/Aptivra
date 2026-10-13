@@ -1,0 +1,4 @@
+# Resource limits for executing one generated-code verification item.
+verifier_sandbox:
+  timeout_seconds: 1.0
+  memory_limit_mb: 512
