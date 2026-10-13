@@ -20,27 +20,29 @@ def export_model_to_gguf(
     experts: list[ExpertModule],
     model_config: ModelConfig,
     output_path: Path | str,
-    quant_type: Literal["fp32", "fp16", "q8_0"] = "fp16",
+    quant_type: Literal["fp32", "fp16"] = "fp16",
 ) -> Path:
-    """Exports Aptivra 200M backbone, router, and expert weights to GGUF format."""
+    """Exports Aptivra backbone, router, and expert weights as FP32 or FP16 GGUF."""
+    if quant_type not in {"fp32", "fp16"}:
+        raise ValueError(f"Unsupported GGUF quantization type: {quant_type}")
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     writer = gguf.GGUFWriter(path=str(out_file), arch="aptivra")
 
     # 1. Add GGUF General & Aptivra Metadata KV Pairs
-    writer.add_name("Aptivra 200M Tiered-Memory")
+    writer.add_name("Aptivra 271,361,024-Parameter Tiered-Memory")
     writer.add_architecture()
     writer.add_author("raghunath1")
     writer.add_description(
-        "Aptivra 200M MoE Continual Learning Model with C-Engine Tiered Memory Runtime"
+        "Aptivra 271,361,024-parameter MoE model with Tiered Memory Runtime"
     )
 
-    ft_map = {"fp32": 0, "fp16": 1, "q8_0": 7}
-    writer.add_file_type(ft_map.get(quant_type, 1))
+    ft_map = {"fp32": 0, "fp16": 1}
+    writer.add_file_type(ft_map[quant_type])
 
     # Architecture metadata
-    writer.add_context_length(2048)
+    writer.add_context_length(model_config.max_seq_len)
     writer.add_embedding_length(model_config.d_model)
     writer.add_block_count(model_config.n_layers)
     writer.add_head_count(model_config.n_heads)

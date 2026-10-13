@@ -1,4 +1,6 @@
-"""Hub-side Transformers config (uploaded next to multitier shards)."""
+"""Self-contained Transformers configuration for Aptivra."""
+
+from typing import Any
 
 from transformers import PretrainedConfig
 
@@ -15,13 +17,20 @@ class AptivraConfig(PretrainedConfig):
         n_layers: int = 16,
         n_heads: int = 16,
         d_ff: int = 4096,
-        max_seq_len: int = 256,
+        max_seq_len: int = 512,
         num_experts: int = 8,
         top_k_experts: int = 2,
+        d_expert: int = 128,
         dropout: float = 0.1,
+        use_moe_at_inference: bool = False,
         execution_platform: str = "pytorch",
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
+        kwargs.setdefault("pad_token_id", 0)
+        kwargs.setdefault("eos_token_id", [0, 10])
+        kwargs.setdefault("tie_word_embeddings", True)
+        kwargs.setdefault("use_cache", False)
+        kwargs.setdefault("is_decoder", True)
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
         self.d_model = d_model
@@ -31,5 +40,8 @@ class AptivraConfig(PretrainedConfig):
         self.max_seq_len = max_seq_len
         self.num_experts = num_experts
         self.top_k_experts = top_k_experts
+        self.d_expert = d_expert
         self.dropout = dropout
+        self.use_moe_at_inference = use_moe_at_inference
         self.execution_platform = execution_platform
+        self.max_position_embeddings = max_seq_len

@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 import yaml
 
 from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.model.config import ModelConfig
+from aptivra.inference.hub_config import model_config_from_export_dir
 
 
 def load_inference_config(config_path: Path) -> dict[str, Any]:
@@ -108,15 +108,7 @@ def main() -> None:
     max_new_tokens = int(cfg["max_new_tokens"])
     device = str(cfg.get("device", "auto"))
 
-    model_config = ModelConfig(
-        vocab_size=256,
-        d_model=1024,
-        n_layers=16,
-        n_heads=16,
-        d_ff=4096,
-        max_seq_len=256,
-        device=device,
-    )
+    model_config = model_config_from_export_dir(export_dir, device=device)
     lm = AptivraCausalLM.from_export_dir(export_dir, model_config=model_config)
 
     handler_cls = ChatHandler

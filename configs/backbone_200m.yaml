@@ -1,9 +1,9 @@
-# Backbone Model Config (200M params for scaled continual learning benchmark)
+# Backbone Model Config (271,361,024 params including router and 8 experts)
 vocab_size: 256
 d_model: 1024
 n_layers: 16
 n_heads: 16
 d_ff: 4096
-max_seq_len: 256
+max_seq_len: 512
 dropout: 0.1
 device: "cpu"

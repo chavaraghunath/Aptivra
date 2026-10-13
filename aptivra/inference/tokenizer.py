@@ -9,12 +9,11 @@ import torch
 class ByteLevelTokenizer:
     """UTF-8 byte tokenizer with Aptivra's 256-token vocabulary."""
 
-    max_len: int = 256
+    max_len: int = 512
 
     def encode(self, text: str) -> torch.Tensor:
+        """Encodes all UTF-8 bytes without implicit context-length truncation."""
         raw_bytes = text.encode("utf-8")
-        if len(raw_bytes) > self.max_len:
-            raw_bytes = raw_bytes[-self.max_len :]
         return torch.tensor(list(raw_bytes), dtype=torch.long)
 
     def decode(self, tokens: torch.Tensor | list[int]) -> str:
