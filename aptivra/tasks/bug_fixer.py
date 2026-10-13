@@ -4,6 +4,7 @@ import random
 from typing import Any, override
 
 from aptivra.tasks.base import (
+    MULTI_LINE_STOP_CHARACTERS,
     MechanicalVerifier,
     TaskFamily,
     TaskInstance,
@@ -12,22 +13,9 @@ from aptivra.tasks.base import (
 )
 from aptivra.tasks.code_sandbox import verify_function_source
 
-_FUNCTION_BUILTINS = (
-    "range",
-    "len",
-    "min",
-    "max",
-    "abs",
-    "sorted",
-    "sum",
-    "list",
-    "bool",
-    "str",
-)
-
 
 class BugFixerVerifier(MechanicalVerifier):
-    """Mechanical verifier for Python bug fixing via AST & sandboxed execution."""
+    """Verify Python bug fixes with AST checks and child-process containment."""
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
@@ -50,13 +38,13 @@ class BugFixerVerifier(MechanicalVerifier):
             cleaned_output,
             fn_name,
             test_cases,
-            builtin_names=_FUNCTION_BUILTINS,
         )
         return VerifierResult(
             passed=result.passed,
             expected=expected,
             actual=cleaned_output,
             error_message=result.error_message,
+            execution_status=result.execution_status,
         )
 
 
@@ -68,6 +56,8 @@ class BugFixerTaskFamily(TaskFamily):
             family_id="T11_bug_fixer",
             name="Python Bug Fixer",
             description="Repair syntax/logic bugs in Python functions.",
+            answer_stop_characters=MULTI_LINE_STOP_CHARACTERS,
+            training_terminator="\x00",
         )
         self._verifier = BugFixerVerifier()
 
@@ -107,6 +97,8 @@ class BugFixerTaskFamily(TaskFamily):
                 prompt=prompt,
                 target_solution=solution,
                 metadata={"fn_name": fn_name, "test_cases": tpl["test_cases"]},
+                answer_stop_characters=self.answer_stop_characters,
+                training_terminator=self.training_terminator,
             )
             instances.append(inst)
         return instances

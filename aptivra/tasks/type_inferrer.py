@@ -4,6 +4,7 @@ import random
 from typing import Any, override
 
 from aptivra.tasks.base import (
+    MULTI_LINE_STOP_CHARACTERS,
     MechanicalVerifier,
     TaskFamily,
     TaskInstance,
@@ -28,6 +29,8 @@ class TypeInferrerTaskFamily(TaskFamily):
             family_id="T12_type_inferrer",
             name="Python Type Annotations Inferrer",
             description="Infer typing annotations for Python functions.",
+            answer_stop_characters=MULTI_LINE_STOP_CHARACTERS,
+            training_terminator="\x00",
         )
         self._verifier = TypeInferrerVerifier()
 
@@ -61,6 +64,8 @@ class TypeInferrerTaskFamily(TaskFamily):
                 task_family=self.family_id,
                 prompt=source.replace(base_name, fn_name),
                 target_solution=str(tpl["solution"]).replace(base_name, fn_name),
+                answer_stop_characters=self.answer_stop_characters,
+                training_terminator=self.training_terminator,
             )
             instances.append(inst)
         return instances

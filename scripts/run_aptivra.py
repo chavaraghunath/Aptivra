@@ -1,7 +1,6 @@
 """Script executing Aptivra continual learning runner across seeds and logging metrics."""
 
 import argparse
-from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -11,7 +10,7 @@ import yaml
 
 from aptivra.consolidation.cycle import ConsolidationConfig, ConsolidationCycle
 from aptivra.eval.config import load_experiment_settings, seed_experiment
-from aptivra.eval.harness import ContinualEvalHarness
+from aptivra.eval.harness import ContinualEvalHarness, PredictFunction
 from aptivra.gate.promotion_gate import PromotionGate
 from aptivra.model.config import ModelConfig
 from aptivra.tasks.base import TaskInstance
@@ -19,36 +18,26 @@ from aptivra.tasks.stream import ContinualTaskStream
 
 
 def verifier_eval_wrapper(
-    predict_fn: Callable[[str], str],
+    predict_fn: PredictFunction,
     instances: list[TaskInstance],
-    stream: ContinualTaskStream,
+    harness: ContinualEvalHarness,
 ) -> float:
     """Helper calculating overall accuracy of predict_fn across task instances."""
-    if not instances:
-        return 1.0
-
-    family_map = {f.family_id: f for f in stream.families}
-    passed = 0
-    for inst in instances:
-        out = predict_fn(inst.prompt)
-        fam = family_map[inst.task_family]
-        res = fam.verifier.verify(inst, out)
-        if res.passed:
-            passed += 1
-    return float(passed / len(instances))
+    return harness.evaluate_instances(predict_fn, instances)
 
 
 def loss_eval_wrapper(
-    predict_fn: Callable[[str], str],
+    predict_fn: PredictFunction,
     instances: list[TaskInstance],
     cycle: ConsolidationCycle,
+    harness: ContinualEvalHarness,
 ) -> np.ndarray:
     """Helper calculating token cross-entropy loss vector over task instances."""
     losses: list[float] = []
     for inst in instances:
-        out = predict_fn(inst.prompt)
-        s_toks = cycle.encode_text(out + "\n")
-        tgt_toks = cycle.encode_text(inst.target_solution + "\n")
+        out = harness.predict_answer(predict_fn, inst)
+        s_toks = cycle.encode_text(f"{out}{inst.training_terminator}")
+        tgt_toks = cycle.encode_training_target(inst)
         max_len = min(len(s_toks), len(tgt_toks))
         if max_len == 0:
             losses.append(2.0)
@@ -76,8 +65,12 @@ def run_single_aptivra(
     harness = ContinualEvalHarness(stream)
     evaluation = harness.start_run()
 
-    def predict(prompt: str) -> str:
-        return cycle.predict(prompt, max_new_tokens=max_new_tokens)
+    def predict(prompt: str, stop_token_ids: tuple[int, ...]) -> str:
+        return cycle.predict(
+            prompt,
+            max_new_tokens=max_new_tokens,
+            stop_token_ids=stop_token_ids,
+        )
 
     evaluation.measure_untrained(predict)
 
@@ -88,9 +81,9 @@ def run_single_aptivra(
             current_val_accuracy = 0.0
             current_losses = np.empty(0, dtype=np.float64)
             if cons_config.use_promotion_gate and task_idx > 0:
-                current_val_accuracy = verifier_eval_wrapper(predict, split.val, stream)
+                current_val_accuracy = verifier_eval_wrapper(predict, split.val, harness)
                 current_losses = loss_eval_wrapper(
-                    predict, held_out_regression_suite, cycle
+                    predict, held_out_regression_suite, cycle, harness
                 )
                 cycle.save_promotion_snapshot(snapshot_path)
 
@@ -104,6 +97,8 @@ def run_single_aptivra(
                             target_solution=inst.target_solution,
                             verifier_result=res,
                             task_family=family.family_id,
+                            answer_stop_characters=inst.answer_stop_characters,
+                            training_terminator=inst.training_terminator,
                         )
 
             # 2. Run Consolidation Cycle on current task
@@ -119,9 +114,11 @@ def run_single_aptivra(
                     new_task_val_instances=split.val,
                     held_out_regression_suite=held_out_regression_suite,
                     verifier_eval_fn=lambda pfn, insts: verifier_eval_wrapper(
-                        pfn, insts, stream
+                        pfn, insts, harness
                     ),
-                    loss_eval_fn=lambda pfn, insts: loss_eval_wrapper(pfn, insts, cycle),
+                    loss_eval_fn=lambda pfn, insts: loss_eval_wrapper(
+                        pfn, insts, cycle, harness
+                    ),
                     rollback_fn=lambda: cycle.restore_promotion_snapshot(snapshot_path),
                 )
                 promoted = gate_res.promoted

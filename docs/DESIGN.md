@@ -143,7 +143,7 @@ The evaluation task stream comprises 8 sequential task families, each governed b
 | T5 | Boolean Logic Synthesis | Evaluating & simplifying boolean logic expressions | Truth table evaluation matching ground truth |
 | T6 | Sequence Completion | Arithmetic, geometric, polynomial, and Fibonacci progressions | Formula verification on next N elements |
 | T7 | State Machine Execution | Deterministic Finite Automaton (DFA) state traversal | State transition graph execution check |
-| T8 | Python Micro-Synthesis | Small deterministic functions (e.g. factorial, GCD, string count) | Isolated AST parsing & sandboxed execution verification |
+| T8 | Python Micro-Synthesis | Small deterministic functions (e.g. factorial, GCD, string count) | AST checks and child-process-contained execution; operational reliability only, not a hostile-code security boundary |
 
 ### 4.1 Data Isolation Assertion
 - Train, validation, and held-out regression splits are strictly disjoint.

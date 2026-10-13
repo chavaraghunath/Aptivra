@@ -7,6 +7,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from aptivra.eval.harness import ContinualEvalHarness
 from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.tasks.identity import ModelIdentityTaskFamily
@@ -33,14 +34,22 @@ def main() -> None:
     passed = 0
     details: list[dict[str, str | bool]] = []
 
-    for inst in instances:
-        raw = lm.generate(
-            inst.prompt,
+    def predict(prompt: str, stop_token_ids: tuple[int, ...]) -> str:
+        if stop_token_ids != (0, ord("\n")):
+            raise ValueError("identity evaluation requires the single-line stop contract")
+        return lm.generate(
+            prompt,
             max_new_tokens=args.max_new_tokens,
-            stop_on_single_newline=False,
-            stop_on_sentence_end=True,
+            stop_on_single_newline=True,
+            stop_on_sentence_end=False,
         )
-        res = family.verifier.verify(inst, raw)
+
+    for inst in instances:
+        raw, res = ContinualEvalHarness.verify_prediction(
+            predict,
+            family,
+            inst,
+        )
         passed += int(res.passed)
         details.append({"task_id": inst.task_id, "passed": res.passed, "output": raw[:200]})
 

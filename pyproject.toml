@@ -39,7 +39,7 @@ dev = [
 ]
 
 [tool.setuptools.package-data]
-"aptivra.eval" = ["*.json"]
+"aptivra.eval" = ["*.json", "*.txt"]
 
 [tool.ruff]
 line-length = 100

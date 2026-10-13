@@ -1,4 +1,9 @@
-"""Isolated stdlib-only worker for executing one generated Python item."""
+"""Child worker that contains generated-code hangs and accidental failures.
+
+The worker is not a security boundary against hostile code. AST checks, restricted
+builtins, resource limits, and the parent timeout reduce accidental blast radius but
+do not establish adversarial isolation.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +12,12 @@ import json
 import math
 import os
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING or __package__:
+    from aptivra.tasks.sandbox_policy import allowed_builtins
+else:
+    from sandbox_policy import allowed_builtins
 
 
 def _apply_limits(memory_limit_mb: int, timeout_seconds: float) -> None:
@@ -37,32 +47,8 @@ def _validate_ast(source: str) -> ast.Module:
     return parsed
 
 
-def _builtins(names: list[str]) -> dict[str, object]:
-    allowed: dict[str, object] = {
-        "abs": abs,
-        "bool": bool,
-        "enumerate": enumerate,
-        "float": float,
-        "int": int,
-        "len": len,
-        "list": list,
-        "max": max,
-        "min": min,
-        "range": range,
-        "reversed": reversed,
-        "round": round,
-        "set": set,
-        "sorted": sorted,
-        "str": str,
-        "sum": sum,
-        "tuple": tuple,
-        "zip": zip,
-    }
-    return {name: allowed[name] for name in names if name in allowed}
-
-
 def _run_function(payload: dict[str, Any], parsed: ast.Module) -> dict[str, Any]:
-    namespace: dict[str, Any] = {"__builtins__": _builtins(payload["builtins"])}
+    namespace: dict[str, Any] = {"__builtins__": allowed_builtins()}
     exec(compile(parsed, filename="<generated>", mode="exec"), namespace)
     function_name = payload["function_name"]
     function = namespace.get(function_name)
@@ -82,25 +68,45 @@ def _run_function(payload: dict[str, Any], parsed: ast.Module) -> dict[str, Any]
 
 
 def _run_snippet(payload: dict[str, Any], parsed: ast.Module) -> dict[str, Any]:
-    globals_dict: dict[str, Any] = {
-        "__builtins__": _builtins(payload["builtins"]),
+    namespace: dict[str, Any] = {
+        "__builtins__": allowed_builtins(),
         "math": math,
     }
-    locals_dict: dict[str, Any] = {}
-    exec(compile(parsed, filename="<generated>", mode="exec"), globals_dict, locals_dict)
-    if "res" not in locals_dict:
+    exec(compile(parsed, filename="<generated>", mode="exec"), namespace)
+    if "res" not in namespace:
         return {
             "passed": False,
             "actual": None,
             "error": "Executable output did not define 'res'.",
         }
-    actual = str(locals_dict["res"]).strip()
+    actual = str(namespace["res"]).strip()
     expected = payload["expected"]
     return {
         "passed": actual == expected,
         "actual": actual,
         "error": None if actual == expected else f"Expected '{expected}', got '{actual}'",
     }
+
+
+def _load_function(payload: dict[str, Any], parsed: ast.Module) -> Any:
+    namespace: dict[str, Any] = {"__builtins__": allowed_builtins()}
+    exec(compile(parsed, filename="<generated>", mode="exec"), namespace)
+    function_name = payload["function_name"]
+    function = namespace.get(function_name)
+    if not callable(function):
+        raise ValueError(f"Function '{function_name}' not defined.")
+    return function
+
+
+def _validate_function(payload: dict[str, Any], parsed: ast.Module) -> dict[str, Any]:
+    _load_function(payload, parsed)
+    return {"passed": True, "error": None}
+
+
+def _execute_function(payload: dict[str, Any], parsed: ast.Module) -> dict[str, Any]:
+    function = _load_function(payload, parsed)
+    value = function(*payload["args"], **payload["kwargs"])
+    return {"passed": True, "value": value, "error": None}
 
 
 def main() -> None:
@@ -114,6 +120,10 @@ def main() -> None:
             result = _run_function(payload, parsed)
         elif payload["mode"] == "snippet":
             result = _run_snippet(payload, parsed)
+        elif payload["mode"] == "validate_function":
+            result = _validate_function(payload, parsed)
+        elif payload["mode"] == "execute_function":
+            result = _execute_function(payload, parsed)
         else:
             raise ValueError("unknown sandbox mode")
     except BaseException as error:
@@ -121,7 +131,17 @@ def main() -> None:
             "passed": False,
             "error": f"Execution Error: {type(error).__name__}: {error}",
         }
-    sys.stdout.write(json.dumps(result, ensure_ascii=True)[:65536])
+    try:
+        output = json.dumps(result, ensure_ascii=True)
+    except (TypeError, ValueError) as error:
+        output = json.dumps(
+            {
+                "passed": False,
+                "error": f"Execution result is not JSON-compatible: {error}",
+            },
+            ensure_ascii=True,
+        )
+    sys.stdout.write(output[:65536])
 
 
 if __name__ == "__main__":

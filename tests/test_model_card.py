@@ -9,7 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from aptivra.eval.model_card_eval import DEFAULT_HELDOUT_PROMPTS_PATH, sha256_file
+from aptivra.eval.model_card_eval import (
+    DEFAULT_HELDOUT_PROMPTS_PATH,
+    DEFAULT_HELDOUT_TEXT_PATH,
+    sha256_file,
+)
 from aptivra.eval.model_card_schema import validate_evaluation_record
 from aptivra.export.model_card import (
     generate_model_card_readme,
@@ -52,7 +56,7 @@ def test_generated_card_denies_unsupported_claims_and_marks_absent_fields() -> N
     assert "Not a usable language model" in card
 
 
-def test_release_gate_notice_present_below_gate_and_absent_above_gate() -> None:
+def test_only_fresh_evaluation_can_clear_release_gate_notice() -> None:
     base_record = _valid_record(heldout_mean=6.0, heldout_unigram_mean=4.0)
     below_card = generate_model_card_readme(
         repo_id="example/aptivra",
@@ -69,8 +73,30 @@ def test_release_gate_notice_present_below_gate_and_absent_above_gate() -> None:
         num_experts=1,
         results_record=above_record,
     )
-    assert "Not a usable language model" not in above_card
-    assert release_gate_allows_general_language_model(above_record) is True
+    assert "Not a usable language model" in above_card
+    assert release_gate_allows_general_language_model(above_record) is False
+
+    validated = validate_evaluation_record(
+        above_record,
+        minimum_trained_samples=7,
+        minimum_heldout_samples=24,
+        minimum_heldout_text_bytes=8192,
+    )
+    fresh_card = generate_model_card_readme(
+        repo_id="example/aptivra",
+        model_config=ModelConfig(),
+        num_experts=1,
+        results_record=above_record,
+        fresh_evaluation=validated,
+    )
+    assert "Not a usable language model" not in fresh_card
+    assert (
+        release_gate_allows_general_language_model(
+            above_record,
+            fresh_evaluation=validated,
+        )
+        is True
+    )
 
 
 def test_forged_partial_record_fails_closed_and_never_suppresses_notice() -> None:
@@ -96,7 +122,7 @@ def test_forged_partial_record_fails_closed_and_never_suppresses_notice() -> Non
 @pytest.mark.parametrize(
     ("path", "value", "message"),
     [
-        (("schema_version",), "aptivra.model_card_eval.v2", "literal_error"),
+        (("schema_version",), "aptivra.model_card_eval.v3", "literal_error"),
         (
             ("evaluation", "heldout_prompt_set", "sha256"),
             "f" * 64,
@@ -126,6 +152,7 @@ def test_strict_record_schema_rejects_old_partial_or_inconsistent_evidence(
             record,
             minimum_trained_samples=7,
             minimum_heldout_samples=24,
+            minimum_heldout_text_bytes=8192,
         )
 
 
@@ -156,6 +183,7 @@ def test_strict_record_schema_enforces_configured_minimum_and_count_alignment() 
             record,
             minimum_trained_samples=7,
             minimum_heldout_samples=24,
+            minimum_heldout_text_bytes=8192,
         )
 
 
@@ -171,6 +199,7 @@ def test_strict_record_schema_rejects_cross_field_inconsistencies() -> None:
                 record,
                 minimum_trained_samples=7,
                 minimum_heldout_samples=24,
+                minimum_heldout_text_bytes=8192,
             )
 
     rejected(
@@ -269,12 +298,39 @@ def test_strict_record_schema_rejects_cross_field_inconsistencies() -> None:
         ((('evaluation', 'heldout_prompt_set', 'name'), "other.json"),),
         "name does not match",
     )
+    rejected(
+        ((('evaluation', 'heldout_text_set', 'sha256'), "f" * 64),),
+        "text-set SHA-256",
+    )
+    rejected(
+        ((('evaluation', 'heldout_text_set', 'name'), "other.txt"),),
+        "text-set name",
+    )
+    rejected(
+        ((('evaluation', 'heldout_text_set', 'bytes'), 8192),),
+        "text-set and metric byte counts",
+    )
+    rejected(
+        (
+            (("evaluation", "heldout_text_set", "bytes"), 9000),
+            (("evaluation", "heldout_text_bpb", "evaluated_bytes"), 8999),
+        ),
+        "byte count does not match the bundled set",
+    )
     record = _valid_record(heldout_mean=3.0, heldout_unigram_mean=4.0)
     with pytest.raises(ValueError, match="trained prompt sample count"):
         validate_evaluation_record(
             record,
             minimum_trained_samples=8,
             minimum_heldout_samples=24,
+            minimum_heldout_text_bytes=8192,
+        )
+    with pytest.raises(ValueError, match="text byte count is below"):
+        validate_evaluation_record(
+            _valid_record(heldout_mean=3.0, heldout_unigram_mean=4.0),
+            minimum_trained_samples=7,
+            minimum_heldout_samples=24,
+            minimum_heldout_text_bytes=DEFAULT_HELDOUT_TEXT_PATH.stat().st_size + 1,
         )
 
 
@@ -320,6 +376,9 @@ def test_card_describes_transformers_loading_generation_contract_and_measured_ra
     assert "Trained-prompt answer-span BpB | range 0.01-12.7; samples 7" in card
     assert "model_card_heldout_v1.json" in card
     assert "Held-out prompt samples | 24" in card
+    assert f"Held-out text set | {DEFAULT_HELDOUT_TEXT_PATH.name}" in card
+    assert "A supplied record is only a reproducibility cross-check" in card
+    assert "They do not establish factual accuracy" in card
     assert "repository name predates the measured 15-parameter checkpoint" in card
     assert "optimistic\nbaseline bound" in card
 
@@ -429,7 +488,7 @@ def _valid_record(
         "model_safetensors_sha256": "0" * 64,
     }
     record: dict[str, object] = {
-        "schema_version": "aptivra.model_card_eval.v3",
+        "schema_version": "aptivra.model_card_eval.v4",
         "timestamp_utc": "2026-10-14T00:00:00+00:00",
         "checkpoint": {
             "model_safetensors_sha256": "0" * 64,
@@ -456,6 +515,11 @@ def _valid_record(
                 "sha256": sha256_file(DEFAULT_HELDOUT_PROMPTS_PATH),
                 "samples": 24,
             },
+            "heldout_text_set": {
+                "name": DEFAULT_HELDOUT_TEXT_PATH.name,
+                "sha256": sha256_file(DEFAULT_HELDOUT_TEXT_PATH),
+                "bytes": DEFAULT_HELDOUT_TEXT_PATH.stat().st_size,
+            },
             "trained_prompt_answer_bpb": _metric(4.0, 0.01, 12.7, 7, 4.5),
             "heldout_prompt_answer_bpb": _metric(
                 heldout_mean,
@@ -466,7 +530,7 @@ def _valid_record(
             ),
             "heldout_text_bpb": {
                 "value": 5.0,
-                "evaluated_bytes": 20,
+                "evaluated_bytes": DEFAULT_HELDOUT_TEXT_PATH.stat().st_size - 1,
                 "baselines": {
                     "uniform_bpb": 8.0,
                     "unigram_bpb": 4.2,

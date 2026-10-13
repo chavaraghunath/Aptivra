@@ -3,3 +3,5 @@ model_card_release_gate:
   heldout_bpb_unigram_margin_bits: 0.0
   minimum_trained_prompt_samples: 7
   minimum_heldout_prompt_samples: 24
+  minimum_heldout_text_bytes: 8192
+  supplied_record_metric_tolerance: 0.000001

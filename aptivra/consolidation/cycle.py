@@ -113,6 +113,8 @@ class ConsolidationCycle(BaselineTrainer):
                         "retrieval_count": record.retrieval_count,
                         "verification_count": record.verification_count,
                         "metadata": record.metadata,
+                        "answer_stop_characters": record.answer_stop_characters,
+                        "training_terminator": record.training_terminator,
                     }
                     for key, record in self.t1_store.records.items()
                 },
@@ -211,6 +213,8 @@ class ConsolidationCycle(BaselineTrainer):
             "prompt": item.prompt,
             "target_solution": item.target_solution,
             "metadata": item.metadata,
+            "answer_stop_characters": item.answer_stop_characters,
+            "training_terminator": item.training_terminator,
         }
 
     def _tensor_mappings_to_device(
@@ -339,6 +343,8 @@ class ConsolidationCycle(BaselineTrainer):
                         task_family=cand.task_family,
                         prompt=cand.prompt,
                         target_solution=cand.target_solution,
+                        answer_stop_characters=cand.answer_stop_characters,
+                        training_terminator=cand.training_terminator,
                     )
                 )
 
@@ -358,7 +364,7 @@ class ConsolidationCycle(BaselineTrainer):
 
                 for inst in batch:
                     p_toks = self.encode_text(inst.prompt)
-                    s_toks = self.encode_text(inst.target_solution + "\n")
+                    s_toks = self.encode_training_target(inst)
                     full_seq = torch.cat([p_toks, s_toks])[: self.config.max_seq_len]
 
                     target_seq = full_seq.clone()

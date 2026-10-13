@@ -22,6 +22,7 @@ from aptivra.eval.model_card_schema import (
     ConversionProvenance,
 )
 from aptivra.inference.causal_lm import AptivraCausalLM
+from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
 from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.model.config import ModelConfig
 from aptivra.tasks.identity import ModelIdentityTaskFamily
@@ -50,11 +51,8 @@ class ByteCausalModel(Protocol):
 
 
 DEFAULT_HELDOUT_PROMPTS_PATH = Path(__file__).with_name("model_card_heldout_v1.json")
-
-DEFAULT_HELDOUT_TEXT = (
-    "A model card is an audit document. It should separate measured facts from hypotheses, "
-    "mark absent evidence as not measured, and avoid unsupported capability claims."
-)
+DEFAULT_HELDOUT_TEXT_PATH = Path(__file__).with_name("model_card_heldout_text_v1.txt")
+DEFAULT_HELDOUT_TEXT = DEFAULT_HELDOUT_TEXT_PATH.read_text(encoding="utf-8")
 
 
 def default_trained_prompt_answers() -> list[PromptAnswer]:
@@ -73,6 +71,11 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_bytes(data: bytes) -> str:
+    """Computes a SHA-256 digest for an in-memory byte sequence."""
+    return hashlib.sha256(data).hexdigest()
 
 
 def _unique_tensor_count(state: dict[str, object]) -> int:
@@ -209,15 +212,17 @@ def answer_span_bits_per_byte(model: ByteCausalModel, prompt: str, answer: str) 
     if answer_ids.numel() == 0:
         raise ValueError("answer must not be empty")
     full_ids = torch.cat([prompt_ids, answer_ids], dim=0)
-    return _sequence_bits_per_byte(model, full_ids, target_start=int(prompt_ids.numel()))
+    return _bounded_sequence_bits_per_byte(
+        model, full_ids, target_start=int(prompt_ids.numel())
+    )
 
 
 def whole_text_bits_per_byte(model: ByteCausalModel, text: str) -> float:
-    """Scores each byte after the first byte in a held-out text."""
+    """Scores each byte after the first using bounded, overlapping context windows."""
     ids = _byte_ids(text)
     if ids.numel() < 2:
         raise ValueError("held-out text must contain at least two bytes")
-    return _sequence_bits_per_byte(model, ids, target_start=1)
+    return _bounded_sequence_bits_per_byte(model, ids, target_start=1)
 
 
 def summarize_bits_per_byte(values: Sequence[float]) -> dict[str, float | int]:
@@ -238,7 +243,8 @@ def evaluate_export_dir(
     trained_prompts: Sequence[PromptAnswer] | None = None,
     heldout_prompts: Sequence[PromptAnswer] | None = None,
     heldout_prompts_path: Path | None = None,
-    heldout_text: str = DEFAULT_HELDOUT_TEXT,
+    heldout_text: str | None = None,
+    heldout_text_path: Path | None = None,
     hub_revision: str | None = None,
     model_loader: Callable[[Path], ByteCausalModel] | None = None,
 ) -> dict[str, object]:
@@ -246,6 +252,8 @@ def evaluate_export_dir(
     export_path = Path(export_dir)
     if heldout_prompts is not None and heldout_prompts_path is not None:
         raise ValueError("provide heldout_prompts or heldout_prompts_path, not both")
+    if heldout_text is not None and heldout_text_path is not None:
+        raise ValueError("provide heldout_text or heldout_text_path, not both")
     prompt_set_path = heldout_prompts_path or DEFAULT_HELDOUT_PROMPTS_PATH
     if heldout_prompts is None:
         heldout = load_prompt_answers(prompt_set_path)
@@ -255,6 +263,20 @@ def evaluate_export_dir(
         heldout = list(heldout_prompts)
         prompt_set_name = "inline"
         prompt_set_sha256 = _prompt_answers_sha256(heldout)
+
+    if heldout_text is not None:
+        evaluated_text = heldout_text
+        text_set_name = "inline"
+        text_set_bytes = evaluated_text.encode("utf-8")
+        text_set_sha256 = sha256_bytes(text_set_bytes)
+    else:
+        text_set_path = heldout_text_path or DEFAULT_HELDOUT_TEXT_PATH
+        evaluated_text = text_set_path.read_text(encoding="utf-8")
+        text_set_name = text_set_path.name
+        text_set_bytes = evaluated_text.encode("utf-8")
+        text_set_sha256 = sha256_file(text_set_path)
+        if text_set_path == DEFAULT_HELDOUT_TEXT_PATH:
+            _assert_default_heldout_text_is_disjoint(evaluated_text)
 
     cfg = model_config_from_export_dir(export_path, device="cpu")
     loader = model_loader or _load_aptivra_model
@@ -315,11 +337,11 @@ def evaluate_export_dir(
     ):
         raise ValueError("config.json parameter_count must be an integer")
 
-    heldout_text_bytes = heldout_text.encode("utf-8")
+    heldout_text_bytes = evaluated_text.encode("utf-8")
     if len(heldout_text_bytes) < 2:
         raise ValueError("held-out text must contain at least two bytes")
     scored_text_bytes = heldout_text_bytes[1:]
-    heldout_text_score = whole_text_bits_per_byte(model, heldout_text)
+    heldout_text_score = whole_text_bits_per_byte(model, evaluated_text)
 
     record: dict[str, object] = {
         "schema_version": EVALUATION_SCHEMA_VERSION,
@@ -338,6 +360,11 @@ def evaluate_export_dir(
                 "name": prompt_set_name,
                 "sha256": prompt_set_sha256,
                 "samples": len(heldout),
+            },
+            "heldout_text_set": {
+                "name": text_set_name,
+                "sha256": text_set_sha256,
+                "bytes": len(text_set_bytes),
             },
             "trained_prompt_answer_bpb": _answer_metric(
                 trained_scores, trained, cfg.vocab_size
@@ -410,6 +437,22 @@ def _prompt_answers_sha256(pairs: Sequence[PromptAnswer]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _assert_default_heldout_text_is_disjoint(text: str) -> None:
+    """Assert the bundled prose/code corpus excludes known identity-training strings."""
+    training_strings: set[str] = set()
+    for instance in ModelIdentityTaskFamily().generate_instances(count=7, seed=42):
+        training_strings.add(instance.prompt)
+        training_strings.add(instance.target_solution)
+    for question, prompt, answer in IDENTITY_CHAT_TEMPLATES:
+        training_strings.update((question, prompt, answer))
+    overlaps = sorted(value for value in training_strings if value and value in text)
+    if overlaps:
+        raise AssertionError(
+            "bundled held-out text contains identity-training strings: "
+            + ", ".join(repr(value) for value in overlaps)
+        )
+
+
 def _load_aptivra_model(export_dir: Path) -> ByteCausalModel:
     cfg = model_config_from_export_dir(export_dir, device="cpu")
     lm = AptivraCausalLM.from_export_dir(export_dir, model_config=cfg)
@@ -440,6 +483,42 @@ def _sequence_bits_per_byte(
 
     start_position = target_start - 1
     prediction_logits = logits[0, start_position:-1, :]
-    targets = input_ids[0, target_start:]
+    targets = input_ids[0, target_start:].to(prediction_logits.device)
     loss = F.cross_entropy(prediction_logits, targets, reduction="sum")
     return float(loss.item() / targets.numel() / math.log(2))
+
+
+def _bounded_sequence_bits_per_byte(
+    model: ByteCausalModel,
+    ids: torch.Tensor,
+    *,
+    target_start: int,
+) -> float:
+    """Score a target suffix once using windows bounded by the model context length."""
+    if target_start <= 0:
+        raise ValueError("target_start must be positive for next-byte scoring")
+    if target_start >= ids.numel():
+        raise ValueError("target_start must point to at least one target byte")
+    context_length = model.config.max_seq_len
+    if context_length < 2:
+        raise ValueError("model context length must be at least two bytes")
+
+    target_cursor = target_start
+    total_bits = 0.0
+    total_targets = 0
+    while target_cursor < ids.numel():
+        prior_context = context_length - 1 if target_cursor == target_start else 1
+        window_start = max(0, target_cursor - prior_context)
+        window_end = min(ids.numel(), window_start + context_length)
+        local_target_start = target_cursor - window_start
+        window = ids[window_start:window_end]
+        target_count = window_end - target_cursor
+        score = _sequence_bits_per_byte(
+            model,
+            window,
+            target_start=local_target_start,
+        )
+        total_bits += score * target_count
+        total_targets += target_count
+        target_cursor = window_end
+    return total_bits / total_targets

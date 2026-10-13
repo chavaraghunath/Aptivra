@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-EVALUATION_SCHEMA_VERSION = "aptivra.model_card_eval.v3"
+EVALUATION_SCHEMA_VERSION = "aptivra.model_card_eval.v4"
 PROVENANCE_SCHEMA_VERSION = "aptivra.conversion_provenance.v1"
 PROVENANCE_FILENAME = "conversion-provenance.json"
 
@@ -96,9 +96,23 @@ class PromptSet(_StrictModel):
         return _validated_sha256(value)
 
 
+class TextSet(_StrictModel):
+    """Identity and exact byte size of a versioned held-out text corpus."""
+
+    name: str = Field(min_length=1)
+    sha256: str
+    bytes: PositiveInt
+
+    @field_validator("sha256")
+    @classmethod
+    def validate_sha256(cls, value: str) -> str:
+        return _validated_sha256(value)
+
+
 class Evaluation(_StrictModel):
     moe_enabled: bool
     heldout_prompt_set: PromptSet
+    heldout_text_set: TextSet
     trained_prompt_answer_bpb: AnswerSpanMetric
     heldout_prompt_answer_bpb: AnswerSpanMetric
     heldout_text_bpb: WholeTextMetric
@@ -107,6 +121,8 @@ class Evaluation(_StrictModel):
     def validate_heldout_counts(self) -> Evaluation:
         if self.heldout_prompt_set.samples != self.heldout_prompt_answer_bpb.samples:
             raise ValueError("held-out prompt-set and metric sample counts must match")
+        if self.heldout_text_set.bytes - 1 != self.heldout_text_bpb.evaluated_bytes:
+            raise ValueError("held-out text-set and metric byte counts must match")
         return self
 
 
@@ -216,9 +232,9 @@ class TokenizerEvidence(_StrictModel):
 
 
 class EvaluationRecord(_StrictModel):
-    """Validated v3 record that is safe to use for release decisions."""
+    """Validated v4 record that is safe to use for release decisions."""
 
-    schema_version: Literal["aptivra.model_card_eval.v3"]
+    schema_version: Literal["aptivra.model_card_eval.v4"]
     timestamp_utc: str
     checkpoint: CheckpointEvidence
     model: ModelMeasurements
@@ -242,12 +258,16 @@ def validate_evaluation_record(
     *,
     minimum_trained_samples: int,
     minimum_heldout_samples: int,
+    minimum_heldout_text_bytes: int,
     export_dir: Path | None = None,
 ) -> EvaluationRecord:
     """Validate schema, bundled evidence identity, counts, and optional export files."""
     validated = EvaluationRecord.model_validate(record)
 
-    from aptivra.eval.model_card_eval import DEFAULT_HELDOUT_PROMPTS_PATH
+    from aptivra.eval.model_card_eval import (
+        DEFAULT_HELDOUT_PROMPTS_PATH,
+        DEFAULT_HELDOUT_TEXT_PATH,
+    )
 
     prompt_set = validated.evaluation.heldout_prompt_set
     if prompt_set.name != DEFAULT_HELDOUT_PROMPTS_PATH.name:
@@ -258,6 +278,16 @@ def validate_evaluation_record(
         raise ValueError("trained prompt sample count is below the configured minimum")
     if prompt_set.samples < minimum_heldout_samples:
         raise ValueError("held-out prompt sample count is below the configured minimum")
+    text_set = validated.evaluation.heldout_text_set
+    if text_set.name != DEFAULT_HELDOUT_TEXT_PATH.name:
+        raise ValueError("held-out text-set name does not match the bundled set")
+    if text_set.sha256 != _sha256_file(DEFAULT_HELDOUT_TEXT_PATH):
+        raise ValueError("held-out text-set SHA-256 does not match the bundled set")
+    actual_text_bytes = DEFAULT_HELDOUT_TEXT_PATH.stat().st_size
+    if text_set.bytes != actual_text_bytes:
+        raise ValueError("held-out text-set byte count does not match the bundled set")
+    if text_set.bytes < minimum_heldout_text_bytes:
+        raise ValueError("held-out text byte count is below the configured minimum")
 
     if export_dir is not None:
         _validate_export_files(validated, export_dir)
