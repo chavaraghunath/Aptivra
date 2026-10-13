@@ -7,8 +7,8 @@ from typing import Any
 import yaml
 
 from aptivra.consolidation.cycle import ConsolidationConfig
+from aptivra.eval.config import load_experiment_settings
 from aptivra.model.config import ModelConfig
-from aptivra.tasks.stream import ContinualTaskStream
 from scripts.run_aptivra import run_single_aptivra
 
 
@@ -26,27 +26,31 @@ def get_ablation_configs() -> dict[str, ConsolidationConfig]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run Aptivra Phase 1 Ablations")
     parser.add_argument("--config", type=str, default="configs/backbone_50m.yaml")
+    parser.add_argument("--task-stream-config", type=str, default="configs/task_stream.yaml")
     parser.add_argument("--output", type=str, default="experiments/ablation_results.jsonl")
-    parser.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44])
+    parser.add_argument("--seeds", nargs="+", type=int)
     args = parser.parse_args()
 
     with open(args.config, encoding="utf-8") as f:
         cfg_dict: dict[str, Any] = yaml.safe_load(f)
     model_cfg = ModelConfig(**cfg_dict)
+    experiment_cfg = load_experiment_settings(args.task_stream_config)
 
     output_path = Path(args.output)
     ablations = get_ablation_configs()
 
-    for seed in args.seeds:
+    seeds = args.seeds or [experiment_cfg.task_stream.seed]
+    for seed in seeds:
         for abl_name, cons_cfg in ablations.items():
-            stream = ContinualTaskStream(
-                num_train_per_task=100,
-                num_val_per_task=20,
-                num_test_per_task=20,
-                seed=seed,
-            )
+            stream = experiment_cfg.make_stream(seed)
             print(f"Executing ablation '{abl_name}' with seed={seed}...")
-            run_single_aptivra(model_cfg, cons_cfg, stream, output_path)
+            run_single_aptivra(
+                model_cfg,
+                cons_cfg,
+                stream,
+                output_path,
+                experiment_cfg.evaluation.max_new_tokens,
+            )
 
     print(f"All ablations completed successfully. Metrics written to {output_path}")
 

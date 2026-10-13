@@ -6,6 +6,7 @@ from aptivra.tasks.base import (
     TaskFamily,
     TaskInstance,
     VerifierResult,
+    exact_match_result,
 )
 
 
@@ -13,18 +14,7 @@ class MultiTaskingVerifier(MechanicalVerifier):
     """Mechanical verifier for multi-tasking domain switching instances."""
 
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution
-        out_clean = model_output.strip()
-
-        passed = expected.lower() in out_clean.lower() or len(out_clean) > 0
-        return VerifierResult(
-            passed=passed,
-            expected=expected,
-            actual=model_output,
-            error_message=None
-            if passed
-            else "Multi-tasking output failed target domain verification",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class MultiTaskingTaskFamily(TaskFamily):

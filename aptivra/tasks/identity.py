@@ -7,6 +7,7 @@ from aptivra.tasks.base import (
     TaskFamily,
     TaskInstance,
     VerifierResult,
+    exact_match_result,
 )
 
 
@@ -14,21 +15,7 @@ class ModelIdentityVerifier(MechanicalVerifier):
     """Mechanical verifier for Aptivra self-identity and capabilities queries."""
 
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution.lower()
-        actual = model_output.strip().lower()
-
-        # Verify key identity assertions (Aptivra, Raghunath Chava, MoE, TMR)
-        passed = any(
-            kw in actual for kw in ["aptivra", "raghunath chava", "moe", "tiered memory"]
-        ) or (expected in actual)
-        return VerifierResult(
-            passed=passed,
-            expected=instance.target_solution,
-            actual=model_output,
-            error_message=None
-            if passed
-            else "Model output failed identity or capability verification",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class ModelIdentityTaskFamily(TaskFamily):

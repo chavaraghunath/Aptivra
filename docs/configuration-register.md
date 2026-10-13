@@ -12,8 +12,10 @@ row requires the setting to be genuinely gone, not merely undocumented.
 |---------|-------|------|---------|-------------|-----------|--------------|--------------|---------------------------|------------------|
 | `task_stream.num_train_per_task` | global | integer | `500` | 10–10000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.num_val_per_task` | global | integer | `100` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
-| `task_stream.num_test_per_task` | global | integer | `100` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `task_stream.num_test_per_task` | global | integer | `300` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.seed` | global | integer | `42` | 0–2^31-1 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `task_stream.max_generation_attempts` | global | integer | `100` | 1–1000 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `evaluation.max_new_tokens` | global | integer | `32` | 1–512 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `model.d_model` | global | integer | `512` | 64–2048 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.n_layers` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.n_heads` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
@@ -69,4 +71,3 @@ ADR and link it below.
 | Episodic Store Write Gate Policy | Hard invariant requiring 100% verifier correctness ($v\_result = 1$) for episodic admission | [ADR-0004](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0004-episodic-store-retrieval-method.md) |
 | Statistical Test for Promotion Gate | Mathematical decision boundary ($\alpha = 0.05$ paired statistical test) for model promotion | [ADR-0005](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0005-statistical-test-for-promotion-gate.md) |
 | Tiered Memory Runtime & Pure C Engine | Architecture for NVMe expert streaming, usage-heat expert pinning, and pure C runtime export | [ADR-0006](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0006-multitier-nvme-expert-tiering-and-c-engine.md) |
-

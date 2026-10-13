@@ -1,6 +1,7 @@
 """Consolidation Cycle execution with ablation toggles."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, override
 
 import torch
@@ -60,6 +61,71 @@ class ConsolidationCycle(BaselineTrainer):
         )
         self.optimizer = torch.optim.AdamW(params, lr=self.cons_config.lr)
         self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
+
+    def _reset_optimizer(self) -> None:
+        """Rebuild the optimizer against the currently active module parameters."""
+        params = (
+            list(self.model.parameters())
+            + list(self.router.parameters())
+            + list(self.experts.parameters())
+        )
+        self.optimizer = torch.optim.AdamW(params, lr=self.cons_config.lr)
+
+    def save_weight_snapshot(self, path: Path) -> None:
+        """Persist candidate-independent model weights to disk for promotion rollback."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        expert_metadata = [
+            {
+                "expert_id": expert.expert_id,
+                "d_expert": expert.d_expert,
+                "is_mature": expert.is_mature,
+            }
+            for expert in self.experts
+            if isinstance(expert, ExpertModule)
+        ]
+        torch.save(
+            {
+                "model_state": self.model.state_dict(),
+                "router_state": self.router.state_dict(),
+                "router_frozen_mask": self.router.frozen_mask,
+                "router_top_k": self.router.top_k,
+                "experts_state": self.experts.state_dict(),
+                "expert_metadata": expert_metadata,
+            },
+            path,
+        )
+
+    def restore_weight_snapshot(self, path: Path) -> None:
+        """Restore the promoted model, router, and expert weights from a disk snapshot."""
+        snapshot: dict[str, Any] = torch.load(
+            path, map_location=self.device, weights_only=True
+        )
+        expert_metadata: list[dict[str, Any]] = snapshot["expert_metadata"]
+        self.model.load_state_dict(snapshot["model_state"])
+
+        self.router = GatingRouter(
+            d_model=self.config.d_model,
+            initial_num_experts=len(expert_metadata),
+            top_k=int(snapshot["router_top_k"]),
+        ).to(self.device)
+        self.router.load_state_dict(snapshot["router_state"])
+        for expert_idx, is_frozen in enumerate(snapshot["router_frozen_mask"]):
+            if is_frozen:
+                self.router.freeze_expert_row(expert_idx)
+
+        restored_experts = nn.ModuleList()
+        for metadata in expert_metadata:
+            expert = ExpertModule(
+                expert_id=int(metadata["expert_id"]),
+                d_model=self.config.d_model,
+                d_expert=int(metadata["d_expert"]),
+            ).to(self.device)
+            if bool(metadata["is_mature"]):
+                expert.freeze()
+            restored_experts.append(expert)
+        self.experts = restored_experts
+        self.experts.load_state_dict(snapshot["experts_state"])
+        self._reset_optimizer()
 
     @override
     def train_task(self, task_idx: int, train_instances: list[TaskInstance]) -> dict[str, Any]:
@@ -190,12 +256,7 @@ class ConsolidationCycle(BaselineTrainer):
                 self.experts.append(new_exp)
 
                 # Recreate optimizer with new parameters
-                new_params = (
-                    list(self.model.parameters())
-                    + list(self.router.parameters())
-                    + list(self.experts.parameters())
-                )
-                self.optimizer = torch.optim.AdamW(new_params, lr=self.cons_config.lr)
+                self._reset_optimizer()
 
         # Update replay buffer reservoir
         if self.cons_config.use_replay_buffer:

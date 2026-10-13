@@ -1,8 +1,11 @@
 """Unit tests for StatisticalTester and PromotionGate."""
 
 from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
+import torch
+import torch.nn as nn
 
 from aptivra.gate.promotion_gate import PromotionGate
 from aptivra.gate.stats import StatisticalTester
@@ -86,3 +89,77 @@ def test_promotion_gate_evaluation() -> None:
     )
     assert res_reg.promoted is False
     assert "Rejected" in res_reg.diagnostics["reason"]
+
+
+class _BinaryOutputModel(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.output_logit = nn.Parameter(torch.tensor(-1.0))
+
+    def predict(self, prompt: str) -> str:
+        del prompt
+        return "B" if self.output_logit.item() > 0 else "A"
+
+
+def test_rejected_candidate_rolls_live_model_back(tmp_path: Path) -> None:
+    gate = PromotionGate(alpha=0.05)
+    model = _BinaryOutputModel()
+    snapshot_path = tmp_path / "promoted.pt"
+    torch.save(model.state_dict(), snapshot_path)
+    pre_candidate_output = model.predict("same prompt")
+
+    new_task = [TaskInstance("new", "new", "same prompt", "B")]
+    regression = [
+        TaskInstance(str(idx), "old", f"old-{idx}", "A") for idx in range(10)
+    ]
+
+    def verifier_eval(predict_fn: Callable[[str], str], insts: list[TaskInstance]) -> float:
+        return sum(predict_fn(inst.prompt) == inst.target_solution for inst in insts) / len(insts)
+
+    def loss_eval(predict_fn: Callable[[str], str], insts: list[TaskInstance]) -> np.ndarray:
+        return np.asarray(
+            [float(predict_fn(inst.prompt) != inst.target_solution) for inst in insts]
+        )
+
+    current_val_accuracy = verifier_eval(model.predict, new_task)
+    current_losses = loss_eval(model.predict, regression)
+    with torch.no_grad():
+        model.output_logit.fill_(1.0)
+    assert model.predict("same prompt") == "B"
+
+    def rollback() -> None:
+        model.load_state_dict(torch.load(snapshot_path, weights_only=True))
+
+    result = gate.evaluate_candidate_with_rollback(
+        current_val_accuracy=current_val_accuracy,
+        current_losses=current_losses,
+        cand_predict_fn=model.predict,
+        new_task_val_instances=new_task,
+        held_out_regression_suite=regression,
+        verifier_eval_fn=verifier_eval,
+        loss_eval_fn=loss_eval,
+        rollback_fn=rollback,
+    )
+
+    assert result.promoted is False
+    assert model.predict("same prompt") == pre_candidate_output
+
+
+def test_promotion_measurements_validate_first_task_and_loss_alignment() -> None:
+    gate = PromotionGate(alpha=0.05)
+    first_task = gate.evaluate_measurements(
+        current_val_accuracy=0.0,
+        candidate_val_accuracy=1.0,
+        current_losses=np.empty(0),
+        candidate_losses=np.empty(0),
+    )
+    assert first_task.promoted is True
+    assert first_task.test_used == "first_task_bypass"
+
+    with np.testing.assert_raises_regex(ValueError, "equal length"):
+        gate.evaluate_measurements(
+            current_val_accuracy=0.0,
+            candidate_val_accuracy=1.0,
+            current_losses=np.zeros(5),
+            candidate_losses=np.zeros(4),
+        )

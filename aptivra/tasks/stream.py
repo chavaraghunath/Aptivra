@@ -33,13 +33,15 @@ class ContinualTaskStream:
         self,
         num_train_per_task: int = 500,
         num_val_per_task: int = 100,
-        num_test_per_task: int = 100,
+        num_test_per_task: int = 300,
         seed: int = 42,
+        max_generation_attempts: int = 100,
     ) -> None:
         self.num_train_per_task = num_train_per_task
         self.num_val_per_task = num_val_per_task
         self.num_test_per_task = num_test_per_task
         self.seed = seed
+        self.max_generation_attempts = max_generation_attempts
 
         # Sequential task stream containing 12 task families (T1 - T12)
         self.families: list[TaskFamily] = [
@@ -75,42 +77,30 @@ class ContinualTaskStream:
             test_seed = self.seed * 1000 + idx * 10 + 3
 
             # 1. Generate train instances
-            train_instances = family.generate_instances(self.num_train_per_task, seed=train_seed)
+            train_instances = family.generate_unique_instances(
+                self.num_train_per_task,
+                seed=train_seed,
+                max_attempts=self.max_generation_attempts,
+            )
             train_hashes = {self._instance_hash(inst) for inst in train_instances}
 
             # 2. Generate val instances, ensuring 0 overlap with train
-            val_instances: list[TaskInstance] = []
-            val_hashes: set[str] = set()
-            val_subseed = val_seed
-            while len(val_instances) < self.num_val_per_task:
-                cand_instances = family.generate_instances(
-                    self.num_val_per_task * 2, seed=val_subseed
-                )
-                for inst in cand_instances:
-                    h = self._instance_hash(inst)
-                    if h not in train_hashes and h not in val_hashes:
-                        val_hashes.add(h)
-                        val_instances.append(inst)
-                        if len(val_instances) == self.num_val_per_task:
-                            break
-                val_subseed += 10000
+            val_instances = family.generate_unique_instances(
+                self.num_val_per_task,
+                seed=val_seed,
+                excluded_instances=train_instances,
+                max_attempts=self.max_generation_attempts,
+            )
+            val_hashes = {self._instance_hash(inst) for inst in val_instances}
 
             # 3. Generate test instances, ensuring 0 overlap with train & val
-            test_instances: list[TaskInstance] = []
-            test_hashes: set[str] = set()
-            test_subseed = test_seed
-            while len(test_instances) < self.num_test_per_task:
-                cand_instances = family.generate_instances(
-                    self.num_test_per_task * 2, seed=test_subseed
-                )
-                for inst in cand_instances:
-                    h = self._instance_hash(inst)
-                    if h not in train_hashes and h not in val_hashes and h not in test_hashes:
-                        test_hashes.add(h)
-                        test_instances.append(inst)
-                        if len(test_instances) == self.num_test_per_task:
-                            break
-                test_subseed += 10000
+            test_instances = family.generate_unique_instances(
+                self.num_test_per_task,
+                seed=test_seed,
+                excluded_instances=train_instances + val_instances,
+                max_attempts=self.max_generation_attempts,
+            )
+            test_hashes = {self._instance_hash(inst) for inst in test_instances}
 
             # Runtime Assertions: Enforce internal split isolation
             assert train_hashes.isdisjoint(val_hashes), (

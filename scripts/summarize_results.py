@@ -34,6 +34,15 @@ def load_jsonl(file_path: Path) -> list[dict[str, Any]]:
     return records
 
 
+def format_optional_metric(values: list[float | None]) -> str:
+    """Format a metric only when every record contains a measured value."""
+    if not values or any(value is None for value in values):
+        return "unmeasured"
+    measured = [value for value in values if value is not None]
+    mean, ci = compute_mean_ci(measured)
+    return f"{mean:.3f} ± {ci:.3f}"
+
+
 def format_table(records_by_type: dict[str, list[dict[str, Any]]]) -> str:
     """Formats markdown table summarizing average accuracy, BWT, FWT, and total FLOPs."""
     lines: list[str] = [
@@ -49,14 +58,12 @@ def format_table(records_by_type: dict[str, list[dict[str, Any]]]) -> str:
         fwts = [r["forward_transfer"] for r in recs]
         flops = [r["total_flops"] for r in recs]
 
-        m_acc, ci_acc = compute_mean_ci(accs)
-        m_bwt, ci_bwt = compute_mean_ci(bwts)
-        m_fwt, ci_fwt = compute_mean_ci(fwts)
         m_flop = float(np.mean(flops))
 
         lines.append(
-            f"| **{cfg_name}** | {m_acc:.3f} ± {ci_acc:.3f} | {m_bwt:.3f} ± {ci_bwt:.3f} | "
-            f"{m_fwt:.3f} ± {ci_fwt:.3f} | {m_flop:.2e} | {len(recs)} |"
+            f"| **{cfg_name}** | {format_optional_metric(accs)} | "
+            f"{format_optional_metric(bwts)} | {format_optional_metric(fwts)} | "
+            f"{m_flop:.2e} | {len(recs)} |"
         )
 
     return "\n".join(lines)

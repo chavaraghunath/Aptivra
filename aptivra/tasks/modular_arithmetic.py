@@ -3,7 +3,13 @@
 import random
 from typing import override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    exact_match_result,
+)
 
 
 class ModularArithmeticVerifier(MechanicalVerifier):
@@ -11,35 +17,7 @@ class ModularArithmeticVerifier(MechanicalVerifier):
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected_str = instance.target_solution.strip()
-        cleaned_output = model_output.strip().split()[-1] if model_output.strip() else ""
-
-        # Check if the output matches expected integer
-        if cleaned_output == expected_str:
-            return VerifierResult(
-                passed=True,
-                expected=expected_str,
-                actual=cleaned_output,
-            )
-
-        # Try converting both to int to be resilient to formatting
-        try:
-            expected_val = int(expected_str)
-            actual_val = int(cleaned_output)
-            passed = expected_val == actual_val
-            return VerifierResult(
-                passed=passed,
-                expected=expected_str,
-                actual=cleaned_output,
-                error_message=None if passed else f"Expected {expected_val}, got {actual_val}",
-            )
-        except ValueError:
-            return VerifierResult(
-                passed=False,
-                expected=expected_str,
-                actual=model_output.strip(),
-                error_message=f"Could not parse integer from '{model_output.strip()}'",
-            )
+        return exact_match_result(instance, model_output)
 
 
 class ModularArithmeticTaskFamily(TaskFamily):

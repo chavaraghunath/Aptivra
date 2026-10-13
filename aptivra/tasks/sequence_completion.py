@@ -3,7 +3,13 @@
 import random
 from typing import override
 
-from aptivra.tasks.base import MechanicalVerifier, TaskFamily, TaskInstance, VerifierResult
+from aptivra.tasks.base import (
+    MechanicalVerifier,
+    TaskFamily,
+    TaskInstance,
+    VerifierResult,
+    exact_match_result,
+)
 
 
 class SequenceCompletionVerifier(MechanicalVerifier):
@@ -11,22 +17,7 @@ class SequenceCompletionVerifier(MechanicalVerifier):
 
     @override
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
-        expected = instance.target_solution.strip()
-        cleaned = model_output.strip().split()[-1] if model_output.strip() else ""
-
-        passed = cleaned == expected
-        if not passed:
-            try:
-                passed = int(cleaned) == int(expected)
-            except ValueError:
-                passed = False
-
-        return VerifierResult(
-            passed=passed,
-            expected=expected,
-            actual=expected if passed else cleaned,
-            error_message=None if passed else f"Expected '{expected}', got '{cleaned}'",
-        )
+        return exact_match_result(instance, model_output)
 
 
 class SequenceCompletionTaskFamily(TaskFamily):
