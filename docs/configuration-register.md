@@ -41,6 +41,7 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `inference.chat.single_turn` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.sanitize_replies` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.max_reply_chars` | service | integer | `280` | 32–2048 | operator | yes | — | `configs/inference.yaml` | no |
+| `model_card_release_gate.heldout_bpb_unigram_margin_bits` | global | float | `0.0` | 0.0–8.0 | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 
 ## Column meanings
 
