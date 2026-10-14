@@ -21,7 +21,7 @@ from aptivra.tasks.base import (
 )
 from aptivra.tasks.stream import TaskStreamSplit
 
-HARNESS_VERSION = "continual-eval-v3"
+HARNESS_VERSION = "continual-eval-v4"
 
 
 class PredictFunction(Protocol):
@@ -74,6 +74,16 @@ class ContinualEvalHarness:
         self.stream = task_stream
         self.num_tasks = len(self.stream.families)
         self.task_names = [f.family_id for f in self.stream.families]
+        get_template_ood = getattr(self.stream, "get_template_ood_split", None)
+        self.template_ood_task_indices = (
+            [
+                index
+                for index, family in enumerate(self.stream.families)
+                if get_template_ood(family.family_id)
+            ]
+            if callable(get_template_ood)
+            else []
+        )
 
     def evaluate_task(
         self,
@@ -90,6 +100,21 @@ class ContinualEvalHarness:
                 f"Cannot measure task '{family.family_id}': evaluation split is empty."
             )
 
+        return self.evaluate_instances(predict_fn, instances)
+
+    def evaluate_template_ood_task(
+        self, predict_fn: PredictFunction, task_idx: int
+    ) -> float:
+        """Evaluate one code family on its separate held-out-template cell."""
+        family = self.stream.families[task_idx]
+        get_template_ood = getattr(self.stream, "get_template_ood_split", None)
+        if not callable(get_template_ood):
+            raise ValueError("The task stream does not provide template-OOD splits.")
+        instances: list[TaskInstance] = get_template_ood(family.family_id)
+        if not instances:
+            raise ValueError(
+                f"Task family '{family.family_id}' has no template-OOD split."
+            )
         return self.evaluate_instances(predict_fn, instances)
 
     @staticmethod
@@ -193,6 +218,12 @@ class IncrementalEvaluationRun:
             (harness.num_tasks, harness.num_tasks), np.nan, dtype=np.float64
         )
         self.random_baseline_accs = np.full(harness.num_tasks, np.nan, dtype=np.float64)
+        self.template_ood_accuracy_matrix = np.full(
+            (harness.num_tasks, harness.num_tasks), np.nan, dtype=np.float64
+        )
+        self.template_ood_random_baseline_accs = np.full(
+            harness.num_tasks, np.nan, dtype=np.float64
+        )
         self._next_cycle = 0
 
     def measure_untrained(self, predict_fn: PredictFunction) -> None:
@@ -204,6 +235,10 @@ class IncrementalEvaluationRun:
         for task_idx in range(self.harness.num_tasks):
             self.random_baseline_accs[task_idx] = self.harness.evaluate_task(
                 predict_fn, task_idx
+            )
+        for task_idx in self.harness.template_ood_task_indices:
+            self.template_ood_random_baseline_accs[task_idx] = (
+                self.harness.evaluate_template_ood_task(predict_fn, task_idx)
             )
 
     def measure_post_cycle(self, cycle_idx: int, predict_fn: PredictFunction) -> None:
@@ -221,6 +256,16 @@ class IncrementalEvaluationRun:
             self.accuracy_matrix[cycle_idx, next_task_idx] = self.harness.evaluate_task(
                 predict_fn, next_task_idx
             )
+        template_ood_indices = set(self.harness.template_ood_task_indices)
+        for task_idx in range(cycle_idx + 1):
+            if task_idx in template_ood_indices:
+                self.template_ood_accuracy_matrix[cycle_idx, task_idx] = (
+                    self.harness.evaluate_template_ood_task(predict_fn, task_idx)
+                )
+        if next_task_idx in template_ood_indices:
+            self.template_ood_accuracy_matrix[cycle_idx, next_task_idx] = (
+                self.harness.evaluate_template_ood_task(predict_fn, next_task_idx)
+            )
         self._next_cycle += 1
 
     def finalize(self, metadata: dict[str, Any] | None = None) -> ContinualLearningMetrics:
@@ -236,17 +281,25 @@ class IncrementalEvaluationRun:
             "family_roles",
             dict.fromkeys(self.harness.task_names, "skill"),
         )
+        split_sizes = {
+            "train_per_task": self.harness.stream.num_train_per_task,
+            "val_per_task": self.harness.stream.num_val_per_task,
+            "test_per_task": self.harness.stream.num_test_per_task,
+        }
+        template_ood_size = getattr(
+            self.harness.stream,
+            "num_template_ood_test_per_code_family",
+            0,
+        )
+        if template_ood_size:
+            split_sizes["template_ood_test_per_code_family"] = template_ood_size
         run_metadata: dict[str, Any] = dict(metadata or {})
         run_metadata.update(
             {
                 "harness_version": HARNESS_VERSION,
                 "rows_evaluated_per_cycle": True,
                 "evaluation_protocol": "incremental_after_each_task",
-                "split_sizes": {
-                    "train_per_task": self.harness.stream.num_train_per_task,
-                    "val_per_task": self.harness.stream.num_val_per_task,
-                    "test_per_task": self.harness.stream.num_test_per_task,
-                },
+                "split_sizes": split_sizes,
                 "task_count": self.harness.num_tasks,
                 "task_stream_version": getattr(self.harness.stream, "version", "v1"),
                 "family_roles": family_roles,
@@ -263,6 +316,20 @@ class IncrementalEvaluationRun:
                     )
                 ),
                 "observed_accuracy_cells": observed_mask,
+                "template_ood_evaluation": {
+                    "cell_label": "template-OOD",
+                    "family_ids": [
+                        self.harness.task_names[index]
+                        for index in self.harness.template_ood_task_indices
+                    ],
+                    "pooled_with_in_template_or_headline_metrics": False,
+                    "accuracy_matrix": _optional_matrix(
+                        self.template_ood_accuracy_matrix
+                    ),
+                    "random_baseline_accs": _optional_vector(
+                        self.template_ood_random_baseline_accs
+                    ),
+                },
             }
         )
         return ContinualLearningMetrics(

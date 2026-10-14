@@ -15,6 +15,12 @@ String-level split isolation did not detect these failures. V1 considered a rena
 new instance even when its normalized program and behavior were unchanged. Existing experiment
 records depend on the exact v1 bytes, so correcting v1 in place would destroy reproducibility.
 
+A follow-up prompt-shape audit found that the first v2 code test measured parameter
+generalisation inside known templates, not unseen-template code synthesis. After replacing
+generated function names, numbers, and quoted literals, T8--T12 had no test-only template except
+one T11 shape. This is a valid in-template measure, but it cannot support a broader claim that the
+model writes code for previously unseen program shapes.
+
 ## Decision
 
 Introduce an explicitly selected `v2` alongside byte-stable `v1`. Omitting
@@ -22,13 +28,17 @@ Introduce an explicitly selected `v2` alongside byte-stable `v1`. Omitting
 T1--T12 identifiers, order, split sizes, seed derivation, exact-match contracts, task-aware stop
 rules, and per-cycle evaluation schedule. Run metadata records the selected stream version,
 family roles, and headline-eligible families.
+For v2, `task_stream.roles`, `task_stream.family_roles`, and `task_stream.headline_roles` are the
+validated source of those classifications. An undeclared role, unknown or missing family ID, or a
+configuration selecting no headline family halts loading.
 
 V2 makes these changes:
 
 1. Every family rejects a validation or test target already present in an earlier split. T1 uses
    large modular answer spaces; T4 emits mixed-bracket completions; T5 emits 32-bit truth tables;
    T6 emits three-value recurrence continuations; and T7 emits complete DFA traces.
-2. T8--T12 additionally require distinct normalized Python AST hashes within and across splits.
+2. T8--T12 additionally require distinct normalized Python AST hashes within and across the
+   original train, validation, and in-template test splits.
    The normalizer erases function, argument, and local identifier spelling while retaining
    control flow, operators, literals, annotations, and statement structure. Invalid Python halts
    construction. T8 uses five executable snippet grammars; T9--T11 use eight parameterized
@@ -43,13 +53,20 @@ V2 makes these changes:
    from which one most-specific PEP 585 signature is inferable and requires the body to be
    preserved. T8--T11 verifiers accept any program that passes the prompt-visible and held-out
    executions; they do not require the target source string.
-4. T2 keeps the exact-character reverse/RLE/Caesar workload. There is no model-free evidence that
+4. Each code family has a second test cell named `template-OOD`, configurable with
+   `task_stream.num_template_ood_test_per_code_family` and defaulting to 300 items. Two new,
+   executable program shapes per family are reserved exclusively for this cell; their normalized
+   prompt templates cannot occur in train, validation, or the in-template test. Exact target and
+   normalized-AST isolation, determinacy execution, contamination, trivial-baseline, and byte
+   budget checks apply independently. The harness records a separate template-OOD matrix and
+   never pools it into the in-template matrix or headline metrics.
+5. T2 keeps the exact-character reverse/RLE/Caesar workload. There is no model-free evidence that
    redesigning it would preserve the character-editing skill while making it learnable to a
    subword model, and this task forbids model training. It is therefore labelled
    `tokenizer_sensitivity_diagnostic`, remains measured in every accuracy-matrix cycle, and is
    excluded from v2 average accuracy, BWT, FWT, and aggregate forgetting. Per-family T2 results
    remain reportable and must not be described as a learned skill.
-5. Generated-code verification continues through the resource-limited child-process runner.
+6. Generated-code verification continues through the resource-limited child-process runner.
    Audit checks are batched within that same containment boundary to avoid process-startup cost.
    T12 compares parsed ASTs, accepting formatting differences while enforcing the uniquely evidenced
    annotations and unchanged body. No verifier accepts approximate prose.
@@ -63,6 +80,10 @@ most-frequent rate. They also report exact prompt/target train-test overlap, nor
 train-test overlap for T8--T12, exact matches against identity, conversational, and canonical chat
 training strings, and three train-only baselines: most-frequent answer, prompt copy, and nearest
 training prompt by character-trigram Jaccard similarity.
+Every family additionally reports normalized template count and top-template share per split plus
+the number of test-only templates. Code families report the `template-OOD` cell separately,
+including OOD-only template count and in-template overlap. Any configured template-OOD overlap is
+an unconditional audit failure.
 
 The audit also performs a family-specific determinacy gate over every generated item. Direct
 families independently reconstruct the answer and exact prompt contract. T6 enumerates arithmetic,
@@ -78,15 +99,39 @@ T1, 107 for T6, and 14 for T8; T5/T7 uniform chance is 0.50/0.25; and structural
 2, and 2 for T9--T12. Its nearest-neighbour baseline reaches 0.64 on T5 and 0.40 on T8 in the
 configured deterministic 25-item sample.
 
-The v2 audit records 300 distinct test targets for every family, uniform chance `1/300`, zero
+The v2 audit records 300 distinct in-template test targets for every family, uniform chance
+`1/300`, zero
 exact train-test target overlap, zero normalized-AST overlap for every code family, and zero
 identity/chat contamination. Each code family has 500/100/300 distinct train/validation/test AST
 hashes. Every most-frequent and nearest-neighbour baseline scores 0; prompt copy scores 0 after
 the repaired bug corpus is regenerated. The configured v2 gate allows at most 0.05 uniform chance,
 0.10 trivial-baseline accuracy, and zero target, structural, identity/chat, ambiguous, or invalid
-items. All 900 items in each v2 family pass the determinacy gate. The v1 record marks all 900 items
+items. All 900 in-template items in each v2 family pass the determinacy gate. The v1 record marks all 900 items
 per family as lacking the new machine-checkable prompt contract and permits that frozen legacy
 defect only in the v1-specific policy; v1 remains ineligible for new claims.
+
+The new v2 template-OOD audit records 300 distinct targets and 300 distinct AST hashes for each
+code family, zero exact-target, structural, or normalized-template overlap with in-template data,
+and 300/300 determinate items per family. Each family contributes two OOD-only templates. Template
+counts and top-template shares are:
+
+| family | train | val | in-template test | test-only | template-OOD | top share train/val/test/OOD |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| T8 | 5 | 5 | 5 | 0 | 2 | 0.208 / 0.270 / 0.240 / 0.500 |
+| T9 | 13 | 13 | 12 | 0 | 2 | 0.148 / 0.200 / 0.173 / 0.523 |
+| T10 | 8 | 8 | 8 | 0 | 2 | 0.158 / 0.210 / 0.170 / 0.500 |
+| T11 | 9 | 9 | 10 | 1 | 2 | 0.140 / 0.170 / 0.157 / 0.520 |
+| T12 | 10 | 9 | 10 | 0 | 2 | 0.154 / 0.210 / 0.147 / 0.517 |
+
+The prompt-template normalizer replaces generated `f_<seed>_<index>` names, signed numeric
+literals, and non-docstring quoted literals while retaining list shape, operators, and
+prose. These counts therefore describe prompt shapes under that declared normalizer, not a proof
+of semantic distance.
+
+The v1 byte snapshot remains `81c88937debbc55c6e34e9ce42d89749301d0d2ea37829e514cbabcc740b4a19`
+(3,894,503 bytes). The original v2 in-template snapshot is unchanged before and after this
+decision: `f3a64ba884ef2c7b42f1b6b3218b9e8ad694eab0eac28e28b5c6dd67d5adf2b5`
+(9,674,700 bytes). Template-OOD records are deliberately excluded from both snapshots.
 
 `tests/test_task_stream_audit.py` recomputes v1 and v2 at configured split sizes, compares them
 byte-for-byte with the recorded JSON, and enforces the version-specific thresholds. V1 thresholds
@@ -111,14 +156,20 @@ freeze its known baseline; v2 thresholds are claim-readiness gates. Any regressi
 
 - Historical v1 experiments remain reproducible and visibly non-claim-capable.
 - V2 test answers and program structures cannot be recalled from its training split.
+- In-template parameter generalisation and held-out-template generalisation are reported as
+  distinct cells, preventing one from being described as the other.
 - Trivial train-only predictors and contamination are measured before any expensive model run.
-- T2 can diagnose tokenizer mismatch without inflating or depressing headline skill aggregates.
+- Family roles and headline inclusion can be reviewed or changed in configuration without a code
+  edit; invalid role graphs fail before stream generation.
 
 ### Negative and limitations
 
 - AST identity is a syntactic guarantee, not proof that two different ASTs have unrelated
   semantics. The executable algorithm classes and hidden cases provide an additional behavioral
   check, but only a future preregistered model experiment can establish learning difficulty.
+- Two OOD templates per family broaden the measurement but remain a small synthetic template
+  library. A high template-OOD score supports only performance on these declared shapes, not
+  unrestricted program synthesis.
 - The 25-item baseline sample is deterministic and inexpensive, not a confidence interval.
 - The simple-rule library bounds what “unambiguous” means for T6; it does not claim that a finite
   sequence has a unique continuation over all imaginable mathematical rules.
@@ -133,12 +184,13 @@ retain their original version and must never be relabelled during rollback.
 ## Retrospective
 
 The original isolation invariant tested records, not skills. The first v2 audit repeated that
-mistake in a subtler form: cardinality, overlap, and chance could all pass while prompts still failed
-to determine their labels. Human inspection of T11 exposed the gap. The prevention is now layered:
+mistake twice in subtler forms: cardinality, overlap, and chance could pass while prompts failed
+to determine labels, and AST isolation could pass while train and test reused the same prompt
+templates. Human inspection exposed both gaps. The prevention is now layered:
 prompt-visible specifications and examples, held-out behavioral verification for non-unique code,
-per-family determinacy checks, an ambiguity threshold, and a mandatory five-item human review per
-family. Batching the exhaustive code checks retained child-process containment while reducing the
-configured audit from several minutes of startup overhead to under a minute on the reference host.
+per-family determinacy checks, explicit template metrics, a separately materialized template-OOD
+cell with a zero-overlap assertion, an ambiguity threshold, and a mandatory five-item human review
+per family. Batching the exhaustive code checks retains child-process containment.
 
 ## Evidence appendix: human-read test samples
 

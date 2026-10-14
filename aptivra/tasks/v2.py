@@ -1361,6 +1361,378 @@ class TypeInferrerTaskFamilyV2(TaskFamily):
         return instances
 
 
+def _template_ood_list_cases(
+    mode: int, *, scale: int, offset: int
+) -> list[tuple[Any, Any]]:
+    """Return broad evidence cases for the template-OOD list programs."""
+    values: tuple[list[int], ...] = (
+        [],
+        [0],
+        [1],
+        [-1],
+        [1, 2],
+        [2, 1],
+        [3, -1, 3],
+        [-4, 0, 5, 2],
+    )
+    if mode == 8:
+        return [
+            (
+                list(case),
+                [
+                    [value, value * scale + offset]
+                    for value in sorted(set(case))
+                ],
+            )
+            for case in values
+        ]
+    return [
+        (
+            list(case),
+            [case[index] * scale - case[index + 1] + offset for index in range(len(case) - 1)],
+        )
+        for case in values
+    ]
+
+
+def _template_ood_list_description(mode: int, *, scale: int, offset: int) -> str:
+    if mode == 8:
+        return f"pair each unique sorted x with {scale}x plus {offset}"
+    return f"return adjacent-pair values left*{scale}-right+{offset}"
+
+
+def _template_ood_compact_list_contract(
+    mode: int, *, scale: int, offset: int
+) -> str:
+    if mode == 8:
+        return f"pair unique sorted x with {scale}*x+{offset}"
+    return f"adjacent left*{scale}-right+{offset}"
+
+
+def _generate_algo_template_ood(
+    family: TaskFamily, count: int, seed: int
+) -> list[TaskInstance]:
+    rng = random.Random(seed)
+    instances: list[TaskInstance] = []
+    for index in range(count):
+        fn = _function_name(seed, index)
+        scale = rng.randint(2, 97)
+        offset = rng.randint(101, 9_997)
+        mode = rng.choice((8, 9))
+        if mode == 8:
+            solution = (
+                f"def {fn}(xs):\n    return [[x,x*{scale}+{offset}] "
+                "for x in sorted(set(xs))]"
+            )
+        else:
+            solution = (
+                f"def {fn}(xs):\n    return [xs[i]*{scale}-xs[i+1]+{offset} "
+                "for i in range(len(xs)-1)]"
+            )
+        cases = _template_ood_list_cases(mode, scale=scale, offset=offset)
+        prompt_cases, held_out_cases = _partition_cases(
+            cases, [case[0] for case in cases]
+        )
+        naive_solution = f"def {fn}(xs):\n    return xs"
+        description = _template_ood_list_description(
+            mode, scale=scale, offset=offset
+        )
+        prompt = (
+            f"Write {fn}(xs): {description}. Examples: "
+            f"{_compact_examples(fn, prompt_cases)}\n"
+        )
+        instances.append(
+            _instance(
+                family,
+                seed,
+                index,
+                prompt,
+                solution,
+                _determinacy_metadata(
+                    "function",
+                    fn_name=fn,
+                    test_cases=prompt_cases + held_out_cases,
+                    prompt_cases=prompt_cases,
+                    held_out_cases=held_out_cases,
+                    naive_solution=naive_solution,
+                    mode=mode,
+                    divisor=2,
+                    scale=scale,
+                    threshold=0,
+                    offset=offset,
+                    description=description,
+                    template_ood=True,
+                ),
+            )
+        )
+    return instances
+
+
+def _generate_bugfix_template_ood(
+    family: TaskFamily, count: int, seed: int
+) -> list[TaskInstance]:
+    correct = _generate_algo_template_ood(family, count, seed)
+    instances: list[TaskInstance] = []
+    for index, item in enumerate(correct):
+        mode = int(item.metadata["mode"])
+        scale = int(item.metadata["scale"])
+        offset = int(item.metadata["offset"])
+        broken_outputs: list[object]
+        if mode == 8:
+            broken = item.target_solution.replace(f"+{offset}", f"-{offset}", 1)
+            broken_outputs = [
+                [
+                    [value, value * scale - offset]
+                    for value in sorted(set(case[0]))
+                ]
+                for case in item.metadata["test_cases"]
+            ]
+        else:
+            broken = item.target_solution.replace("-xs[i+1]+", "+xs[i+1]+", 1)
+            broken_outputs = [
+                [
+                    case[0][position] * scale
+                    + case[0][position + 1]
+                    + offset
+                    for position in range(len(case[0]) - 1)
+                ]
+                for case in item.metadata["test_cases"]
+            ]
+        cases: list[tuple[Any, Any]] = list(item.metadata["test_cases"])
+        prompt_cases, held_out_cases = _partition_cases(cases, broken_outputs)
+        fn = str(item.metadata["fn_name"])
+        contract = _template_ood_compact_list_contract(
+            mode, scale=scale, offset=offset
+        )
+        prompt = (
+            f"Fix {fn}(xs): {contract}. Ex: "
+            f"{_compact_io_examples(prompt_cases)}\n{broken}\n"
+        )
+        instances.append(
+            _instance(
+                family,
+                seed,
+                index,
+                prompt,
+                item.target_solution,
+                _determinacy_metadata(
+                    "function",
+                    fn_name=fn,
+                    test_cases=prompt_cases + held_out_cases,
+                    prompt_cases=prompt_cases,
+                    held_out_cases=held_out_cases,
+                    naive_solution=broken,
+                    mode=mode,
+                    divisor=2,
+                    scale=scale,
+                    threshold=0,
+                    offset=offset,
+                    template_ood=True,
+                ),
+            )
+        )
+    return instances
+
+
+def _generate_docstring_template_ood(
+    family: TaskFamily, count: int, seed: int
+) -> list[TaskInstance]:
+    rng = random.Random(seed)
+    instances: list[TaskInstance] = []
+    source_values = ["", "a", "aab", "Aptivra", "bookkeeper", "xy zzy"]
+    for index in range(count):
+        fn = _function_name(seed, index)
+        step = rng.randint(2, 7)
+        limit = rng.randint(3, 997)
+        mode = rng.choice((8, 9))
+        cases: list[tuple[Any, Any]]
+        if mode == 8:
+            doc = f"Repeat each of the first {limit} characters {step} times."
+            solution = (
+                f"def {fn}(text):\n    return [c*{step} "
+                f"for c in text[:{limit}]]"
+            )
+            cases = [
+                (value, [character * step for character in value[:limit]])
+                for value in source_values
+            ]
+        else:
+            doc = f"Join the first {limit} characters with ':' separators."
+            solution = (
+                f"def {fn}(text):\n    return ':'.join(text[:{limit}])"
+            )
+            cases = [
+                (value, ":".join(value[:limit]))
+                for value in source_values
+            ]
+        prompt_cases, held_out_cases = _partition_cases(
+            cases, [case[0] for case in cases]
+        )
+        naive_solution = f"def {fn}(text):\n    return text"
+        prompt = (
+            f'def {fn}(text):\n    """{doc} Examples: '
+            f'{_compact_io_examples(prompt_cases)}"""\n'
+        )
+        instances.append(
+            _instance(
+                family,
+                seed,
+                index,
+                prompt,
+                solution,
+                _determinacy_metadata(
+                    "function",
+                    fn_name=fn,
+                    test_cases=prompt_cases + held_out_cases,
+                    prompt_cases=prompt_cases,
+                    held_out_cases=held_out_cases,
+                    naive_solution=naive_solution,
+                    mode=mode,
+                    step=step,
+                    limit=limit,
+                    character="a",
+                    template_ood=True,
+                ),
+            )
+        )
+    return instances
+
+
+def _generate_snippet_template_ood(
+    family: TaskFamily, count: int, seed: int
+) -> list[TaskInstance]:
+    rng = random.Random(seed)
+    instances: list[TaskInstance] = []
+    for index in range(count):
+        values = [rng.randint(-30, 50) for _ in range(5)]
+        limit = rng.randint(20, 500)
+        divisor = rng.randint(2, 17)
+        offset = rng.randint(1, 19)
+        mode = rng.choice((5, 6))
+        if mode == 5:
+            prompt = (
+                f"Write Python that sets `res` to the sum of (x + {offset}) cubed "
+                f"for values x in {values} not divisible by {divisor}. Output executable code."
+            )
+            target = (
+                f"res = sum((x + {offset}) ** 3 for x in {values} "
+                f"if x % {divisor} != 0)"
+            )
+            expected: object = sum(
+                (value + offset) ** 3
+                for value in values
+                if value % divisor != 0
+            )
+        else:
+            prompt = (
+                f"Write Python that sets `res` to {values} sorted by distance from "
+                f"{offset}, breaking ties by value. Output executable code."
+            )
+            target = (
+                f"res = sorted({values}, key=lambda x: (abs(x - {offset}), x))"
+            )
+            expected = sorted(values, key=lambda value: (abs(value - offset), value))
+        instances.append(
+            _instance(
+                family,
+                seed,
+                index,
+                prompt,
+                target,
+                _determinacy_metadata(
+                    "snippet",
+                    mode=mode,
+                    expected_result=str(expected),
+                    naive_solution="res = None",
+                    limit=limit,
+                    divisor=divisor,
+                    offset=offset,
+                    values=values,
+                    template_ood=True,
+                ),
+            )
+        )
+    return instances
+
+
+def _generate_type_template_ood(
+    family: TaskFamily, count: int, seed: int
+) -> list[TaskInstance]:
+    rng = random.Random(seed)
+    instances: list[TaskInstance] = []
+    for index in range(count):
+        fn = _function_name(seed, index)
+        constant = rng.randint(2, 99_991)
+        mode = rng.choice((8, 9))
+        if mode == 8:
+            signature = "(xs,k)"
+            typed_signature = "(xs: list[int], k: int) -> list[int]"
+            body = f"return [x*k+{constant} for x in xs]"
+            argument_types = ["list[int]", "int"]
+            return_type = "list[int]"
+            cases: list[tuple[Any, Any]] = [
+                (([1], 2), [2 + constant]),
+                (([-1], 1), [-1 + constant]),
+            ]
+        else:
+            signature = "(values)"
+            typed_signature = "(values: tuple[int, ...]) -> int"
+            body = f"return sum(values) + {constant}"
+            argument_types = ["tuple[int, ...]"]
+            return_type = "int"
+            cases = [(((1, -2),), -1 + constant), (((0,),), constant)]
+        untyped_source = f"def {fn}{signature}:\n    {body}"
+        target = f"def {fn}{typed_signature}:\n    {body}"
+        if mode == 8:
+            naive_signature = "(xs: object, k: object) -> object"
+        else:
+            naive_signature = "(values: object) -> object"
+        naive = f"def {fn}{naive_signature}:\n    {body}"
+        prompt = (
+            "Infer most-specific PEP585 types; keep body. "
+            f"Ex: {_compact_io_examples(cases)}\n{untyped_source}\n"
+        )
+        instances.append(
+            _instance(
+                family,
+                seed,
+                index,
+                prompt,
+                target,
+                _determinacy_metadata(
+                    "typed_function",
+                    fn_name=fn,
+                    prompt_cases=cases,
+                    held_out_cases=cases,
+                    naive_solution=naive,
+                    argument_types=argument_types,
+                    return_type=return_type,
+                    untyped_source=untyped_source,
+                    mode=mode,
+                    template_ood=True,
+                ),
+            )
+        )
+    return instances
+
+
+def generate_template_ood_instances(
+    family: TaskFamily, count: int, seed: int
+) -> list[TaskInstance]:
+    """Generate code-family items whose prompt templates are absent from train/val."""
+    if isinstance(family, BugFixerTaskFamilyV2):
+        return _generate_bugfix_template_ood(family, count, seed)
+    if isinstance(family, PythonMicroSynthTaskFamilyV2):
+        return _generate_snippet_template_ood(family, count, seed)
+    if isinstance(family, AlgoSynthTaskFamilyV2):
+        return _generate_algo_template_ood(family, count, seed)
+    if isinstance(family, DocstringToCodeTaskFamilyV2):
+        return _generate_docstring_template_ood(family, count, seed)
+    if isinstance(family, TypeInferrerTaskFamilyV2):
+        return _generate_type_template_ood(family, count, seed)
+    raise ValueError(f"Task family '{family.family_id}' has no template-OOD generator.")
+
+
 def v2_families() -> list[TaskFamily]:
     """Return the ordered v2 stream family registry."""
     return [

@@ -14,8 +14,12 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `task_stream.num_train_per_task` | global | integer | `500` | 10–10000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.num_val_per_task` | global | integer | `100` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.num_test_per_task` | global | integer | `300` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `task_stream.num_template_ood_test_per_code_family` | global | integer | `300` for v2; `0` for v1 | v2: 5–2000; v1: 0–2000 | researcher | yes | `v2` selection | `configs/task_stream_v2.yaml` | no |
 | `task_stream.seed` | global | integer | `42` | 0–2^31-1 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.max_generation_attempts` | global | integer | `100` | 1–1000 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `task_stream.roles` | global | list of strings | `skill`, `tokenizer_sensitivity_diagnostic` | non-empty, unique role names; every family/headline role must reference one | researcher | yes | `v2` selection | `configs/task_stream_v2.yaml` | no |
+| `task_stream.family_roles` | per task family | mapping of family ID to role | T2 diagnostic; all other v2 families skill | exactly every known family ID; values must exist in `task_stream.roles` | researcher | yes | `v2` selection | `configs/task_stream_v2.yaml` | no |
+| `task_stream.headline_roles` | global | list of role names | `skill` | non-empty subset of `task_stream.roles`; must select at least one configured family | researcher | yes | `v2` selection | `configs/task_stream_v2.yaml` | no |
 | `evaluation.max_new_tokens` | global | integer | `128` | 1–512 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream_audit.baseline_sample_size` | global | integer | `25` | 1 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
 | `task_stream_audit.streams[].policy.max_target_overlap_count` | per stream version | integer | `v1: 107`; `v2: 0` | 0 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |

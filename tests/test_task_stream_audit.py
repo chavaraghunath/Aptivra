@@ -26,6 +26,15 @@ def test_recorded_v1_and_v2_audits_are_current_and_pass_policy() -> None:
         record = json.loads(entry.output.read_text(encoding="utf-8"))
         assert record["passed"] is True
         assert len(record["families"]) == 12
+        for family in record["families"]:
+            assert "template_diversity" in family
+        if record["stream_version"] == "v2":
+            for family in record["families"][7:]:
+                diversity = family["template_diversity"]
+                assert diversity["template_ood_in_template_overlap"] == 0
+                assert diversity["template_ood_only_templates"] >= 2
+                assert family["splits"]["template-OOD"]["instances"] == 300
+                assert family["template_ood_determinacy"]["valid_items"] == 300
 
 
 def test_strict_v2_policy_rejects_known_v1_defects() -> None:

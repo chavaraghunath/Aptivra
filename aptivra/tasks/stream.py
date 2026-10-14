@@ -1,6 +1,9 @@
 """Continual Task Stream Manager with Disjoint Splits and Contamination Safeguards."""
 
 import hashlib
+import re
+from collections.abc import Callable, Collection, Mapping
+from functools import partial
 from typing import Literal, NamedTuple
 
 from aptivra.tasks.algo_synth import AlgoSynthTaskFamily
@@ -18,6 +21,27 @@ from aptivra.tasks.syntax_matching import SyntaxMatchingTaskFamily
 from aptivra.tasks.type_inferrer import TypeInferrerTaskFamily
 
 TaskStreamVersion = Literal["v1", "v2"]
+CODE_FAMILY_IDS = frozenset(
+    {
+        "T8_python_microsynth",
+        "T9_algo_synth",
+        "T10_docstring_code",
+        "T11_bug_fixer",
+        "T12_type_inferrer",
+    }
+)
+_FUNCTION_NAME_PATTERN = re.compile(r"\bf_[0-9a-f]+_[0-9a-f]+\b")
+_QUOTED_STRING_PATTERN = re.compile(
+    r"'(?:\\.|[^'\\])*'|\"(?!\"\")(?:\\.|[^\"\\])*\""
+)
+_NUMBER_PATTERN = re.compile(r"(?<![A-Za-z_])-?\d+(?:\.\d+)?")
+
+
+def normalized_prompt_template(prompt: str) -> str:
+    """Normalize generated parameters while retaining the prompt's program shape."""
+    normalized = _FUNCTION_NAME_PATTERN.sub("F", prompt)
+    normalized = _QUOTED_STRING_PATTERN.sub("'S'", normalized)
+    return _NUMBER_PATTERN.sub("#", normalized)
 
 
 class TaskStreamSplit(NamedTuple):
@@ -36,13 +60,22 @@ class ContinualTaskStream:
         num_train_per_task: int = 500,
         num_val_per_task: int = 100,
         num_test_per_task: int = 300,
+        num_template_ood_test_per_code_family: int | None = None,
         seed: int = 42,
         max_generation_attempts: int = 100,
         version: TaskStreamVersion = "v1",
+        family_roles: Mapping[str, str] | None = None,
+        headline_roles: Collection[str] | None = None,
     ) -> None:
         self.num_train_per_task = num_train_per_task
         self.num_val_per_task = num_val_per_task
         self.num_test_per_task = num_test_per_task
+        if num_template_ood_test_per_code_family is None:
+            self.num_template_ood_test_per_code_family = 300 if version == "v2" else 0
+        else:
+            self.num_template_ood_test_per_code_family = (
+                num_template_ood_test_per_code_family
+            )
         self.seed = seed
         self.max_generation_attempts = max_generation_attempts
         self.version = version
@@ -58,21 +91,34 @@ class ContinualTaskStream:
         else:
             raise ValueError(f"Unsupported task stream version '{version}'.")
 
-        self.family_roles = {
-            family.family_id: (
-                "tokenizer_sensitivity_diagnostic"
-                if version == "v2" and family.family_id == "T2_string_transforms"
-                else "skill"
-            )
-            for family in self.families
-        }
+        family_ids = {family.family_id for family in self.families}
+        if family_roles is None:
+            self.family_roles = dict.fromkeys(family_ids, "skill")
+        else:
+            unknown_family_ids = set(family_roles) - family_ids
+            missing_family_ids = family_ids - set(family_roles)
+            if unknown_family_ids:
+                raise ValueError(
+                    "Family roles contain unknown family IDs: "
+                    + ", ".join(sorted(unknown_family_ids))
+                )
+            if missing_family_ids:
+                raise ValueError(
+                    "Family roles are missing family IDs: "
+                    + ", ".join(sorted(missing_family_ids))
+                )
+            self.family_roles = dict(family_roles)
+        selected_headline_roles = set(headline_roles or {"skill"})
         self.headline_task_indices = [
             index
             for index, family in enumerate(self.families)
-            if self.family_roles[family.family_id] == "skill"
+            if self.family_roles[family.family_id] in selected_headline_roles
         ]
+        if not self.headline_task_indices:
+            raise ValueError("At least one task family must be headline-eligible.")
 
         self._splits: dict[str, TaskStreamSplit] = {}
+        self._template_ood_splits: dict[str, list[TaskInstance]] = {}
         self._held_out_regression_suite: dict[str, list[TaskInstance]] = {}
         self._generate_all_splits()
 
@@ -186,6 +232,43 @@ class ContinualTaskStream:
             self._splits[family.family_id] = split
             self._held_out_regression_suite[family.family_id] = test_instances
 
+        if self.num_template_ood_test_per_code_family <= 0:
+            return
+        from aptivra.tasks.v2 import generate_template_ood_instances
+
+        for idx, family in enumerate(self.families):
+            if family.family_id not in CODE_FAMILY_IDS:
+                continue
+            split = self._splits[family.family_id]
+            in_template_instances = split.train + split.val + split.test
+            template_ood_instances = self._generate_v2_unique(
+                family,
+                self.num_template_ood_test_per_code_family,
+                self.seed * 1000 + idx * 10 + 4,
+                excluded_instances=in_template_instances,
+                structural=True,
+                generator=partial(generate_template_ood_instances, family),
+            )
+            in_template_ids = {
+                normalized_prompt_template(item.prompt)
+                for item in in_template_instances
+            }
+            template_ood_ids = {
+                normalized_prompt_template(item.prompt)
+                for item in template_ood_instances
+            }
+            overlap = in_template_ids & template_ood_ids
+            if overlap:
+                raise ValueError(
+                    f"V2 template-OOD split for '{family.family_id}' overlaps "
+                    f"{len(overlap)} in-template prompt templates."
+                )
+            self._template_ood_splits[family.family_id] = template_ood_instances
+            self._held_out_regression_suite[family.family_id] = (
+                self._held_out_regression_suite[family.family_id]
+                + template_ood_instances
+            )
+
     def _generate_v2_unique(
         self,
         family: TaskFamily,
@@ -194,6 +277,7 @@ class ContinualTaskStream:
         *,
         excluded_instances: list[TaskInstance] | None = None,
         structural: bool,
+        generator: Callable[[int, int], list[TaskInstance]] | None = None,
     ) -> list[TaskInstance]:
         """Generate a v2 split with exact-target and optional AST isolation."""
         from aptivra.tasks.structure import structural_hash
@@ -215,9 +299,8 @@ class ContinualTaskStream:
             remaining = count - len(selected)
             if remaining <= 0:
                 return selected
-            candidates = family.generate_instances(
-                max(remaining * 2, 1), seed + attempt * 10_000
-            )
+            generate = generator or family.generate_instances
+            candidates = generate(max(remaining * 2, 1), seed + attempt * 10_000)
             for candidate in candidates:
                 pair = (candidate.prompt, candidate.target_solution)
                 if (
@@ -256,6 +339,12 @@ class ContinualTaskStream:
         if family_id not in self._splits:
             raise KeyError(f"Task family '{family_id}' not found in stream.")
         return self._splits[family_id]
+
+    def get_template_ood_split(self, family_id: str) -> list[TaskInstance]:
+        """Return the separate held-out-template test cell for one code family."""
+        if family_id not in {family.family_id for family in self.families}:
+            raise KeyError(f"Task family '{family_id}' not found in stream.")
+        return self._template_ood_splits.get(family_id, [])
 
     def get_held_out_regression_suite(self, up_to_task_idx: int) -> list[TaskInstance]:
         """Returns held-out test instances for all tasks up to up_to_task_idx (inclusive)."""

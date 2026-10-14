@@ -215,7 +215,7 @@ def test_eval_harness(tmp_path: Path) -> None:
         data = json.loads(line)
         assert data["average_accuracy"] == 1.0
         assert "backward_transfer" in data
-        assert data["metadata"]["harness_version"] == "continual-eval-v3"
+        assert data["metadata"]["harness_version"] == "continual-eval-v4"
 
 
 def test_harness_refuses_accuracy_when_verifier_could_not_run(

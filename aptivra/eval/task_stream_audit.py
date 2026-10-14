@@ -22,18 +22,16 @@ from aptivra.tasks.code_sandbox import (
 )
 from aptivra.tasks.conversational import ConversationalTaskFamily
 from aptivra.tasks.identity import ModelIdentityTaskFamily
-from aptivra.tasks.stream import ContinualTaskStream, TaskStreamSplit
+from aptivra.tasks.stream import (
+    CODE_FAMILY_IDS,
+    ContinualTaskStream,
+    TaskStreamSplit,
+    normalized_prompt_template,
+)
 from aptivra.tasks.structure import structural_hash
 from aptivra.tasks.v2 import _eval_boolean_expression, simple_sequence_continuations
 
-AUDIT_SCHEMA = "aptivra-task-stream-audit-v2"
-CODE_FAMILY_IDS = {
-    "T8_python_microsynth",
-    "T9_algo_synth",
-    "T10_docstring_code",
-    "T11_bug_fixer",
-    "T12_type_inferrer",
-}
+AUDIT_SCHEMA = "aptivra-task-stream-audit-v3"
 
 
 @dataclass(frozen=True)
@@ -178,6 +176,17 @@ def _split_metrics(instances: list[TaskInstance]) -> dict[str, object]:
     }
 
 
+def _template_metrics(instances: list[TaskInstance]) -> dict[str, object]:
+    """Count normalized prompt shapes and their concentration."""
+    counts = Counter(normalized_prompt_template(item.prompt) for item in instances)
+    return {
+        "template_count": len(counts),
+        "top_template_share": (
+            max(counts.values()) / len(instances) if instances else None
+        ),
+    }
+
+
 def _training_contamination_strings() -> set[str]:
     strings: set[str] = set()
     for family in (ModelIdentityTaskFamily(), ConversationalTaskFamily()):
@@ -221,11 +230,13 @@ def trivial_baseline_scores(
     family: TaskFamily,
     split: TaskStreamSplit,
     sample_size: int,
+    *,
+    test_instances: list[TaskInstance] | None = None,
 ) -> dict[str, object]:
     """Score train-only trivial predictors on a deterministic test prefix."""
     if not split.train:
         raise ValueError(f"Family '{family.family_id}' has no training instances.")
-    sample = split.test[:sample_size]
+    sample = (split.test if test_instances is None else test_instances)[:sample_size]
     target_counts = Counter(item.target_solution for item in split.train)
     most_frequent = min(
         target_counts,
@@ -522,6 +533,7 @@ def _snippet_expected(instance: TaskInstance) -> str | None:
     limit = int(metadata["limit"])
     divisor = int(metadata["divisor"])
     offset = int(metadata["offset"])
+    value: object
     if mode == 0:
         if str(limit) not in instance.prompt or str(divisor) not in instance.prompt:
             return None
@@ -553,6 +565,14 @@ def _snippet_expected(instance: TaskInstance) -> str | None:
             value = max(values) - min(values)
         elif mode == 4:
             value = sum(number * number for number in values if number > 0)
+        elif mode == 5:
+            value = sum(
+                (number + offset) ** 3
+                for number in values
+                if number % divisor != 0
+            )
+        elif mode == 6:
+            value = sorted(values, key=lambda number: (abs(number - offset), number))
         else:
             return None
     return str(value)
@@ -589,6 +609,10 @@ def _compact_list_contract(metadata: dict[str, Any]) -> str:
         return f"first {offset % 5} unique x ordered by abs(x-{threshold})"
     if mode == 6:
         return f"even i: {scale}*x+{offset}; odd i: {offset}-x"
+    if mode == 8:
+        return f"pair unique sorted x with {scale}*x+{offset}"
+    if mode == 9:
+        return f"adjacent left*{scale}-right+{offset}"
     return f"sum abs(x-{threshold})*{scale} +{offset}"
 
 
@@ -615,6 +639,10 @@ def _list_contract_description(metadata: dict[str, Any]) -> str:
         )
     if mode == 6:
         return f"return alternating signed values scaled by {scale}, offset by {offset}"
+    if mode == 8:
+        return f"pair each unique sorted x with {scale}x plus {offset}"
+    if mode == 9:
+        return f"return adjacent-pair values left*{scale}-right+{offset}"
     return f"sum absolute deviations from {threshold}, scaled by {scale}, plus {offset}"
 
 
@@ -637,6 +665,10 @@ def _string_contract_doc(metadata: dict[str, Any]) -> str:
         return f"Return odd-index characters from the first {limit}, reversed."
     if mode == 6:
         return f"Replace vowels with '{character}' in the first {limit} characters."
+    if mode == 8:
+        return f"Repeat each of the first {limit} characters {step} times."
+    if mode == 9:
+        return f"Join the first {limit} characters with ':' separators."
     return f"Append the decimal length multiplied by {step}."
 
 
@@ -675,11 +707,24 @@ def _code_prompt_exposes_contract(
                 f"Write Python that sets `res` to max(values) - min(values) for {values}. "
                 "Output executable code."
             )
-        else:
+        elif mode == 4:
             expected_prompt = (
                 f"Write Python that sets `res` to the sum of x*x for strictly positive "
                 f"values x in {values}. Output executable code."
             )
+        elif mode == 5:
+            expected_prompt = (
+                f"Write Python that sets `res` to the sum of (x + {offset}) cubed "
+                f"for values x in {values} not divisible by {divisor}. "
+                "Output executable code."
+            )
+        elif mode == 6:
+            expected_prompt = (
+                f"Write Python that sets `res` to {values} sorted by distance from "
+                f"{offset}, breaking ties by value. Output executable code."
+            )
+        else:
+            return False
         return instance.prompt == expected_prompt
     if function_name is None:
         return False
@@ -908,10 +953,13 @@ def _family_audit(
     contamination_strings: set[str],
 ) -> dict[str, object]:
     split = stream.get_split(family.family_id)
+    template_ood = stream.get_template_ood_split(family.family_id)
     train_prompts = {item.prompt for item in split.train}
     test_prompts = {item.prompt for item in split.test}
     train_targets = {item.target_solution for item in split.train}
     test_targets = {item.target_solution for item in split.test}
+    template_ood_prompts = {item.prompt for item in template_ood}
+    template_ood_targets = {item.target_solution for item in template_ood}
     structural_applicable = family.family_id in CODE_FAMILY_IDS
     train_structures = {
         fingerprint
@@ -923,11 +971,25 @@ def _family_audit(
         for item in split.test
         if (fingerprint := structural_hash(item.target_solution)) is not None
     }
+    template_ood_structures = {
+        fingerprint
+        for item in template_ood
+        if (fingerprint := structural_hash(item.target_solution)) is not None
+    }
+    train_templates = {
+        normalized_prompt_template(item.prompt) for item in split.train
+    }
+    val_templates = {normalized_prompt_template(item.prompt) for item in split.val}
+    test_templates = {normalized_prompt_template(item.prompt) for item in split.test}
+    template_ood_templates = {
+        normalized_prompt_template(item.prompt) for item in template_ood
+    }
     contamination: dict[str, dict[str, int]] = {}
     for split_name, instances in (
         ("train", split.train),
         ("val", split.val),
         ("test", split.test),
+        ("template-OOD", template_ood),
     ):
         contamination[split_name] = {
             "prompt_matches": sum(
@@ -937,6 +999,13 @@ def _family_audit(
                 item.target_solution in contamination_strings for item in instances
             ),
         }
+    split_metrics = {
+        "train": _split_metrics(split.train),
+        "val": _split_metrics(split.val),
+        "test": _split_metrics(split.test),
+    }
+    if template_ood:
+        split_metrics["template-OOD"] = _split_metrics(template_ood)
     return {
         "family_id": family.family_id,
         "role": stream.family_roles[family.family_id],
@@ -944,10 +1013,20 @@ def _family_audit(
         in {
             stream.families[index].family_id for index in stream.headline_task_indices
         },
-        "splits": {
-            "train": _split_metrics(split.train),
-            "val": _split_metrics(split.val),
-            "test": _split_metrics(split.test),
+        "splits": split_metrics,
+        "template_diversity": {
+            "train": _template_metrics(split.train),
+            "val": _template_metrics(split.val),
+            "test": _template_metrics(split.test),
+            "template-OOD": _template_metrics(template_ood),
+            "test_only_templates": len(test_templates - train_templates - val_templates),
+            "template_ood_only_templates": len(
+                template_ood_templates - train_templates - val_templates - test_templates
+            ),
+            "template_ood_in_template_overlap": len(
+                template_ood_templates
+                & (train_templates | val_templates | test_templates)
+            ),
         },
         "train_test_overlap": {
             "exact_prompts": len(train_prompts & test_prompts),
@@ -964,9 +1043,33 @@ def _family_audit(
                 len(test_structures) if structural_applicable else None
             ),
         },
+        "train_template_ood_overlap": {
+            "exact_prompts": len(train_prompts & template_ood_prompts),
+            "exact_targets": len(train_targets & template_ood_targets),
+            "structural_targets": (
+                len(train_structures & template_ood_structures)
+                if structural_applicable and template_ood
+                else None
+            ),
+            "distinct_template_ood_structures": (
+                len(template_ood_structures)
+                if structural_applicable and template_ood
+                else None
+            ),
+        },
         "identity_chat_contamination": contamination,
         "trivial_baselines": trivial_baseline_scores(family, split, sample_size),
+        "template_ood_trivial_baselines": (
+            trivial_baseline_scores(
+                family, split, sample_size, test_instances=template_ood
+            )
+            if template_ood
+            else None
+        ),
         "determinacy": _determinacy_metrics(split.train + split.val + split.test),
+        "template_ood_determinacy": (
+            _determinacy_metrics(template_ood) if template_ood else None
+        ),
     }
 
 
@@ -1008,16 +1111,51 @@ def audit_stream(
                 f"{family_id}: structural overlap {structural_overlap} exceeds "
                 f"{policy.max_structural_overlap_count}"
             )
+        template_ood_overlap = family["train_template_ood_overlap"]
+        assert isinstance(template_ood_overlap, dict)
+        template_ood_target_overlap = template_ood_overlap["exact_targets"]
+        template_ood_structural_overlap = template_ood_overlap["structural_targets"]
+        if (
+            isinstance(template_ood_target_overlap, int)
+            and template_ood_target_overlap > policy.max_target_overlap_count
+        ):
+            violations.append(
+                f"{family_id}: train/template-OOD target overlap "
+                f"{template_ood_target_overlap} exceeds "
+                f"{policy.max_target_overlap_count}"
+            )
+        if (
+            isinstance(template_ood_structural_overlap, int)
+            and template_ood_structural_overlap
+            > policy.max_structural_overlap_count
+        ):
+            violations.append(
+                f"{family_id}: train/template-OOD structural overlap "
+                f"{template_ood_structural_overlap} exceeds "
+                f"{policy.max_structural_overlap_count}"
+            )
+        template_diversity = family["template_diversity"]
+        assert isinstance(template_diversity, dict)
+        template_overlap = int(
+            template_diversity["template_ood_in_template_overlap"]
+        )
+        if template_overlap:
+            violations.append(
+                f"{family_id}: template-OOD overlap {template_overlap} must be zero"
+            )
         splits = family["splits"]
         assert isinstance(splits, dict)
-        test_metrics = splits["test"]
-        assert isinstance(test_metrics, dict)
-        chance = test_metrics["uniform_target_chance"]
-        if isinstance(chance, float) and chance > policy.max_uniform_chance:
-            violations.append(
-                f"{family_id}: uniform chance {chance:.6f} exceeds "
-                f"{policy.max_uniform_chance:.6f}"
-            )
+        for split_name in ("test", "template-OOD"):
+            test_metrics = splits.get(split_name)
+            if test_metrics is None:
+                continue
+            assert isinstance(test_metrics, dict)
+            chance = test_metrics["uniform_target_chance"]
+            if isinstance(chance, float) and chance > policy.max_uniform_chance:
+                violations.append(
+                    f"{family_id} {split_name}: uniform chance {chance:.6f} exceeds "
+                    f"{policy.max_uniform_chance:.6f}"
+                )
         contamination = family["identity_chat_contamination"]
         assert isinstance(contamination, dict)
         contamination_count = 0
@@ -1030,32 +1168,43 @@ def audit_stream(
                 f"{family_id}: identity/chat contamination {contamination_count} exceeds "
                 f"{policy.max_identity_chat_contamination_count}"
             )
-        baselines = family["trivial_baselines"]
-        assert isinstance(baselines, dict)
-        for baseline in (
-            "most_frequent_answer",
-            "copy_prompt",
-            "nearest_training_prompt",
+        for cell_name, baselines in (
+            ("test", family["trivial_baselines"]),
+            ("template-OOD", family["template_ood_trivial_baselines"]),
         ):
-            score = baselines[baseline]
-            if (
-                isinstance(score, float)
-                and score > policy.max_trivial_baseline_accuracy
+            if baselines is None:
+                continue
+            assert isinstance(baselines, dict)
+            for baseline in (
+                "most_frequent_answer",
+                "copy_prompt",
+                "nearest_training_prompt",
             ):
+                score = baselines[baseline]
+                if (
+                    isinstance(score, float)
+                    and score > policy.max_trivial_baseline_accuracy
+                ):
+                    violations.append(
+                        f"{family_id} {cell_name}: {baseline} accuracy "
+                        f"{score:.6f} exceeds "
+                        f"{policy.max_trivial_baseline_accuracy:.6f}"
+                    )
+        for cell_name, determinacy in (
+            ("in-template", family["determinacy"]),
+            ("template-OOD", family["template_ood_determinacy"]),
+        ):
+            if determinacy is None:
+                continue
+            assert isinstance(determinacy, dict)
+            ambiguous_count = int(determinacy["ambiguous_items"])
+            invalid_count = int(determinacy["invalid_items"])
+            failure_count = ambiguous_count + invalid_count
+            if failure_count > policy.max_ambiguous_item_count:
                 violations.append(
-                    f"{family_id}: {baseline} accuracy {score:.6f} exceeds "
-                    f"{policy.max_trivial_baseline_accuracy:.6f}"
+                    f"{family_id} {cell_name}: ambiguous/invalid item count "
+                    f"{failure_count} exceeds {policy.max_ambiguous_item_count}"
                 )
-        determinacy = family["determinacy"]
-        assert isinstance(determinacy, dict)
-        ambiguous_count = int(determinacy["ambiguous_items"])
-        invalid_count = int(determinacy["invalid_items"])
-        failure_count = ambiguous_count + invalid_count
-        if failure_count > policy.max_ambiguous_item_count:
-            violations.append(
-                f"{family_id}: ambiguous/invalid item count {failure_count} exceeds "
-                f"{policy.max_ambiguous_item_count}"
-            )
     return {
         "schema": AUDIT_SCHEMA,
         "stream_version": stream.version,
@@ -1065,6 +1214,7 @@ def audit_stream(
             "train": stream.num_train_per_task,
             "val": stream.num_val_per_task,
             "test": stream.num_test_per_task,
+            "template-OOD": stream.num_template_ood_test_per_code_family,
         },
         "policy": asdict(policy),
         "passed": not violations,
