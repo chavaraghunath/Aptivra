@@ -185,19 +185,39 @@ Before any commit — no exceptions, no bypasses (`--no-verify` is forbidden):
 - **Linting passes** with zero errors (e.g. ruff / eslint).
 - **The build succeeds** for every layer of the stack.
 
-Run the concrete commands for this repository's stack (fill in below). **Skipping quality gates is a Shokunin violation. There is no shortcut that preserves integrity.**
+Run the concrete commands for this repository's stack. **Skipping quality gates is a Shokunin violation. There is no shortcut that preserves integrity.**
 
 ```bash
-# Fill in the exact gate commands for Aptivra's stack, e.g.:
-# pre-commit run --all-files
-# pytest --cov --cov-fail-under=90     # or: vitest run --coverage
-# mypy .                               # or: tsc --noEmit
-# ruff check .                         # or: eslint .
-# npx stryker run                      # JS/TS mutation testing (breaks < 90%)
-# mutmut run                           # Python mutation testing (local iteration)
-# cr-rate session.sqlite --estimate --fail-over 10   # Python CI gate (>= 90% kill rate)
-# cargo mutants --check --minimum-test-timeout 30    # Rust CI gate (>= 90% kill rate)
+uv lock --check
+scripts/run-project-tool pre-commit run --all-files
+scripts/run-project-tool pytest -q -p no:cacheprovider --cov-fail-under=90
+scripts/run-project-tool ruff check .
+scripts/run-project-tool mypy --strict aptivra
+make -C multitier_c
+
+# Local mutation iteration. mutmut selects tests by recorded source dependencies.
+scripts/run-project-tool mutmut run
+
+# Repo-wide Cosmic Ray gate. CI runs the same sessions as a four-way matrix.
+MUTATION_SESSIONS="$(mktemp -d)"
+trap 'rm -rf "$MUTATION_SESSIONS"' EXIT
+for config in mutation/cosmic-ray/*.toml; do
+  name="$(basename "$config" .toml)"
+  session="$MUTATION_SESSIONS/$name.sqlite"
+  scripts/run-project-tool cosmic-ray baseline "$config"
+  scripts/run-project-tool cosmic-ray init "$config" "$session"
+  mutant_count="$(scripts/run-project-tool cosmic-ray dump "$session" | wc -l | tr -d ' ')"
+  if [ "$mutant_count" -eq 0 ]; then
+    continue
+  fi
+  scripts/run-project-tool cosmic-ray exec "$config" "$session"
+  scripts/run-project-tool cr-rate "$session" --estimate --fail-over 10
+done
 ```
+
+`scripts/run-project-tool` requires `uv` and a locked development environment created with
+`uv sync --frozen --extra dev`. In a linked Git worktree it resolves and reuses the primary
+checkout's `.venv` without modifying it; activation and machine-specific paths are unnecessary.
 
 ---
 

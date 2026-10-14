@@ -1,0 +1,84 @@
+name: Mutation testing
+
+on:
+  pull_request:
+    paths:
+      - "aptivra/**/*.py"
+      - "tests/**/*.py"
+      - "mutation/**/*.toml"
+      - "scripts/run-project-tool"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/mutation-testing.yml"
+  push:
+    paths:
+      - "aptivra/**/*.py"
+      - "tests/**/*.py"
+      - "mutation/**/*.toml"
+      - "scripts/run-project-tool"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/mutation-testing.yml"
+
+concurrency:
+  group: mutation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cosmic-ray:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        session:
+          - agents
+          - ambient
+          - baselines
+          - benchmarks
+          - consolidation
+          - embodied
+          - eval
+          - experts
+          - export
+          - federation
+          - gate
+          - genesis
+          - governance
+          - huggingface
+          - inference
+          - learning
+          - memory
+          - model
+          - planning
+          - research
+          - root
+          - tasks
+          - versioning
+          - world_model
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install locked development environment
+        run: uv sync --frozen --extra dev
+      - name: Validate focused baseline
+        run: scripts/run-project-tool cosmic-ray baseline mutation/cosmic-ray/${{ matrix.session }}.toml
+      - name: Initialize, execute, and enforce mutation gate
+        env:
+          SESSION_FILE: ${{ runner.temp }}/cosmic-ray-${{ matrix.session }}.sqlite
+        run: |
+          scripts/run-project-tool cosmic-ray init mutation/cosmic-ray/${{ matrix.session }}.toml "$SESSION_FILE"
+          mutant_count="$(scripts/run-project-tool cosmic-ray dump "$SESSION_FILE" | wc -l | tr -d ' ')"
+          echo "Cosmic Ray generated ${mutant_count} mutants for ${{ matrix.session }}."
+          if [ "$mutant_count" -eq 0 ]; then
+            echo "No mutation operators apply to this source session."
+            exit 0
+          fi
+          scripts/run-project-tool cosmic-ray exec mutation/cosmic-ray/${{ matrix.session }}.toml "$SESSION_FILE"
+          scripts/run-project-tool cr-rate "$SESSION_FILE" --estimate --fail-over 10

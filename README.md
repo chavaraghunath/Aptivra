@@ -59,13 +59,32 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Use the shared project virtualenv when working in the maintained workspace:
+Use the locked project environment. The launcher also resolves the primary checkout's `.venv`
+when called from a linked Git worktree, so activation is not required:
 
 ```bash
-PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python -m pytest -q -p no:cacheprovider
-PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python -m ruff check .
-PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python -m mypy --strict aptivra
+scripts/run-project-tool pre-commit run --all-files
+scripts/run-project-tool pytest -q -p no:cacheprovider
+scripts/run-project-tool ruff check .
+scripts/run-project-tool mypy --strict aptivra
 ```
+
+The coverage gate adds `--cov-fail-under=90` to the pytest command. Ruff formatting is not a
+pre-commit gate because the existing repository is not yet format-clean; linting remains mandatory.
+
+## Mutation Testing
+
+Use mutmut for dependency-aware local iteration across the complete `aptivra/` package:
+
+```bash
+scripts/run-project-tool mutmut run
+```
+
+Cosmic Ray is the CI enforcement gate. Configuration is partitioned by source area under
+`mutation/cosmic-ray/`; each session uses a focused test set, a 180-second per-mutant timeout, and
+all installed mutation operators. The GitHub Actions matrix runs four sessions concurrently and
+enforces at most 10% surviving mutants with `cr-rate --estimate --fail-over 10`. There are no
+source or operator exclusions. See `AGENTS.md` for the exact repo-wide local command loop.
 
 ## Model-Card Evaluation
 

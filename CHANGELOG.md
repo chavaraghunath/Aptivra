@@ -9,6 +9,8 @@ tagged release exists.
 ## [Unreleased]
 
 ### Added
+- Mandatory pre-commit, coverage, strict typing, and change-driven Cosmic Ray mutation gates,
+  including dependency-aware mutmut configuration for local iteration.
 - A stock-Transformers Hub layout with one `model.safetensors`, self-contained remote code, a
   reversible byte tokenizer, and verified legacy-layout conversion.
 - Extended run options **G–J** (chat OpenAI bridge, stock Transformers with remote code, legacy

@@ -1,0 +1,9 @@
+# All Cosmic Ray operators remain enabled; no source files are excluded.
+[cosmic-ray]
+module-path = "aptivra/agents"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_tool_synthesizer.py"
+
+[cosmic-ray.distributor]
+name = "local"

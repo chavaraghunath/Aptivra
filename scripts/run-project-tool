@@ -1,0 +1,58 @@
+#!/bin/sh
+
+set -eu
+
+if ! command -v git >/dev/null 2>&1; then
+    echo "error: git is required to locate the Aptivra checkout." >&2
+    exit 127
+fi
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "error: uv is required to run Aptivra development tools." >&2
+    echo "Install uv, then run 'uv sync --frozen --extra dev' from the primary checkout." >&2
+    exit 127
+fi
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "error: run this command from an Aptivra checkout." >&2
+    exit 2
+}
+
+git_common_dir=$(git rev-parse --git-common-dir)
+case "$git_common_dir" in
+    /*) ;;
+    *) git_common_dir="$repo_root/$git_common_dir" ;;
+esac
+
+primary_checkout=$(dirname "$git_common_dir")
+if [ -x "$repo_root/.venv/bin/python" ]; then
+    project_environment="$repo_root/.venv"
+elif [ -x "$primary_checkout/.venv/bin/python" ]; then
+    project_environment="$primary_checkout/.venv"
+else
+    echo "error: Aptivra's locked development environment was not found." >&2
+    echo "From the primary checkout, run: uv sync --frozen --extra dev" >&2
+    exit 2
+fi
+
+if [ "$#" -eq 0 ]; then
+    echo "usage: scripts/run-project-tool COMMAND [ARG ...]" >&2
+    exit 2
+fi
+
+if [ ! -x "$project_environment/bin/$1" ]; then
+    echo "error: '$1' is not installed in Aptivra's development environment." >&2
+    echo "From the primary checkout, run: uv sync --frozen --extra dev" >&2
+    exit 2
+fi
+
+if [ -n "${PYTHONPATH:-}" ]; then
+    project_pythonpath="$repo_root:$PYTHONPATH"
+else
+    project_pythonpath="$repo_root"
+fi
+
+cd "$repo_root"
+export PYTHONPATH="$project_pythonpath"
+export UV_PROJECT_ENVIRONMENT="$project_environment"
+exec uv run --frozen --no-sync "$@"

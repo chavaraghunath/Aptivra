@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/tasks"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_tasks.py tests/test_verifier_strictness.py tests/test_code_synth_tasks.py tests/test_skill_dataset.py tests/test_identity.py tests/test_eval_config.py tests/test_eval.py tests/test_generated_answer.py tests/test_baselines.py tests/test_consolidation.py tests/test_gate.py tests/test_hybrid_store.py tests/test_memory.py tests/test_tool_synthesizer.py tests/test_smoke_e2e.py"
+
+[cosmic-ray.distributor]
+name = "local"

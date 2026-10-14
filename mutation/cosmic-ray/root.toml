@@ -1,0 +1,9 @@
+# The package root is a separate session so every Python file under aptivra/ is in scope.
+[cosmic-ray]
+module-path = "aptivra/__init__.py"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_smoke_e2e.py"
+
+[cosmic-ray.distributor]
+name = "local"

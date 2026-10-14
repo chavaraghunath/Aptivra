@@ -157,12 +157,15 @@
 
 - `AGENTS.md` — Supreme agent operating instructions for this repository.
 - `CLAUDE.md` — Verbatim mirror of `AGENTS.md`.
+- `.github/workflows/` — Change-driven CI definitions for pre-commit, coverage, and partitioned Cosmic Ray mutation gates.
+- `.pre-commit-config.yaml` — Pinned commit-time lint, type, whitespace, conflict, size, and model-artifact checks.
 - `CHANGELOG.md` — Project version changelog.
 - `CODE_OF_CONDUCT.md` — Contributor code of conduct.
 - `CONTRIBUTING.md` — Guidelines for contributing to Aptivra.
 - `LICENSE` — Software license terms.
 - `SUPPORT.md` — Support channels and guidelines.
-- `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, and pytest.
+- `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, pytest, and mutmut.
+- `mutation/` — Repo-wide Cosmic Ray configurations partitioned into focused, parallelizable source sessions.
 - `configs/` — YAML configuration files for model architectures, task streams, ablation experiments, inference/chat server defaults (`inference.yaml`), measured-results model-card release gates, and generated-code verifier resource limits.
 - `deploy/` — Deployment bridges for extended run options: self-contained Hugging Face remote-code modules, Docker CUDA/CPU, and Ollama/LM Studio bridge notes.
 - `docs/` — Architectural documentation, design specifications, and ADRs.
@@ -193,4 +196,5 @@
   - `aptivra/genesis.py` — Top-level unified cognitive architecture facade orchestrating all 10 engines across all 4 phases.
 - `multitier_c/` — High-throughput C ABI sharding runtime with zero-copy mmap hot-swapping and HDC associative search.
 - `scripts/` — Execution, benchmarking, evaluation, and export scripts.
+  - `scripts/run-project-tool` — Portable `uv` launcher for locked development tools in primary checkouts, linked worktrees, and CI.
 - `tests/` — Pytest unit and integration test suite.
