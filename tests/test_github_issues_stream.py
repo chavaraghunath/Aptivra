@@ -32,7 +32,9 @@ from aptivra.tasks.github_issues import (
 
 
 def test_sanitize_masks_email_and_generic_token_but_drops_obvious_secret() -> None:
-    masked = sanitize_issue_text("contact dev@example.com with token=abc123456789xyz")
+    masked = sanitize_issue_text(
+        "contact dev@example.com with token=abc123456789xyz"  # gitleaks:allow
+    )
     assert masked.drop_reason is None
     assert "[EMAIL]" in masked.text
     assert "[SECRET]" in masked.text
@@ -98,7 +100,7 @@ def test_builder_uses_handwritten_clickhouse_fixture_and_stream_verifies_hashes(
                     _issue_row(
                         2,
                         "Debugger ignores breakpoint",
-                        "Please reply to dev@example.com. token=abc123456789xyz",
+                        "Please reply to dev@example.com. token=abc123456789xyz",  # gitleaks:allow
                         ["debug"],
                         "2019-02-05 00:00:00",
                     ),
