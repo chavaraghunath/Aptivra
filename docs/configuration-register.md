@@ -53,6 +53,9 @@ presets remain repository-only and must be supplied explicitly outside a clone.
 | `model_card_release_gate.minimum_heldout_prompt_samples` | global | integer | `24` | ≥ 1 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 | `model_card_release_gate.minimum_heldout_text_bytes` | global | integer | `8192` | ≥ 1 (validated; bundled corpus is larger) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 | `model_card_release_gate.supplied_record_metric_tolerance` | global | float | `0.000001` | 0.0–0.001 inclusive (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.status_note` | global | optional string | archive-status note | absent or non-empty string (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.archive_tag_note` | global | optional string | `v0-byte-level` archive note | absent or non-empty string (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.forbidden_hub_references` | global | string list | `github` | non-empty list of non-empty strings; matched case-insensitively against staged Hub text files (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 | `verifier_sandbox.timeout_seconds` | service | float | `1.0` | 0.05–30.0 seconds (validated); bounds generated-code hangs in a child process, not a security boundary against hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
 | `verifier_sandbox.memory_limit_mb` | service | integer | `512` | 64–2048 MiB (validated; applied where supported); contains accidental resource use, not hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
 

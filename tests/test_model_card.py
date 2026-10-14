@@ -18,6 +18,7 @@ from aptivra.eval.model_card_schema import validate_evaluation_record
 from aptivra.export.model_card import (
     generate_model_card_readme,
     load_release_gate_config,
+    load_release_gate_settings,
     load_results_record,
     release_gate_allows_general_language_model,
 )
@@ -40,6 +41,30 @@ DENIED_CARD_TEXT = (
     "function-calling",
     "embodied-ai",
 )
+
+
+def _release_gate_config_text(
+    *,
+    status_note: str | None = None,
+    archive_tag_note: str | None = None,
+    forbidden_hub_references: list[str] | None = None,
+) -> str:
+    lines = [
+        "model_card_release_gate:",
+        "  heldout_bpb_unigram_margin_bits: 0.0",
+        "  minimum_trained_prompt_samples: 7",
+        "  minimum_heldout_prompt_samples: 24",
+        "  minimum_heldout_text_bytes: 8192",
+        "  supplied_record_metric_tolerance: 0.000001",
+    ]
+    if status_note is not None:
+        lines.append(f"  status_note: {json.dumps(status_note)}")
+    if archive_tag_note is not None:
+        lines.append(f"  archive_tag_note: {json.dumps(archive_tag_note)}")
+    references = ["github"] if forbidden_hub_references is None else forbidden_hub_references
+    lines.append("  forbidden_hub_references:")
+    lines.extend(f"    - {json.dumps(reference)}" for reference in references)
+    return "\n".join(lines) + "\n"
 
 
 def test_generated_card_denies_unsupported_claims_and_marks_absent_fields() -> None:
@@ -117,6 +142,56 @@ def test_forged_partial_record_fails_closed_and_never_suppresses_notice() -> Non
     )
     assert "Not a usable language model" in card
     assert "Held-out answer-span BpB | not measured" in card
+
+
+@pytest.mark.parametrize(
+    ("status_note", "archive_tag_note"),
+    [
+        (
+            "Status: Rebuild is in progress and will publish to a new Hugging Face repository.",
+            "Archive tag: Current bytes are preserved under `v0-byte-level`.",
+        ),
+        (None, "Archive tag: Current bytes are preserved under `v0-byte-level`."),
+        (
+            "Status: Rebuild is in progress and will publish to a new Hugging Face repository.",
+            None,
+        ),
+        (None, None),
+    ],
+)
+def test_configured_card_notes_render_after_warning_only_when_present(
+    tmp_path: Path,
+    status_note: str | None,
+    archive_tag_note: str | None,
+) -> None:
+    config_path = tmp_path / "release-gate.yaml"
+    config_path.write_text(
+        _release_gate_config_text(
+            status_note=status_note,
+            archive_tag_note=archive_tag_note,
+        ),
+        encoding="utf-8",
+    )
+
+    card = generate_model_card_readme(
+        repo_id="example/aptivra",
+        model_config=ModelConfig(),
+        num_experts=1,
+        results_record={},
+        release_gate_config_path=config_path,
+    )
+
+    warning_index = card.index("Not a usable language model")
+    first_heading_index = card.index("## What This Artefact Is")
+    assert warning_index < first_heading_index
+    for note in (status_note, archive_tag_note):
+        if note is None:
+            continue
+        note_index = card.index(note)
+        assert warning_index < note_index < first_heading_index
+
+    assert ("Status: Rebuild is in progress" in card) is (status_note is not None)
+    assert ("Archive tag: Current bytes" in card) is (archive_tag_note is not None)
 
 
 @pytest.mark.parametrize(
@@ -403,6 +478,22 @@ def test_results_record_must_be_a_json_object(tmp_path: Path) -> None:
             "model_card_release_gate:\n  heldout_bpb_unigram_margin_bits: -0.1\n",
             "must be non-negative",
         ),
+        (
+            _release_gate_config_text(status_note=""),
+            "status_note must not be empty",
+        ),
+        (
+            _release_gate_config_text(archive_tag_note=""),
+            "archive_tag_note must not be empty",
+        ),
+        (
+            _release_gate_config_text(forbidden_hub_references=["github", ""]),
+            r"forbidden_hub_references\[1\] must be a non-empty string",
+        ),
+        (
+            _release_gate_config_text(forbidden_hub_references=[]),
+            "forbidden_hub_references must be a non-empty list",
+        ),
     ],
 )
 def test_release_gate_config_rejects_invalid_shapes_and_values(
@@ -414,6 +505,20 @@ def test_release_gate_config_rejects_invalid_shapes_and_values(
     path.write_text(payload, encoding="utf-8")
     with pytest.raises(ValueError, match=message):
         load_release_gate_config(path)
+
+
+def test_release_gate_settings_loads_configured_hub_reference_terms(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "release-gate.yaml"
+    path.write_text(
+        _release_gate_config_text(forbidden_hub_references=["github", "sourcehut"]),
+        encoding="utf-8",
+    )
+
+    settings = load_release_gate_settings(path)
+
+    assert settings.forbidden_hub_references == ("github", "sourcehut")
 
 
 def test_card_can_load_results_path_and_rejects_malformed_summaries(tmp_path: Path) -> None:

@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import pickle
+import re
 import runpy
 import sys
 from pathlib import Path
@@ -580,6 +581,86 @@ def test_push_refuses_staging_mutation_after_evaluation_and_cleans_up(
     assert api.create_calls == []
     assert api.upload_calls == []
     assert staged_paths and not staged_paths[0].exists()
+
+
+@pytest.mark.parametrize("target_file", ["README.md", "config.json", "modeling_aptivra.py"])
+def test_push_refuses_forbidden_hub_references_in_staged_text_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target_file: str,
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    if target_file == "config.json":
+        payload = json.loads((export_dir / target_file).read_text(encoding="utf-8"))
+        payload["forbidden_reference_for_test"] = "gItHuB"
+        (export_dir / target_file).write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    elif target_file.endswith(".py"):
+        path = export_dir / target_file
+        path.write_text(path.read_text(encoding="utf-8") + "\n# gItHuB\n", encoding="utf-8")
+
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", lambda _: fresh_record)
+    if target_file == "README.md":
+        monkeypatch.setattr(
+            hf_push,
+            "generate_model_card_readme",
+            lambda *_args, **_kwargs: "This README mentions gItHuB.\n",
+        )
+    api = _RecordingApi()
+
+    with pytest.raises(ValueError) as error:
+        push_aptivra_model_to_hf("owner/repo", export_dir, results, api=api)
+
+    message = str(error.value)
+    assert "Hub publication content contains forbidden references" in message
+    assert re.search(rf"{re.escape(target_file)}:\d+", message) is not None
+    assert "github" in message
+    assert api.create_calls == []
+    assert api.upload_calls == []
+    assert not (export_dir / "README.md").exists()
+
+
+def test_push_refuses_non_utf8_staged_text_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    remote_code = export_dir / "modeling_aptivra.py"
+    remote_code.write_bytes(remote_code.read_bytes() + b"\n\xff\n")
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", lambda _: fresh_record)
+    api = _RecordingApi()
+
+    with pytest.raises(ValueError, match="not valid UTF-8: modeling_aptivra.py"):
+        push_aptivra_model_to_hf("owner/repo", export_dir, results, api=api)
+
+    assert api.create_calls == []
+    assert api.upload_calls == []
+
+
+def test_push_allows_clean_staged_hub_text_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    export_dir = tmp_path / "hub"
+    _export_new_layout(export_dir)
+    results = tmp_path / "results.json"
+    _write_results_record(export_dir, results)
+    fresh_record = json.loads(results.read_text(encoding="utf-8"))
+    monkeypatch.setattr(hf_push, "evaluate_export_dir", lambda _: fresh_record)
+
+    with prepare_hf_publication("owner/repo", export_dir, results) as plan:
+        plan.verify_staged_files()
+        assert (plan.export_dir / "README.md").is_file()
 
 
 @pytest.mark.parametrize(
