@@ -27,3 +27,6 @@ multitier_c/aptivra-cli
 .env
 .env.*
 .claude/scheduled_tasks.lock
+
+# Browser-automation snapshots and screenshots (may show account pages)
+.playwright-mcp/
