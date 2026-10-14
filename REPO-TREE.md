@@ -170,6 +170,7 @@
   - `docs/DESIGN.md` — Master Phase 1 architecture and design specification.
   - `docs/configuration-register.md` — Register of all runtime-tunable configurations.
   - `docs/adr/` — Architecture Decision Records capturing foundational technical decisions.
+  - `docs/github-issues-stream/` — Committed manifest and aggregate audit for the local-only public GitHub issues continual-learning stream; raw issue text stays under git-ignored `scratch/`.
 - `aptivra/` — Core Python package containing models, memory systems, experts, task stream, and eval harness.
   - `aptivra/model/` — Decoder-only backbone transformer architecture, RMSNorm, SwiGLU, and isolated AttentionInterface.
   - `aptivra/baselines/` — Continual learning baseline trainers (Naive Sequential, Replay-Only, EWC-Only, Joint Multitask).

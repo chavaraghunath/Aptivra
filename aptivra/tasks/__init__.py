@@ -9,6 +9,7 @@ from aptivra.tasks.base import (
 )
 from aptivra.tasks.bug_fixer import BugFixerTaskFamily
 from aptivra.tasks.docstring_code import DocstringToCodeTaskFamily
+from aptivra.tasks.github_issues import GitHubIssuesContinualStream
 from aptivra.tasks.stream import ContinualTaskStream
 from aptivra.tasks.type_inferrer import TypeInferrerTaskFamily
 
@@ -18,6 +19,7 @@ __all__ = [
     "MechanicalVerifier",
     "TaskFamily",
     "ContinualTaskStream",
+    "GitHubIssuesContinualStream",
     "AlgoSynthTaskFamily",
     "DocstringToCodeTaskFamily",
     "BugFixerTaskFamily",
