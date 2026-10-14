@@ -1,0 +1,33 @@
+{
+  "candidate_id": "qwen2.5-0.5b",
+  "correlation_id": "b091275c-4a30-4407-94e9-cd0738b2e625",
+  "equivalence_gate_owner_override": {
+    "adr_section": "Owner override of Amendment 4b (2026-10-14)",
+    "by": "raghunath",
+    "date": "2026-10-14"
+  },
+  "failure": {
+    "message": "system swap growth exceeded the configured candidate limit: 1693450240 > 1073741824 bytes",
+    "out_of_memory": true,
+    "phase": "isolated_process",
+    "returncode": -15,
+    "type": "ChildProcessFailure"
+  },
+  "manifest_sha256": "9a7b7538365c9ea7760a4ef6684cb0389d00c8ea74e65ba79d3271318ad9d023",
+  "parent_process_memory": {
+    "configured_maximum_swap_growth_bytes": 1073741824,
+    "elapsed_seconds": 574.6746577500016,
+    "forced_termination_reason": "system swap growth exceeded the configured candidate limit: 1693450240 > 1073741824 bytes",
+    "poll_interval_seconds": 0.5,
+    "returncode": -15,
+    "system_swap_after_bytes": 8517844992,
+    "system_swap_before_bytes": 6616713789,
+    "system_swap_growth_bytes": 1901131203,
+    "system_swap_peak_bytes": 8517844992,
+    "system_swap_peak_growth_bytes": 1901131203
+  },
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v4",
+  "status": "failed",
+  "variance_seed": null
+}

@@ -1,0 +1,12 @@
+{
+  "configured_maximum_swap_growth_bytes": 1073741824,
+  "elapsed_seconds": 143.1635113749944,
+  "forced_termination_reason": "system swap growth exceeded the configured candidate limit: 1224474624 > 1073741824 bytes",
+  "poll_interval_seconds": 0.5,
+  "returncode": -15,
+  "system_swap_after_bytes": 9940563394,
+  "system_swap_before_bytes": 8626173378,
+  "system_swap_growth_bytes": 1314390016,
+  "system_swap_peak_bytes": 9940563394,
+  "system_swap_peak_growth_bytes": 1314390016
+}

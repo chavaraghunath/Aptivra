@@ -1,0 +1,30 @@
+{
+  "attempt": 1,
+  "configured_maximum_swap_growth_bytes": 1073741824,
+  "configured_minimum_free_memory_percent": 10.0,
+  "elapsed_seconds": 3032.0912363750103,
+  "environment_invalid_reasons": [],
+  "forced_termination_reason": null,
+  "poll_interval_seconds": 0.5,
+  "process_started": true,
+  "recovery": {
+    "normal": true,
+    "samples": [
+      {
+        "elapsed_seconds": 8.400820661336184e-08,
+        "free_memory_percent": 82.0,
+        "swap_used_bytes": 8432910336
+      }
+    ]
+  },
+  "returncode": 0,
+  "status": "completed",
+  "system_free_memory_after_percent": 85.0,
+  "system_free_memory_before_percent": 82.0,
+  "system_free_memory_minimum_percent": 62.0,
+  "system_swap_after_bytes": 8298692608,
+  "system_swap_before_bytes": 8432910336,
+  "system_swap_growth_bytes": 0,
+  "system_swap_peak_bytes": 8432910336,
+  "system_swap_peak_growth_bytes": 0
+}

@@ -1,5 +1,6 @@
 """Base interfaces and data structures for task families and mechanical verifiers."""
 
+import unicodedata
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
@@ -22,13 +23,14 @@ def extract_model_answer(raw_output: str, stop_characters: tuple[str, ...]) -> s
 
 
 def normalize_verifier_text(value: str) -> str:
-    """Normalize verifier text by trimming and collapsing all whitespace.
+    """Normalize verifier text to NFC, then trim and collapse whitespace.
 
     Equality remains case- and punctuation-sensitive.  This deliberately avoids
     keyword, substring, last-token, and formatting-deletion shortcuts that can
-    turn a near miss into a false positive.
+    turn a near miss into a false positive. Canonically equivalent non-NFC input
+    is intentionally changed by this contract.
     """
-    return " ".join(value.strip().split())
+    return " ".join(unicodedata.normalize("NFC", value).strip().split())
 
 
 def exact_match_result(instance: "TaskInstance", model_output: str) -> "VerifierResult":

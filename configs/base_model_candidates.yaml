@@ -2,16 +2,16 @@
 # The exact Amendment 1 powered-run config is preserved with its evidence as
 # experiments/base_model_candidates/powered-sweep-config.yaml.
 candidates:
+  - id: gpt2
+    source: openai-community/gpt2
+    revision: 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    license: mit
+    architecture: gpt2
+    loader: transformers
+    reference_only: false
   - id: smollm2-135m
     source: HuggingFaceTB/SmolLM2-135M
     revision: 93efa2f097d58c2a74874c7e644dbc9b0cee75a2
-    license: apache-2.0
-    architecture: llama
-    loader: transformers
-    reference_only: false
-  - id: smollm2-360m
-    source: HuggingFaceTB/SmolLM2-360M
-    revision: f8027fd0eaeea54caa13c31d31b9fdc459c38b49
     license: apache-2.0
     architecture: llama
     loader: transformers
@@ -23,11 +23,11 @@ candidates:
     architecture: gpt_neox
     loader: transformers
     reference_only: false
-  - id: gpt2
-    source: openai-community/gpt2
-    revision: 607a30d783dfa663caf39e06633721c8d4cfcd7e
-    license: mit
-    architecture: gpt2
+  - id: smollm2-360m
+    source: HuggingFaceTB/SmolLM2-360M
+    revision: f8027fd0eaeea54caa13c31d31b9fdc459c38b49
+    license: apache-2.0
+    architecture: llama
     loader: transformers
     reference_only: false
   - id: qwen2.5-0.5b
@@ -35,6 +35,20 @@ candidates:
     revision: 060db6499f32faf8b98477b0a26969ef7d8b9987
     license: apache-2.0
     architecture: qwen2
+    loader: transformers
+    reference_only: false
+  - id: qwen2.5-1.5b
+    source: Qwen/Qwen2.5-1.5B
+    revision: 8faed761d45a263340a0528343f099c05c9a4323
+    license: apache-2.0
+    architecture: qwen2
+    loader: transformers
+    reference_only: false
+  - id: smollm2-1.7b
+    source: HuggingFaceTB/SmolLM2-1.7B
+    revision: effd688a12921b4cc83e3312b6feb579f70f9c71
+    license: apache-2.0
+    architecture: llama
     loader: transformers
     reference_only: false
   - id: aptivra-byte-reference
@@ -64,6 +78,20 @@ measurement:
   max_new_tokens: 48
   probe_steps: 200
   probe_batch_size: 8
+  probe_micro_batch_sizes:
+    - 8
+    - 4
+    - 2
+    - 1
+  target_only_training_loss: true
+  gradient_checkpointing_fallback: true
+  equivalence_candidate_ids:
+    - smollm2-135m
+    - gpt2
+  equivalence_steps: 3
+  equivalence_loss_absolute_tolerance: 0.00005
+  equivalence_update_max_absolute_tolerance: 0.000001
+  equivalence_update_relative_l2_tolerance: 0.0001
   probe_learning_rates:
     - 0.00001
     - 0.00003
@@ -80,6 +108,7 @@ measurement:
   load_retries: 4
   load_retry_backoff_seconds: 2.0
   memory_sample_interval_seconds: 0.02
+  swap_sample_interval_seconds: 0.5
   candidate_timeout_seconds: 7200.0
   expected_wall_time_seconds: 10800.0
   utf8_roundtrip_samples:
@@ -105,7 +134,8 @@ decision:
   minimum_mean_accuracy_gain: 0.0
   learnability_tie_margin: 0.02
   clustered_confidence_interval_intersects_tie_region: true
+  maximum_swap_growth_bytes: 1073741824
 
 execution:
-  output_dir: ../experiments/base_model_candidates
+  output_dir: ../experiments/base_model_candidates/amendment-4
   resume: true

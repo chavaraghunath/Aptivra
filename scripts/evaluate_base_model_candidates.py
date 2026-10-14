@@ -11,15 +11,52 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from aptivra.eval.base_model_evaluation import (
+    BaseModelEvaluationSettings,
+    derive_amendment_3_analysis,
     derive_existing_records_analysis,
     load_base_model_evaluation_settings,
     prepare_run_manifest,
     rank_existing_candidate_records,
+    run_amendment_4a_equivalence,
+    run_amendment_4b_equivalence,
     run_evaluation,
     run_seed_variance_evaluation,
+    system_free_memory_percentage,
+    system_swap_used_bytes,
+    write_environment_status,
     write_isolated_process_failure,
     write_json,
 )
+
+
+def _equivalence_allows_sweep(
+    equivalence: dict[str, object], settings: BaseModelEvaluationSettings
+) -> bool:
+    """Keep failed gates closed unless the manifest-bound owner override is present."""
+    return (
+        equivalence.get("status") == "passed"
+        or settings.equivalence_gate_owner_override is not None
+    )
+
+
+def _wait_until_environment_normal(
+    *, minimum_free_memory_percent: float, timeout_seconds: float, poll_seconds: float
+) -> dict[str, object]:
+    """Wait for host pressure to become normal and return bounded evidence."""
+    started = time.monotonic()
+    samples: list[dict[str, float | int]] = []
+    while True:
+        sample: dict[str, float | int] = {
+            "elapsed_seconds": time.monotonic() - started,
+            "swap_used_bytes": system_swap_used_bytes(),
+            "free_memory_percent": system_free_memory_percentage(),
+        }
+        samples.append(sample)
+        if sample["free_memory_percent"] >= minimum_free_memory_percent:
+            return {"normal": True, "samples": samples}
+        if time.monotonic() - started >= timeout_seconds:
+            return {"normal": False, "samples": samples}
+        time.sleep(poll_seconds)
 
 
 def _run_child(
@@ -29,50 +66,202 @@ def _run_child(
     *,
     resume: bool,
     timeout_seconds: float,
+    maximum_swap_growth_bytes: int,
+    swap_poll_interval_seconds: float,
+    minimum_free_memory_percent: float,
+    environment_recovery_timeout_seconds: float,
+    environment_max_attempts: int,
     variance_seed: int | None = None,
 ) -> None:
-    command = [
-        sys.executable,
-        "-m",
-        "scripts.evaluate_base_model_candidates",
-        "--config",
-        str(config),
-        "--output-dir",
-        str(output_dir),
-        "--candidate-id",
-        candidate_id,
-    ]
-    command.append("--resume" if resume else "--no-resume")
-    if variance_seed is not None:
-        command.extend(("--variance-seed", str(variance_seed)))
-    try:
-        completed = subprocess.run(
+    attempts: list[dict[str, object]] = []
+    for attempt_number in range(1, environment_max_attempts + 1):
+        recovery = _wait_until_environment_normal(
+            minimum_free_memory_percent=minimum_free_memory_percent,
+            timeout_seconds=environment_recovery_timeout_seconds,
+            poll_seconds=swap_poll_interval_seconds,
+        )
+        if recovery["normal"] is not True:
+            monitor = {
+                "attempt": attempt_number,
+                "status": "environment_invalid",
+                "process_started": False,
+                "environment_invalid_reasons": [
+                    "system free-memory percentage did not recover before timeout"
+                ],
+                "recovery": recovery,
+                "configured_minimum_free_memory_percent": (
+                    minimum_free_memory_percent
+                ),
+                "configured_recovery_timeout_seconds": (
+                    environment_recovery_timeout_seconds
+                ),
+            }
+            attempts.append(monitor)
+            monitor_name = candidate_id.replace("/", "_")
+            if variance_seed is not None:
+                monitor_name += f"-seed-{variance_seed}"
+            write_json(
+                output_dir
+                / "process_monitors"
+                / f"{monitor_name}-attempt-{attempt_number}.json",
+                monitor,
+            )
+            write_environment_status(
+                config,
+                output_dir,
+                candidate_id,
+                status="environment_invalid",
+                attempts=attempts,
+                variance_seed=variance_seed,
+            )
+            continue
+
+        command = [
+            sys.executable,
+            "-m",
+            "scripts.evaluate_base_model_candidates",
+            "--config",
+            str(config),
+            "--output-dir",
+            str(output_dir),
+            "--candidate-id",
+            candidate_id,
+        ]
+        command.append("--resume" if resume else "--no-resume")
+        if variance_seed is not None:
+            command.extend(("--variance-seed", str(variance_seed)))
+        swap_before = system_swap_used_bytes()
+        swap_peak = swap_before
+        free_before = system_free_memory_percentage()
+        free_minimum = free_before
+        started = time.monotonic()
+        process = subprocess.Popen(
             command,
-            check=False,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout_seconds,
         )
-    except subprocess.TimeoutExpired as error:
-        write_isolated_process_failure(
-            config,
-            output_dir,
-            candidate_id,
-            returncode=-1,
-            message=f"candidate process exceeded {timeout_seconds} seconds: {error}",
-            variance_seed=variance_seed,
+        environment_reasons: list[str] = []
+        timeout_message: str | None = None
+        while process.poll() is None:
+            current_swap = system_swap_used_bytes()
+            current_free = system_free_memory_percentage()
+            swap_peak = max(swap_peak, current_swap)
+            free_minimum = min(free_minimum, current_free)
+            if swap_peak - swap_before > maximum_swap_growth_bytes:
+                environment_reasons.append(
+                    "system swap growth exceeded the configured environment limit"
+                )
+            if current_free < minimum_free_memory_percent:
+                environment_reasons.append(
+                    "system free-memory percentage fell below the normal threshold"
+                )
+            if environment_reasons:
+                process.terminate()
+                break
+            if time.monotonic() - started > timeout_seconds:
+                timeout_message = f"candidate process exceeded {timeout_seconds} seconds"
+                process.terminate()
+                break
+            time.sleep(swap_poll_interval_seconds)
+        if environment_reasons or timeout_message is not None:
+            try:
+                process.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        stdout, stderr = process.communicate()
+        swap_after = system_swap_used_bytes()
+        free_after = system_free_memory_percentage()
+        swap_peak = max(swap_peak, swap_after)
+        free_minimum = min(free_minimum, free_after)
+        if swap_peak - swap_before > maximum_swap_growth_bytes:
+            environment_reasons.append(
+                "system swap growth exceeded the configured environment limit"
+            )
+        if free_after < minimum_free_memory_percent:
+            environment_reasons.append(
+                "system free-memory percentage fell below the normal threshold"
+            )
+        environment_reasons = list(dict.fromkeys(environment_reasons))
+        monitor = {
+            "attempt": attempt_number,
+            "status": (
+                "environment_invalid" if environment_reasons else "completed"
+            ),
+            "process_started": True,
+            "system_swap_before_bytes": swap_before,
+            "system_swap_peak_bytes": swap_peak,
+            "system_swap_after_bytes": swap_after,
+            "system_swap_peak_growth_bytes": max(0, swap_peak - swap_before),
+            "system_swap_growth_bytes": max(0, swap_after - swap_before),
+            "system_free_memory_before_percent": free_before,
+            "system_free_memory_minimum_percent": free_minimum,
+            "system_free_memory_after_percent": free_after,
+            "configured_maximum_swap_growth_bytes": maximum_swap_growth_bytes,
+            "configured_minimum_free_memory_percent": minimum_free_memory_percent,
+            "poll_interval_seconds": swap_poll_interval_seconds,
+            "elapsed_seconds": time.monotonic() - started,
+            "returncode": process.returncode,
+            "environment_invalid_reasons": environment_reasons,
+            "forced_termination_reason": timeout_message,
+            "recovery": recovery,
+        }
+        attempts.append(monitor)
+        monitor_name = candidate_id.replace("/", "_")
+        if variance_seed is not None:
+            monitor_name += f"-seed-{variance_seed}"
+        write_json(
+            output_dir
+            / "process_monitors"
+            / f"{monitor_name}-attempt-{attempt_number}.json",
+            monitor,
         )
+        if environment_reasons:
+            write_environment_status(
+                config,
+                output_dir,
+                candidate_id,
+                status="environment_invalid",
+                attempts=attempts,
+                variance_seed=variance_seed,
+            )
+            continue
+        if timeout_message is not None:
+            write_isolated_process_failure(
+                config,
+                output_dir,
+                candidate_id,
+                returncode=(
+                    process.returncode if process.returncode is not None else -1
+                ),
+                message=timeout_message,
+                variance_seed=variance_seed,
+                parent_process_memory=monitor,
+            )
+            return
+        if process.returncode != 0:
+            diagnostic = (stderr or stdout)[-2000:]
+            write_isolated_process_failure(
+                config,
+                output_dir,
+                candidate_id,
+                returncode=(
+                    process.returncode if process.returncode is not None else -1
+                ),
+                message=diagnostic or "candidate process exited without diagnostics",
+                variance_seed=variance_seed,
+                parent_process_memory=monitor,
+            )
         return
-    if completed.returncode != 0:
-        diagnostic = (completed.stderr or completed.stdout)[-2000:]
-        write_isolated_process_failure(
-            config,
-            output_dir,
-            candidate_id,
-            returncode=completed.returncode,
-            message=diagnostic or "candidate process exited without diagnostics",
-            variance_seed=variance_seed,
-        )
+
+    write_environment_status(
+        config,
+        output_dir,
+        candidate_id,
+        status="not_measured_environment",
+        attempts=attempts,
+        variance_seed=variance_seed,
+    )
 
 
 def main() -> None:
@@ -94,6 +283,17 @@ def main() -> None:
         "--derive-existing-analysis",
         action="store_true",
         help="derive Amendment 2 analysis from frozen records without model work",
+    )
+    parser.add_argument(
+        "--derive-amendment-3-analysis",
+        action="store_true",
+        help="combine prior powered evidence with Amendment 3 records without model work",
+    )
+    parser.add_argument(
+        "--prior-output-dir",
+        type=Path,
+        default=Path("experiments/base_model_candidates"),
+        help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
 
@@ -119,7 +319,45 @@ def main() -> None:
             )
         )
         return
+    if args.derive_amendment_3_analysis:
+        if args.candidate_id is not None or args.variance_seed is not None:
+            parser.error("derived analysis cannot be combined with candidate worker options")
+        _, ranking = derive_amendment_3_analysis(
+            args.config, output_dir, args.prior_output_dir
+        )
+        print(
+            json.dumps(
+                {
+                    "output_dir": str(output_dir),
+                    "selected_candidate": ranking["selected_candidate"],
+                },
+                sort_keys=True,
+            )
+        )
+        return
     prepare_run_manifest(args.config, output_dir, settings)
+    if settings.equivalence_gate_owner_override is not None:
+        equivalence = {
+            "status": "owner_overridden",
+            "owner_override": settings.equivalence_gate_owner_override,
+        }
+        write_json(output_dir / "equivalence-owner-override.json", equivalence)
+    elif settings.measurement.equivalence_protocol == "amendment_4b":
+        equivalence = run_amendment_4b_equivalence(args.config, output_dir)
+    else:
+        equivalence = run_amendment_4a_equivalence(args.config, output_dir)
+    if not _equivalence_allows_sweep(equivalence, settings):
+        print(
+            json.dumps(
+                {
+                    "equivalence_status": equivalence.get("status"),
+                    "output_dir": str(output_dir),
+                    "sweep_started": False,
+                },
+                sort_keys=True,
+            )
+        )
+        raise SystemExit(2)
     if args.candidate_id is not None:
         known = {candidate.candidate_id for candidate in settings.candidates}
         if args.candidate_id not in known:
@@ -153,19 +391,44 @@ def main() -> None:
         )
         return
 
-    for candidate in settings.candidates:
+    for candidate in (
+        item for item in settings.candidates if not item.reference_only
+    ):
+        print(
+            json.dumps(
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "event": "candidate_started",
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
         _run_child(
             args.config,
             output_dir,
             candidate.candidate_id,
             resume=resume,
             timeout_seconds=settings.measurement.candidate_timeout_seconds,
+            maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+            swap_poll_interval_seconds=settings.measurement.swap_sample_interval_seconds,
+            minimum_free_memory_percent=(
+                settings.measurement.environment_minimum_free_memory_percent
+            ),
+            environment_recovery_timeout_seconds=(
+                settings.measurement.environment_recovery_timeout_seconds
+            ),
+            environment_max_attempts=settings.measurement.environment_max_attempts,
         )
     first_pass_ranking = rank_existing_candidate_records(args.config, output_dir)
     ranked = first_pass_ranking["ranked_candidates"]
     if not isinstance(ranked, list):
         raise TypeError("ranking record has no ranked_candidates list")
-    leaders = ranked[: settings.measurement.variance_top_candidates]
+    leaders = (
+        []
+        if first_pass_ranking["decision_status"] == "measurement_incomplete"
+        else ranked[: settings.measurement.variance_top_candidates]
+    )
     for row in leaders:
         if not isinstance(row, dict) or not isinstance(row.get("candidate_id"), str):
             raise TypeError("ranking candidate row is malformed")
@@ -176,6 +439,21 @@ def main() -> None:
                 row["candidate_id"],
                 resume=resume,
                 timeout_seconds=settings.measurement.candidate_timeout_seconds,
+                maximum_swap_growth_bytes=(
+                    settings.decision.maximum_swap_growth_bytes
+                ),
+                swap_poll_interval_seconds=(
+                    settings.measurement.swap_sample_interval_seconds
+                ),
+                minimum_free_memory_percent=(
+                    settings.measurement.environment_minimum_free_memory_percent
+                ),
+                environment_recovery_timeout_seconds=(
+                    settings.measurement.environment_recovery_timeout_seconds
+                ),
+                environment_max_attempts=(
+                    settings.measurement.environment_max_attempts
+                ),
                 variance_seed=seed,
             )
     ranking = rank_existing_candidate_records(args.config, output_dir)

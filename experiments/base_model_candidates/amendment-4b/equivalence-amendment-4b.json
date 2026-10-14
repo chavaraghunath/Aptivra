@@ -1,0 +1,1399 @@
+{
+  "correlation_id": "74729fe9-9a75-4194-b085-2f15d6de0ecf",
+  "exact_math": {
+    "candidate_results": [
+      {
+        "candidate_id": "smollm2-135m",
+        "instance_ids": [
+          "T1_modular_arithmetic_s20261014001_i0",
+          "T2_string_transforms_s20261014011_i0",
+          "T3_list_operations_s20261014021_i0",
+          "T4_syntax_matching_s20261014031_i0",
+          "T5_boolean_logic_s20261014041_i0",
+          "T6_sequence_completion_s20261014051_i0",
+          "T7_state_machines_s20261014061_i0",
+          "T8_python_microsynth_s20261014071_i0"
+        ],
+        "load_attempts": 1,
+        "memory": {
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+          "hard_constraint_peak_bytes": 6071205888,
+          "mps_driver_baseline_bytes": 475136,
+          "mps_driver_delta_bytes": 4623155200,
+          "mps_driver_peak_bytes": 4623630336,
+          "process_rss_baseline_bytes": 438468608,
+          "process_rss_delta_bytes": 5632737280,
+          "process_rss_peak_bytes": 6071205888,
+          "sample_interval_seconds": 0.02,
+          "swap_sample_interval_seconds": 0.5,
+          "system_swap_after_bytes": 7265845248,
+          "system_swap_before_bytes": 7265845248,
+          "system_swap_growth_bytes": 0,
+          "system_swap_peak_bytes": 7265845248,
+          "system_swap_peak_growth_bytes": 0
+        },
+        "memory_recipe_selection": {
+          "attempts": [
+            {
+              "calibration_instance_ids": [
+                "T3_list_operations_s20261014021_i24",
+                "T3_list_operations_s20261014021_i218",
+                "T3_list_operations_s20261014021_i187",
+                "t10_0251",
+                "t10_0249",
+                "t10_0246",
+                "t10_0244",
+                "t10_0242"
+              ],
+              "calibration_steps": 1,
+              "configured_maximum_peak_bytes": 28991029248,
+              "effective_batch_size": 8,
+              "feasible": true,
+              "gradient_checkpointing": false,
+              "memory": {
+                "configured_maximum_swap_growth_bytes": 1073741824,
+                "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+                "hard_constraint_peak_bytes": 4623630336,
+                "mps_driver_baseline_bytes": 1107787776,
+                "mps_driver_delta_bytes": 3515842560,
+                "mps_driver_peak_bytes": 4623630336,
+                "process_rss_baseline_bytes": 1285144576,
+                "process_rss_delta_bytes": 0,
+                "process_rss_peak_bytes": 1285144576,
+                "sample_interval_seconds": 0.02,
+                "swap_sample_interval_seconds": 0.5,
+                "system_swap_after_bytes": 7265845248,
+                "system_swap_before_bytes": 7265845248,
+                "system_swap_growth_bytes": 0,
+                "system_swap_peak_bytes": 7265845248,
+                "system_swap_peak_growth_bytes": 0
+              },
+              "micro_batch_size": 8
+            }
+          ],
+          "candidate_micro_batch_sizes": [
+            8,
+            4,
+            2,
+            1
+          ],
+          "configured_maximum_peak_bytes": 28991029248,
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "effective_batch_size": 8,
+          "gradient_checkpointing_fallback": true,
+          "selected_gradient_checkpointing": false,
+          "selected_micro_batch_size": 8,
+          "target_only_training_loss": true
+        },
+        "passed": true,
+        "proof": {
+          "comparisons": [
+            {
+              "absolute_loss_difference": 0.0,
+              "gradient_difference": {
+                "difference_l2": 0.0,
+                "maximum_absolute": 0.0,
+                "reference_l2": 14.47726584983636,
+                "relative_l2": 0.0
+              },
+              "gradient_relative_l2_difference": 0.0,
+              "legacy_loss": 3.5998656481582416,
+              "micro_batch_size": 8,
+              "passed": true,
+              "target_only_loss": 3.5998656481582416
+            },
+            {
+              "absolute_loss_difference": 1.3322676295501878e-15,
+              "gradient_difference": {
+                "difference_l2": 6.037222125702033e-15,
+                "maximum_absolute": 1.7763568394002505e-15,
+                "reference_l2": 14.47726584983636,
+                "relative_l2": 4.1701397130662436e-16
+              },
+              "gradient_relative_l2_difference": 4.1701397130662436e-16,
+              "legacy_loss": 3.5998656481582416,
+              "micro_batch_size": 1,
+              "passed": true,
+              "target_only_loss": 3.599865648158243
+            }
+          ],
+          "device": "cpu",
+          "dropout_disabled": true,
+          "dropout_modules_disabled": 0,
+          "dtype": "float64",
+          "effective_batch_size": 8,
+          "passed": true
+        },
+        "recipe": {
+          "gradient_checkpointing": false,
+          "micro_batch_size": 8
+        },
+        "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2"
+      },
+      {
+        "candidate_id": "gpt2",
+        "instance_ids": [
+          "T1_modular_arithmetic_s20261014001_i0",
+          "T2_string_transforms_s20261014011_i0",
+          "T3_list_operations_s20261014021_i0",
+          "T4_syntax_matching_s20261014031_i0",
+          "T5_boolean_logic_s20261014041_i0",
+          "T6_sequence_completion_s20261014051_i0",
+          "T7_state_machines_s20261014061_i0",
+          "T8_python_microsynth_s20261014071_i0"
+        ],
+        "load_attempts": 1,
+        "memory": {
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+          "hard_constraint_peak_bytes": 6087786496,
+          "mps_driver_baseline_bytes": 1108033536,
+          "mps_driver_delta_bytes": 3159244800,
+          "mps_driver_peak_bytes": 4267278336,
+          "process_rss_baseline_bytes": 6071205888,
+          "process_rss_delta_bytes": 16580608,
+          "process_rss_peak_bytes": 6087786496,
+          "sample_interval_seconds": 0.02,
+          "swap_sample_interval_seconds": 0.5,
+          "system_swap_after_bytes": 7265845248,
+          "system_swap_before_bytes": 7265845248,
+          "system_swap_growth_bytes": 0,
+          "system_swap_peak_bytes": 7265845248,
+          "system_swap_peak_growth_bytes": 0
+        },
+        "memory_recipe_selection": {
+          "attempts": [
+            {
+              "calibration_instance_ids": [
+                "t10_0251",
+                "t10_0249",
+                "t10_0246",
+                "t10_0244",
+                "t10_0242",
+                "t10_0241",
+                "t10_0240",
+                "t10_0239"
+              ],
+              "calibration_steps": 1,
+              "configured_maximum_peak_bytes": 28991029248,
+              "effective_batch_size": 8,
+              "feasible": true,
+              "gradient_checkpointing": false,
+              "memory": {
+                "configured_maximum_swap_growth_bytes": 1073741824,
+                "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+                "hard_constraint_peak_bytes": 6071205888,
+                "mps_driver_baseline_bytes": 1108033536,
+                "mps_driver_delta_bytes": 3159244800,
+                "mps_driver_peak_bytes": 4267278336,
+                "process_rss_baseline_bytes": 6071205888,
+                "process_rss_delta_bytes": 0,
+                "process_rss_peak_bytes": 6071205888,
+                "sample_interval_seconds": 0.02,
+                "swap_sample_interval_seconds": 0.5,
+                "system_swap_after_bytes": 7265845248,
+                "system_swap_before_bytes": 7265845248,
+                "system_swap_growth_bytes": 0,
+                "system_swap_peak_bytes": 7265845248,
+                "system_swap_peak_growth_bytes": 0
+              },
+              "micro_batch_size": 8
+            }
+          ],
+          "candidate_micro_batch_sizes": [
+            8,
+            4,
+            2,
+            1
+          ],
+          "configured_maximum_peak_bytes": 28991029248,
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "effective_batch_size": 8,
+          "gradient_checkpointing_fallback": true,
+          "selected_gradient_checkpointing": false,
+          "selected_micro_batch_size": 8,
+          "target_only_training_loss": true
+        },
+        "passed": true,
+        "proof": {
+          "comparisons": [
+            {
+              "absolute_loss_difference": 0.0,
+              "gradient_difference": {
+                "difference_l2": 0.0,
+                "maximum_absolute": 0.0,
+                "reference_l2": 71.91612939612936,
+                "relative_l2": 0.0
+              },
+              "gradient_relative_l2_difference": 0.0,
+              "legacy_loss": 6.126414052428333,
+              "micro_batch_size": 8,
+              "passed": true,
+              "target_only_loss": 6.126414052428333
+            },
+            {
+              "absolute_loss_difference": 0.0,
+              "gradient_difference": {
+                "difference_l2": 1.768165064143577e-14,
+                "maximum_absolute": 1.0658141036401503e-14,
+                "reference_l2": 71.91612939612936,
+                "relative_l2": 2.4586488163234523e-16
+              },
+              "gradient_relative_l2_difference": 2.4586488163234523e-16,
+              "legacy_loss": 6.126414052428333,
+              "micro_batch_size": 1,
+              "passed": true,
+              "target_only_loss": 6.126414052428333
+            }
+          ],
+          "device": "cpu",
+          "dropout_disabled": true,
+          "dropout_modules_disabled": 37,
+          "dtype": "float64",
+          "effective_batch_size": 8,
+          "passed": true
+        },
+        "recipe": {
+          "gradient_checkpointing": false,
+          "micro_batch_size": 8
+        },
+        "resolved_revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e"
+      }
+    ],
+    "status": "passed"
+  },
+  "failed_stage": "outcome_gate",
+  "manifest_sha256": "2d9afbd704d182f3e7147029a05f9807458605da19732f80403ea70eb59ed82b",
+  "outcome_gate": {
+    "candidate_id": "smollm2-135m",
+    "load_attempts": 1,
+    "memory": {
+      "configured_maximum_swap_growth_bytes": 1073741824,
+      "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+      "hard_constraint_peak_bytes": 10076864512,
+      "mps_driver_baseline_bytes": 1436237824,
+      "mps_driver_delta_bytes": 8640626688,
+      "mps_driver_peak_bytes": 10076864512,
+      "process_rss_baseline_bytes": 7332462592,
+      "process_rss_delta_bytes": 0,
+      "process_rss_peak_bytes": 7332462592,
+      "sample_interval_seconds": 0.02,
+      "swap_sample_interval_seconds": 0.5,
+      "system_swap_after_bytes": 7148404736,
+      "system_swap_before_bytes": 7265845248,
+      "system_swap_growth_bytes": 0,
+      "system_swap_peak_bytes": 7265845248,
+      "system_swap_peak_growth_bytes": 0
+    },
+    "passed": false,
+    "proof": {
+      "accuracy_limit": 0.02,
+      "accuracy_passed": true,
+      "accuracy_tie_margin": 0.02,
+      "batch_instance_ids": [
+        [
+          "T1_modular_arithmetic_s20261014001_i0",
+          "T2_string_transforms_s20261014011_i0",
+          "T3_list_operations_s20261014021_i0",
+          "T4_syntax_matching_s20261014031_i0",
+          "T5_boolean_logic_s20261014041_i0",
+          "T6_sequence_completion_s20261014051_i0",
+          "T7_state_machines_s20261014061_i0",
+          "T8_python_microsynth_s20261014071_i0"
+        ],
+        [
+          "t9_0000",
+          "t10_0000",
+          "t11_0000",
+          "t12_0000",
+          "T1_modular_arithmetic_s20261014001_i1",
+          "T2_string_transforms_s20261014011_i1",
+          "T3_list_operations_s20261014021_i1",
+          "T4_syntax_matching_s20261014031_i1"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i1",
+          "T6_sequence_completion_s20261014051_i1",
+          "T7_state_machines_s20261014061_i1",
+          "T8_python_microsynth_s20261014071_i1",
+          "t9_0001",
+          "t10_0001",
+          "t11_0001",
+          "t12_0001"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i2",
+          "T2_string_transforms_s20261014011_i2",
+          "T3_list_operations_s20261014021_i2",
+          "T4_syntax_matching_s20261014031_i2",
+          "T5_boolean_logic_s20261014041_i3",
+          "T6_sequence_completion_s20261014051_i2",
+          "T7_state_machines_s20261014061_i2",
+          "T8_python_microsynth_s20261014071_i2"
+        ],
+        [
+          "t9_0002",
+          "t10_0002",
+          "t11_0002",
+          "t12_0002",
+          "T1_modular_arithmetic_s20261014001_i3",
+          "T2_string_transforms_s20261014011_i3",
+          "T3_list_operations_s20261014021_i3",
+          "T4_syntax_matching_s20261014031_i3"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i4",
+          "T6_sequence_completion_s20261014051_i3",
+          "T7_state_machines_s20261014061_i3",
+          "T8_python_microsynth_s20261014071_i3",
+          "t9_0003",
+          "t10_0003",
+          "t11_0003",
+          "t12_0003"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i4",
+          "T2_string_transforms_s20261014011_i4",
+          "T3_list_operations_s20261014021_i4",
+          "T4_syntax_matching_s20261014031_i4",
+          "T5_boolean_logic_s20261014041_i5",
+          "T6_sequence_completion_s20261014051_i4",
+          "T7_state_machines_s20261014061_i4",
+          "T8_python_microsynth_s20261014071_i4"
+        ],
+        [
+          "t9_0004",
+          "t10_0004",
+          "t11_0004",
+          "t12_0004",
+          "T1_modular_arithmetic_s20261014001_i5",
+          "T2_string_transforms_s20261014011_i5",
+          "T3_list_operations_s20261014021_i5",
+          "T4_syntax_matching_s20261014031_i5"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i6",
+          "T6_sequence_completion_s20261014051_i5",
+          "T7_state_machines_s20261014061_i5",
+          "T8_python_microsynth_s20261014071_i8",
+          "t9_0005",
+          "t10_0005",
+          "t11_0005",
+          "t12_0005"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i6",
+          "T2_string_transforms_s20261014011_i6",
+          "T3_list_operations_s20261014021_i6",
+          "T4_syntax_matching_s20261014031_i6",
+          "T5_boolean_logic_s20261014041_i7",
+          "T6_sequence_completion_s20261014051_i6",
+          "T7_state_machines_s20261014061_i6",
+          "T8_python_microsynth_s20261014071_i9"
+        ],
+        [
+          "t9_0006",
+          "t10_0006",
+          "t11_0006",
+          "t12_0006",
+          "T1_modular_arithmetic_s20261014001_i7",
+          "T2_string_transforms_s20261014011_i7",
+          "T3_list_operations_s20261014021_i7",
+          "T4_syntax_matching_s20261014031_i7"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i8",
+          "T6_sequence_completion_s20261014051_i7",
+          "T7_state_machines_s20261014061_i7",
+          "T8_python_microsynth_s20261014071_i10",
+          "t9_0007",
+          "t10_0007",
+          "t11_0007",
+          "t12_0007"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i8",
+          "T2_string_transforms_s20261014011_i8",
+          "T3_list_operations_s20261014021_i8",
+          "T4_syntax_matching_s20261014031_i8",
+          "T5_boolean_logic_s20261014041_i9",
+          "T6_sequence_completion_s20261014051_i8",
+          "T7_state_machines_s20261014061_i8",
+          "T8_python_microsynth_s20261014071_i11"
+        ],
+        [
+          "t9_0008",
+          "t10_0008",
+          "t11_0008",
+          "t12_0008",
+          "T1_modular_arithmetic_s20261014001_i9",
+          "T2_string_transforms_s20261014011_i9",
+          "T3_list_operations_s20261014021_i9",
+          "T4_syntax_matching_s20261014031_i9"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i10",
+          "T6_sequence_completion_s20261014051_i9",
+          "T7_state_machines_s20261014061_i9",
+          "T8_python_microsynth_s20261014071_i12",
+          "t9_0009",
+          "t10_0009",
+          "t11_0009",
+          "t12_0009"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i10",
+          "T2_string_transforms_s20261014011_i10",
+          "T3_list_operations_s20261014021_i10",
+          "T4_syntax_matching_s20261014031_i10",
+          "T5_boolean_logic_s20261014041_i11",
+          "T6_sequence_completion_s20261014051_i10",
+          "T7_state_machines_s20261014061_i10",
+          "T8_python_microsynth_s20261014071_i13"
+        ],
+        [
+          "t9_0010",
+          "t10_0010",
+          "t11_0010",
+          "t12_0010",
+          "T1_modular_arithmetic_s20261014001_i11",
+          "T2_string_transforms_s20261014011_i11",
+          "T3_list_operations_s20261014021_i11",
+          "T4_syntax_matching_s20261014031_i11"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i12",
+          "T6_sequence_completion_s20261014051_i11",
+          "T7_state_machines_s20261014061_i11",
+          "T8_python_microsynth_s20261014071_i17",
+          "t9_0011",
+          "t10_0011",
+          "t11_0011",
+          "t12_0011"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i12",
+          "T2_string_transforms_s20261014011_i12",
+          "T3_list_operations_s20261014021_i12",
+          "T4_syntax_matching_s20261014031_i12",
+          "T5_boolean_logic_s20261014041_i13",
+          "T6_sequence_completion_s20261014051_i12",
+          "T7_state_machines_s20261014061_i12",
+          "T8_python_microsynth_s20261014071_i21"
+        ],
+        [
+          "t9_0012",
+          "t10_0012",
+          "t11_0012",
+          "t12_0012",
+          "T1_modular_arithmetic_s20261014001_i13",
+          "T2_string_transforms_s20261014011_i13",
+          "T3_list_operations_s20261014021_i13",
+          "T4_syntax_matching_s20261014031_i13"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i14",
+          "T6_sequence_completion_s20261014051_i13",
+          "T7_state_machines_s20261014061_i13",
+          "T8_python_microsynth_s20261014071_i23",
+          "t9_0013",
+          "t10_0013",
+          "t11_0013",
+          "t12_0013"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i14",
+          "T2_string_transforms_s20261014011_i14",
+          "T3_list_operations_s20261014021_i14",
+          "T4_syntax_matching_s20261014031_i14",
+          "T5_boolean_logic_s20261014041_i15",
+          "T6_sequence_completion_s20261014051_i14",
+          "T7_state_machines_s20261014061_i14",
+          "T8_python_microsynth_s20261014071_i24"
+        ],
+        [
+          "t9_0014",
+          "t10_0014",
+          "t11_0014",
+          "t12_0014",
+          "T1_modular_arithmetic_s20261014001_i15",
+          "T2_string_transforms_s20261014011_i15",
+          "T3_list_operations_s20261014021_i15",
+          "T4_syntax_matching_s20261014031_i15"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i16",
+          "T6_sequence_completion_s20261014051_i15",
+          "T7_state_machines_s20261014061_i15",
+          "T8_python_microsynth_s20261014071_i25",
+          "t9_0015",
+          "t10_0015",
+          "t11_0015",
+          "t12_0015"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i16",
+          "T2_string_transforms_s20261014011_i16",
+          "T3_list_operations_s20261014021_i16",
+          "T4_syntax_matching_s20261014031_i16",
+          "T5_boolean_logic_s20261014041_i17",
+          "T6_sequence_completion_s20261014051_i16",
+          "T7_state_machines_s20261014061_i16",
+          "T8_python_microsynth_s20261014071_i27"
+        ],
+        [
+          "t9_0016",
+          "t10_0016",
+          "t11_0016",
+          "t12_0016",
+          "T1_modular_arithmetic_s20261014001_i17",
+          "T2_string_transforms_s20261014011_i17",
+          "T3_list_operations_s20261014021_i17",
+          "T4_syntax_matching_s20261014031_i17"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i18",
+          "T6_sequence_completion_s20261014051_i17",
+          "T7_state_machines_s20261014061_i17",
+          "T8_python_microsynth_s20261014071_i30",
+          "t9_0017",
+          "t10_0017",
+          "t11_0017",
+          "t12_0017"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i18",
+          "T2_string_transforms_s20261014011_i18",
+          "T3_list_operations_s20261014021_i18",
+          "T4_syntax_matching_s20261014031_i18",
+          "T5_boolean_logic_s20261014041_i19",
+          "T6_sequence_completion_s20261014051_i18",
+          "T7_state_machines_s20261014061_i18",
+          "T8_python_microsynth_s20261014071_i31"
+        ],
+        [
+          "t9_0018",
+          "t10_0018",
+          "t11_0018",
+          "t12_0018",
+          "T1_modular_arithmetic_s20261014001_i19",
+          "T2_string_transforms_s20261014011_i19",
+          "T3_list_operations_s20261014021_i19",
+          "T4_syntax_matching_s20261014031_i19"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i20",
+          "T6_sequence_completion_s20261014051_i19",
+          "T7_state_machines_s20261014061_i19",
+          "T8_python_microsynth_s20261014071_i33",
+          "t9_0019",
+          "t10_0019",
+          "t11_0019",
+          "t12_0019"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i20",
+          "T2_string_transforms_s20261014011_i20",
+          "T3_list_operations_s20261014021_i20",
+          "T4_syntax_matching_s20261014031_i20",
+          "T5_boolean_logic_s20261014041_i21",
+          "T6_sequence_completion_s20261014051_i20",
+          "T7_state_machines_s20261014061_i20",
+          "T8_python_microsynth_s20261014071_i37"
+        ],
+        [
+          "t9_0020",
+          "t10_0020",
+          "t11_0020",
+          "t12_0020",
+          "T1_modular_arithmetic_s20261014001_i21",
+          "T2_string_transforms_s20261014011_i21",
+          "T3_list_operations_s20261014021_i21",
+          "T4_syntax_matching_s20261014031_i21"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i22",
+          "T6_sequence_completion_s20261014051_i21",
+          "T7_state_machines_s20261014061_i21",
+          "T8_python_microsynth_s20261014071_i38",
+          "t9_0021",
+          "t10_0021",
+          "t11_0021",
+          "t12_0021"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i22",
+          "T2_string_transforms_s20261014011_i22",
+          "T3_list_operations_s20261014021_i22",
+          "T4_syntax_matching_s20261014031_i22",
+          "T5_boolean_logic_s20261014041_i23",
+          "T6_sequence_completion_s20261014051_i22",
+          "T7_state_machines_s20261014061_i22",
+          "T8_python_microsynth_s20261014071_i40"
+        ],
+        [
+          "t9_0022",
+          "t10_0022",
+          "t11_0022",
+          "t12_0022",
+          "T1_modular_arithmetic_s20261014001_i23",
+          "T2_string_transforms_s20261014011_i23",
+          "T3_list_operations_s20261014021_i23",
+          "T4_syntax_matching_s20261014031_i23"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i24",
+          "T6_sequence_completion_s20261014051_i23",
+          "T7_state_machines_s20261014061_i23",
+          "T8_python_microsynth_s20261014071_i41",
+          "t9_0023",
+          "t10_0023",
+          "t11_0023",
+          "t12_0023"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i24",
+          "T2_string_transforms_s20261014011_i24",
+          "T3_list_operations_s20261014021_i24",
+          "T4_syntax_matching_s20261014031_i24",
+          "T5_boolean_logic_s20261014041_i25",
+          "T6_sequence_completion_s20261014051_i24",
+          "T7_state_machines_s20261014061_i24",
+          "T8_python_microsynth_s20261014071_i43"
+        ],
+        [
+          "t9_0024",
+          "t10_0024",
+          "t11_0024",
+          "t12_0024",
+          "T1_modular_arithmetic_s20261014001_i25",
+          "T2_string_transforms_s20261014011_i25",
+          "T3_list_operations_s20261014021_i25",
+          "T4_syntax_matching_s20261014031_i25"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i26",
+          "T6_sequence_completion_s20261014051_i25",
+          "T7_state_machines_s20261014061_i25",
+          "T8_python_microsynth_s20261014071_i44",
+          "t9_0025",
+          "t10_0025",
+          "t11_0025",
+          "t12_0025"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i26",
+          "T2_string_transforms_s20261014011_i26",
+          "T3_list_operations_s20261014021_i26",
+          "T4_syntax_matching_s20261014031_i26",
+          "T5_boolean_logic_s20261014041_i27",
+          "T6_sequence_completion_s20261014051_i26",
+          "T7_state_machines_s20261014061_i26",
+          "T8_python_microsynth_s20261014071_i48"
+        ],
+        [
+          "t9_0026",
+          "t10_0026",
+          "t11_0026",
+          "t12_0026",
+          "T1_modular_arithmetic_s20261014001_i27",
+          "T2_string_transforms_s20261014011_i27",
+          "T3_list_operations_s20261014021_i27",
+          "T4_syntax_matching_s20261014031_i27"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i28",
+          "T6_sequence_completion_s20261014051_i27",
+          "T7_state_machines_s20261014061_i27",
+          "T8_python_microsynth_s20261014071_i49",
+          "t9_0027",
+          "t10_0027",
+          "t11_0027",
+          "t12_0027"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i28",
+          "T2_string_transforms_s20261014011_i28",
+          "T3_list_operations_s20261014021_i28",
+          "T4_syntax_matching_s20261014031_i28",
+          "T5_boolean_logic_s20261014041_i29",
+          "T6_sequence_completion_s20261014051_i28",
+          "T7_state_machines_s20261014061_i28",
+          "T8_python_microsynth_s20261014071_i52"
+        ],
+        [
+          "t9_0028",
+          "t10_0028",
+          "t11_0028",
+          "t12_0028",
+          "T1_modular_arithmetic_s20261014001_i29",
+          "T2_string_transforms_s20261014011_i29",
+          "T3_list_operations_s20261014021_i29",
+          "T4_syntax_matching_s20261014031_i29"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i30",
+          "T6_sequence_completion_s20261014051_i29",
+          "T7_state_machines_s20261014061_i29",
+          "T8_python_microsynth_s20261014071_i55",
+          "t9_0029",
+          "t10_0029",
+          "t11_0029",
+          "t12_0029"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i30",
+          "T2_string_transforms_s20261014011_i30",
+          "T3_list_operations_s20261014021_i30",
+          "T4_syntax_matching_s20261014031_i30",
+          "T5_boolean_logic_s20261014041_i31",
+          "T6_sequence_completion_s20261014051_i30",
+          "T7_state_machines_s20261014061_i30",
+          "T8_python_microsynth_s20261014071_i58"
+        ],
+        [
+          "t9_0030",
+          "t10_0030",
+          "t11_0030",
+          "t12_0030",
+          "T1_modular_arithmetic_s20261014001_i31",
+          "T2_string_transforms_s20261014011_i31",
+          "T3_list_operations_s20261014021_i31",
+          "T4_syntax_matching_s20261014031_i31"
+        ],
+        [
+          "T5_boolean_logic_s20261014041_i32",
+          "T6_sequence_completion_s20261014051_i31",
+          "T7_state_machines_s20261014061_i31",
+          "T8_python_microsynth_s20261014071_i59",
+          "t9_0031",
+          "t10_0031",
+          "t11_0031",
+          "t12_0031"
+        ],
+        [
+          "T1_modular_arithmetic_s20261014001_i32",
+          "T2_string_transforms_s20261014011_i32",
+          "T3_list_operations_s20261014021_i32",
+          "T4_syntax_matching_s20261014031_i32",
+          "T5_boolean_logic_s20261014041_i33",
+          "T6_sequence_completion_s20261014051_i32",
+          "T7_state_machines_s20261014061_i32",
+          "T8_python_microsynth_s20261014071_i60"
+        ],
+        [
+          "t9_0032",
+          "t10_0032",
+          "t11_0032",
+          "t12_0032",
+          "T1_modular_arithmetic_s20261014001_i33",
+          "T2_string_transforms_s20261014011_i33",
+          "T3_list_operations_s20261014021_i33",
+          "T4_syntax_matching_s20261014031_i33"
+        ]
+      ],
+      "data_order": "identical across all variants",
+      "device": "mps",
+      "dtype": "float32",
+      "family_accuracy": [
+        {
+          "family_id": "T1_modular_arithmetic",
+          "new_seed_0": 0.06,
+          "old_seed_0": 0.06,
+          "old_seed_1": 0.06
+        },
+        {
+          "family_id": "T2_string_transforms",
+          "new_seed_0": 0.0,
+          "old_seed_0": 0.0,
+          "old_seed_1": 0.0
+        },
+        {
+          "family_id": "T3_list_operations",
+          "new_seed_0": 0.0,
+          "old_seed_0": 0.0,
+          "old_seed_1": 0.0
+        },
+        {
+          "family_id": "T4_syntax_matching",
+          "new_seed_0": 0.28,
+          "old_seed_0": 0.28,
+          "old_seed_1": 0.28
+        },
+        {
+          "family_id": "T5_boolean_logic",
+          "new_seed_0": 0.34,
+          "old_seed_0": 0.34,
+          "old_seed_1": 0.34
+        },
+        {
+          "family_id": "T6_sequence_completion",
+          "new_seed_0": 0.01,
+          "old_seed_0": 0.01,
+          "old_seed_1": 0.01
+        },
+        {
+          "family_id": "T7_state_machines",
+          "new_seed_0": 0.36,
+          "old_seed_0": 0.36,
+          "old_seed_1": 0.36
+        },
+        {
+          "family_id": "T8_python_microsynth",
+          "new_seed_0": 0.22,
+          "old_seed_0": 0.22,
+          "old_seed_1": 0.22
+        },
+        {
+          "family_id": "T9_algo_synth",
+          "new_seed_0": 0.63,
+          "old_seed_0": 0.63,
+          "old_seed_1": 0.63
+        },
+        {
+          "family_id": "T10_docstring_code",
+          "new_seed_0": 0.55,
+          "old_seed_0": 0.55,
+          "old_seed_1": 0.55
+        },
+        {
+          "family_id": "T11_bug_fixer",
+          "new_seed_0": 0.0,
+          "old_seed_0": 0.0,
+          "old_seed_1": 0.0
+        },
+        {
+          "family_id": "T12_type_inferrer",
+          "new_seed_0": 1.0,
+          "old_seed_0": 1.0,
+          "old_seed_1": 1.0
+        }
+      ],
+      "maximum_new_vs_old_seed_0_loss_difference": 3.5762786865234375e-06,
+      "maximum_old_seed_to_seed_loss_difference": 2.6226043701171875e-06,
+      "mean_accuracy": {
+        "new_seed_0": 0.28750000000000003,
+        "old_seed_0": 0.28750000000000003,
+        "old_seed_1": 0.28750000000000003
+      },
+      "new_seed_0_losses": [
+        3.5998659133911133,
+        1.8192802667617798,
+        1.8801344633102417,
+        4.800368309020996,
+        1.703121304512024,
+        1.8006196022033691,
+        4.543449878692627,
+        1.633505940437317,
+        1.8141250610351562,
+        4.517233371734619,
+        1.770197868347168,
+        1.6246670484542847,
+        4.747321128845215,
+        1.5512335300445557,
+        1.5333582162857056,
+        3.7292580604553223,
+        1.5067214965820312,
+        1.3861478567123413,
+        4.083754539489746,
+        1.2037259340286255,
+        1.330576777458191,
+        2.9551682472229004,
+        1.2795699834823608,
+        1.144014835357666,
+        3.317824125289917,
+        1.3294392824172974,
+        1.0850213766098022,
+        3.322977066040039,
+        1.2140700817108154,
+        1.029220700263977,
+        2.321671962738037,
+        1.1146084070205688,
+        0.9272648692131042,
+        2.306938409805298,
+        1.0225175619125366,
+        0.9114461541175842,
+        2.341280698776245,
+        1.0053253173828125,
+        0.8119767904281616,
+        2.0682404041290283,
+        0.9318289160728455,
+        0.7634080648422241,
+        1.960746169090271,
+        0.9566594958305359,
+        0.6928350925445557,
+        2.0137710571289062,
+        0.7381690144538879,
+        0.6484651565551758,
+        2.238359212875366,
+        0.7980537414550781
+      ],
+      "new_vs_old_seed_0_accuracy_difference": 0.0,
+      "old_seed_0_losses": [
+        3.5998661518096924,
+        1.8192799091339111,
+        1.880134105682373,
+        4.8003692626953125,
+        1.703121542930603,
+        1.8006196022033691,
+        4.543447971343994,
+        1.6335057020187378,
+        1.814124345779419,
+        4.5172343254089355,
+        1.7701972723007202,
+        1.6246668100357056,
+        4.747322082519531,
+        1.551233172416687,
+        1.5333585739135742,
+        3.729259729385376,
+        1.5067214965820312,
+        1.3861483335494995,
+        4.083755016326904,
+        1.2037261724472046,
+        1.3305765390396118,
+        2.955169439315796,
+        1.2795705795288086,
+        1.1440147161483765,
+        3.3178205490112305,
+        1.329439401626587,
+        1.0850216150283813,
+        3.322979211807251,
+        1.214070200920105,
+        1.0292202234268188,
+        2.3216710090637207,
+        1.1146079301834106,
+        0.9272642731666565,
+        2.306938886642456,
+        1.0225173234939575,
+        0.9114459753036499,
+        2.3412795066833496,
+        1.0053249597549438,
+        0.8119773268699646,
+        2.068242311477661,
+        0.9318293929100037,
+        0.7634089589118958,
+        1.960746169090271,
+        0.9566599130630493,
+        0.6928343772888184,
+        2.0137720108032227,
+        0.7381690144538879,
+        0.648466169834137,
+        2.238361358642578,
+        0.7980541586875916
+      ],
+      "old_seed_1_losses": [
+        3.5998661518096924,
+        1.8192799091339111,
+        1.880134105682373,
+        4.8003692626953125,
+        1.703121542930603,
+        1.8006196022033691,
+        4.543447971343994,
+        1.6335049867630005,
+        1.8141249418258667,
+        4.5172343254089355,
+        1.7701975107192993,
+        1.6246662139892578,
+        4.7473225593566895,
+        1.5512335300445557,
+        1.533357858657837,
+        3.7292582988739014,
+        1.5067209005355835,
+        1.3861480951309204,
+        4.0837554931640625,
+        1.2037262916564941,
+        1.3305765390396118,
+        2.9551687240600586,
+        1.27957022190094,
+        1.1440147161483765,
+        3.3178231716156006,
+        1.3294386863708496,
+        1.0850213766098022,
+        3.322979211807251,
+        1.214070200920105,
+        1.0292202234268188,
+        2.3216707706451416,
+        1.1146079301834106,
+        0.9272637367248535,
+        2.3069372177124023,
+        1.0225168466567993,
+        0.9114461541175842,
+        2.341278553009033,
+        1.0053253173828125,
+        0.8119775652885437,
+        2.0682427883148193,
+        0.9318292737007141,
+        0.763408362865448,
+        1.9607446193695068,
+        0.9566601514816284,
+        0.6928341388702393,
+        2.0137715339660645,
+        0.7381688952445984,
+        0.6484659910202026,
+        2.2383615970611572,
+        0.7980539798736572
+      ],
+      "old_seed_to_seed_accuracy_difference": 0.0,
+      "passed": false,
+      "seeds": [
+        0,
+        1
+      ],
+      "steps": 50,
+      "trajectory_passed": false
+    },
+    "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "status": "failed"
+  },
+  "protocol": {
+    "accuracy_tie_margin": 0.02,
+    "batch_order": "training item index outer, configured family order inner",
+    "data_order": "identical across outcome variants",
+    "exact_gradient_relative_l2_tolerance": 1e-10,
+    "exact_loss_absolute_tolerance": 1e-12,
+    "learning_rate": 1e-05,
+    "outcome_seeds": [
+      0,
+      1
+    ],
+    "outcome_steps": 50,
+    "shape_control_batches": 3,
+    "shape_control_gating": false,
+    "shape_control_sequence_chunk_size": 1,
+    "warmup_steps": 20,
+    "weight_decay": 0.0
+  },
+  "schema_version": "pretrained-base-amendment-4b-equivalence-v1",
+  "shape_changing_control": {
+    "candidate_results": [
+      {
+        "candidate_id": "smollm2-135m",
+        "load_attempts": 1,
+        "memory": {
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+          "hard_constraint_peak_bytes": 6087786496,
+          "mps_driver_baseline_bytes": 1207648256,
+          "mps_driver_delta_bytes": 3749691392,
+          "mps_driver_peak_bytes": 4957339648,
+          "process_rss_baseline_bytes": 6087786496,
+          "process_rss_delta_bytes": 0,
+          "process_rss_peak_bytes": 6087786496,
+          "sample_interval_seconds": 0.02,
+          "swap_sample_interval_seconds": 0.5,
+          "system_swap_after_bytes": 7265845248,
+          "system_swap_before_bytes": 7265845248,
+          "system_swap_growth_bytes": 0,
+          "system_swap_peak_bytes": 7265845248,
+          "system_swap_peak_growth_bytes": 0
+        },
+        "proof": {
+          "batches": [
+            {
+              "batch": 1,
+              "instance_ids": [
+                "T1_modular_arithmetic_s20261014001_i0",
+                "T2_string_transforms_s20261014011_i0",
+                "T3_list_operations_s20261014021_i0",
+                "T4_syntax_matching_s20261014031_i0",
+                "T5_boolean_logic_s20261014041_i0",
+                "T6_sequence_completion_s20261014051_i0",
+                "T7_state_machines_s20261014061_i0",
+                "T8_python_microsynth_s20261014071_i0"
+              ],
+              "legacy_loss": 3.5998661518096924,
+              "shape_control_gradient_difference": {
+                "difference_l2": 0.0002442936132948989,
+                "maximum_absolute": 0.00011301040649414062,
+                "reference_l2": 14.477282797455711,
+                "relative_l2": 1.687427238333922e-05
+              },
+              "shape_control_loss": 3.599865198135376,
+              "shape_control_update_difference": {
+                "difference_l2": 0.0001476553231925951,
+                "maximum_absolute": 1.7911195755004883e-05,
+                "reference_l2": 0.11114912654730379,
+                "relative_l2": 0.0013284433965367662
+              },
+              "target_gradient_within_shape_control": true,
+              "target_only_gradient_difference": {
+                "difference_l2": 0.0001424606053832663,
+                "maximum_absolute": 7.545948028564453e-05,
+                "reference_l2": 14.477282797455711,
+                "relative_l2": 9.840286148744903e-06
+              },
+              "target_only_loss": 3.5998659133911133,
+              "target_only_update_difference": {
+                "difference_l2": 8.074591677102204e-05,
+                "maximum_absolute": 1.078099012374878e-05,
+                "reference_l2": 0.11114912654730379,
+                "relative_l2": 0.0007264646990874688
+              },
+              "target_update_within_shape_control": true
+            },
+            {
+              "batch": 2,
+              "instance_ids": [
+                "t9_0000",
+                "t10_0000",
+                "t11_0000",
+                "t12_0000",
+                "T1_modular_arithmetic_s20261014001_i1",
+                "T2_string_transforms_s20261014011_i1",
+                "T3_list_operations_s20261014021_i1",
+                "T4_syntax_matching_s20261014031_i1"
+              ],
+              "legacy_loss": 1.820460557937622,
+              "shape_control_gradient_difference": {
+                "difference_l2": 0.0001192321442372189,
+                "maximum_absolute": 5.1856040954589844e-05,
+                "reference_l2": 6.681637207408102,
+                "relative_l2": 1.7844749802491997e-05
+              },
+              "shape_control_loss": 1.8204609155654907,
+              "shape_control_update_difference": {
+                "difference_l2": 0.00010109580719700548,
+                "maximum_absolute": 1.6137957572937012e-05,
+                "reference_l2": 0.10990262010522989,
+                "relative_l2": 0.000919867125098637
+              },
+              "target_gradient_within_shape_control": true,
+              "target_only_gradient_difference": {
+                "difference_l2": 1.914029506032593e-08,
+                "maximum_absolute": 7.450580596923828e-09,
+                "reference_l2": 6.681637207408102,
+                "relative_l2": 2.864611541480372e-09
+              },
+              "target_only_loss": 1.820460557937622,
+              "target_only_update_difference": {
+                "difference_l2": 0.0,
+                "maximum_absolute": 0.0,
+                "reference_l2": 0.10990262010522989,
+                "relative_l2": 0.0
+              },
+              "target_update_within_shape_control": true
+            },
+            {
+              "batch": 3,
+              "instance_ids": [
+                "T5_boolean_logic_s20261014041_i1",
+                "T6_sequence_completion_s20261014051_i1",
+                "T7_state_machines_s20261014061_i1",
+                "T8_python_microsynth_s20261014071_i1",
+                "t9_0001",
+                "t10_0001",
+                "t11_0001",
+                "t12_0001"
+              ],
+              "legacy_loss": 1.8863486051559448,
+              "shape_control_gradient_difference": {
+                "difference_l2": 0.00014162672800243777,
+                "maximum_absolute": 6.377696990966797e-05,
+                "reference_l2": 6.936111897631231,
+                "relative_l2": 2.0418749018568323e-05
+              },
+              "shape_control_loss": 1.886348009109497,
+              "shape_control_update_difference": {
+                "difference_l2": 0.00012147016324051587,
+                "maximum_absolute": 1.3947486877441406e-05,
+                "reference_l2": 0.10979858165363407,
+                "relative_l2": 0.0011062999303916373
+              },
+              "target_gradient_within_shape_control": true,
+              "target_only_gradient_difference": {
+                "difference_l2": 2.905138214908707e-08,
+                "maximum_absolute": 1.4901161193847656e-08,
+                "reference_l2": 6.936111897631231,
+                "relative_l2": 4.188424664689807e-09
+              },
+              "target_only_loss": 1.8863486051559448,
+              "target_only_update_difference": {
+                "difference_l2": 0.0,
+                "maximum_absolute": 0.0,
+                "reference_l2": 0.10979858165363407,
+                "relative_l2": 0.0
+              },
+              "target_update_within_shape_control": true
+            }
+          ],
+          "device": "mps",
+          "dropout_disabled": true,
+          "dtype": "float32",
+          "effective_batch_size": 8,
+          "gating": false,
+          "sequence_chunk_size": 1,
+          "status": "completed",
+          "target_only_micro_batch_size": 8
+        },
+        "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+        "status": "completed"
+      },
+      {
+        "candidate_id": "gpt2",
+        "load_attempts": 1,
+        "memory": {
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+          "hard_constraint_peak_bytes": 7332462592,
+          "mps_driver_baseline_bytes": 1348157440,
+          "mps_driver_delta_bytes": 3109306368,
+          "mps_driver_peak_bytes": 4457463808,
+          "process_rss_baseline_bytes": 6087786496,
+          "process_rss_delta_bytes": 1244676096,
+          "process_rss_peak_bytes": 7332462592,
+          "sample_interval_seconds": 0.02,
+          "swap_sample_interval_seconds": 0.5,
+          "system_swap_after_bytes": 7265845248,
+          "system_swap_before_bytes": 7265845248,
+          "system_swap_growth_bytes": 0,
+          "system_swap_peak_bytes": 7265845248,
+          "system_swap_peak_growth_bytes": 0
+        },
+        "proof": {
+          "batches": [
+            {
+              "batch": 1,
+              "instance_ids": [
+                "T1_modular_arithmetic_s20261014001_i0",
+                "T2_string_transforms_s20261014011_i0",
+                "T3_list_operations_s20261014021_i0",
+                "T4_syntax_matching_s20261014031_i0",
+                "T5_boolean_logic_s20261014041_i0",
+                "T6_sequence_completion_s20261014051_i0",
+                "T7_state_machines_s20261014061_i0",
+                "T8_python_microsynth_s20261014071_i0"
+              ],
+              "legacy_loss": 6.126404762268066,
+              "shape_control_gradient_difference": {
+                "difference_l2": 0.001289996126805658,
+                "maximum_absolute": 0.00033164024353027344,
+                "reference_l2": 71.91619692786165,
+                "relative_l2": 1.7937490884002654e-05
+              },
+              "shape_control_loss": 6.126415252685547,
+              "shape_control_update_difference": {
+                "difference_l2": 0.0005927927556421995,
+                "maximum_absolute": 1.988094300031662e-05,
+                "reference_l2": 0.10411258675623153,
+                "relative_l2": 0.005693766470620505
+              },
+              "target_gradient_within_shape_control": true,
+              "target_only_gradient_difference": {
+                "difference_l2": 0.0007619011940807016,
+                "maximum_absolute": 0.00018990039825439453,
+                "reference_l2": 71.91619692786165,
+                "relative_l2": 1.0594292059756114e-05
+              },
+              "target_only_loss": 6.126404762268066,
+              "target_only_update_difference": {
+                "difference_l2": 0.0004079030157780216,
+                "maximum_absolute": 1.954752951860428e-05,
+                "reference_l2": 0.10411258675623153,
+                "relative_l2": 0.003917902997963953
+              },
+              "target_update_within_shape_control": true
+            },
+            {
+              "batch": 2,
+              "instance_ids": [
+                "t9_0000",
+                "t10_0000",
+                "t11_0000",
+                "t12_0000",
+                "T1_modular_arithmetic_s20261014001_i1",
+                "T2_string_transforms_s20261014011_i1",
+                "T3_list_operations_s20261014021_i1",
+                "T4_syntax_matching_s20261014031_i1"
+              ],
+              "legacy_loss": 3.5446271896362305,
+              "shape_control_gradient_difference": {
+                "difference_l2": 0.0011976118418085208,
+                "maximum_absolute": 0.00029665231704711914,
+                "reference_l2": 26.710108442083556,
+                "relative_l2": 4.483740095647098e-05
+              },
+              "shape_control_loss": 3.5446271896362305,
+              "shape_control_update_difference": {
+                "difference_l2": 0.0007447757953194975,
+                "maximum_absolute": 1.990795135498047e-05,
+                "reference_l2": 0.10294299123808623,
+                "relative_l2": 0.007234837324640998
+              },
+              "target_gradient_within_shape_control": true,
+              "target_only_gradient_difference": {
+                "difference_l2": 2.7817091699895088e-08,
+                "maximum_absolute": 7.450580596923828e-09,
+                "reference_l2": 26.710108442083556,
+                "relative_l2": 1.0414443565518216e-09
+              },
+              "target_only_loss": 3.5446271896362305,
+              "target_only_update_difference": {
+                "difference_l2": 0.0,
+                "maximum_absolute": 0.0,
+                "reference_l2": 0.10294299123808623,
+                "relative_l2": 0.0
+              },
+              "target_update_within_shape_control": true
+            },
+            {
+              "batch": 3,
+              "instance_ids": [
+                "T5_boolean_logic_s20261014041_i1",
+                "T6_sequence_completion_s20261014051_i1",
+                "T7_state_machines_s20261014061_i1",
+                "T8_python_microsynth_s20261014071_i1",
+                "t9_0001",
+                "t10_0001",
+                "t11_0001",
+                "t12_0001"
+              ],
+              "legacy_loss": 3.841623306274414,
+              "shape_control_gradient_difference": {
+                "difference_l2": 0.0012873392942849833,
+                "maximum_absolute": 0.000260770320892334,
+                "reference_l2": 29.21645548718642,
+                "relative_l2": 4.4062131179792736e-05
+              },
+              "shape_control_loss": 3.8416261672973633,
+              "shape_control_update_difference": {
+                "difference_l2": 0.000722343960417795,
+                "maximum_absolute": 1.993216574192047e-05,
+                "reference_l2": 0.10323113367602642,
+                "relative_l2": 0.006997346001108059
+              },
+              "target_gradient_within_shape_control": true,
+              "target_only_gradient_difference": {
+                "difference_l2": 2.918667829332048e-08,
+                "maximum_absolute": 7.450580596923828e-09,
+                "reference_l2": 29.21645548718642,
+                "relative_l2": 9.989808074467144e-10
+              },
+              "target_only_loss": 3.841623306274414,
+              "target_only_update_difference": {
+                "difference_l2": 2.3283064365386963e-10,
+                "maximum_absolute": 2.3283064365386963e-10,
+                "reference_l2": 0.10323113367602642,
+                "relative_l2": 2.2554304632996623e-09
+              },
+              "target_update_within_shape_control": true
+            }
+          ],
+          "device": "mps",
+          "dropout_disabled": true,
+          "dtype": "float32",
+          "effective_batch_size": 8,
+          "gating": false,
+          "sequence_chunk_size": 1,
+          "status": "completed",
+          "target_only_micro_batch_size": 8
+        },
+        "resolved_revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+        "status": "completed"
+      }
+    ],
+    "gating": false,
+    "status": "completed"
+  },
+  "status": "failed"
+}

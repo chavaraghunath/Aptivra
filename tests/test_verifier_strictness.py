@@ -3,7 +3,7 @@
 import pytest
 
 from aptivra.tasks.algo_synth import AlgoSynthTaskFamily
-from aptivra.tasks.base import TaskInstance
+from aptivra.tasks.base import TaskInstance, normalize_verifier_text
 from aptivra.tasks.boolean_logic import BooleanLogicTaskFamily
 from aptivra.tasks.bug_fixer import BugFixerTaskFamily
 from aptivra.tasks.conversational import ConversationalTaskFamily
@@ -82,3 +82,8 @@ def test_python_microsynth_requires_exact_value_or_executable_res_assignment() -
     assert family.verifier.verify(instance, "x = 0").passed is False
     wrong_value = int(instance.metadata["expected_result"]) + 1
     assert family.verifier.verify(instance, f"res = {wrong_value}").passed is False
+
+
+def test_verifier_text_normalizes_nfc_before_comparison() -> None:
+    """Canonically equivalent text compares equal under Amendment 3."""
+    assert normalize_verifier_text(" e\u0301 ") == normalize_verifier_text("é")

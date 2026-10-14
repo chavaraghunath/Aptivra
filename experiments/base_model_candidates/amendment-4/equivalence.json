@@ -1,0 +1,126 @@
+{
+  "candidate_results": [
+    {
+      "candidate_id": "smollm2-135m",
+      "equivalence": {
+        "amendment_4_gradient_checkpointing": false,
+        "amendment_4_micro_batch_size": 8,
+        "dropout_disabled_for_proof": false,
+        "effective_batch_size": 8,
+        "family_id": "T1_modular_arithmetic",
+        "passed": false,
+        "steps": [
+          {
+            "absolute_loss_difference": 1.3623918793115308e-07,
+            "amendment_4_loss": 4.891389029366629,
+            "instance_ids": [
+              "T1_modular_arithmetic_s20261014001_i0",
+              "T1_modular_arithmetic_s20261014001_i1",
+              "T1_modular_arithmetic_s20261014001_i2",
+              "T1_modular_arithmetic_s20261014001_i3",
+              "T1_modular_arithmetic_s20261014001_i4",
+              "T1_modular_arithmetic_s20261014001_i5",
+              "T1_modular_arithmetic_s20261014001_i6",
+              "T1_modular_arithmetic_s20261014001_i7"
+            ],
+            "legacy_loss": 4.891388893127441,
+            "parameter_update_difference": {
+              "difference_l2": 1.0306234082380384e-05,
+              "legacy_update_l2": 0.005455463942040533,
+              "maximum_absolute": 9.238719940185547e-07,
+              "relative_l2": 0.0018891581342806007
+            },
+            "passed": false,
+            "step": 1
+          }
+        ],
+        "steps_completed": 1,
+        "steps_requested": 3,
+        "training_mode": true
+      },
+      "load_attempts": 1,
+      "memory": {
+        "configured_maximum_swap_growth_bytes": 1073741824,
+        "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+        "hard_constraint_peak_bytes": 6267830272,
+        "mps_driver_baseline_bytes": 475136,
+        "mps_driver_delta_bytes": 6267355136,
+        "mps_driver_peak_bytes": 6267830272,
+        "process_rss_baseline_bytes": 437780480,
+        "process_rss_delta_bytes": 2278768640,
+        "process_rss_peak_bytes": 2716549120,
+        "sample_interval_seconds": 0.02,
+        "swap_sample_interval_seconds": 0.5,
+        "system_swap_after_bytes": 7500726272,
+        "system_swap_before_bytes": 7500726272,
+        "system_swap_growth_bytes": 0,
+        "system_swap_peak_bytes": 7500726272,
+        "system_swap_peak_growth_bytes": 0
+      },
+      "memory_recipe_selection": {
+        "attempts": [
+          {
+            "calibration_instance_ids": [
+              "T3_list_operations_s20261014021_i24",
+              "T3_list_operations_s20261014021_i218",
+              "T3_list_operations_s20261014021_i187",
+              "t10_0251",
+              "t10_0249",
+              "t10_0246",
+              "t10_0244",
+              "t10_0242"
+            ],
+            "calibration_steps": 1,
+            "configured_maximum_peak_bytes": 28991029248,
+            "effective_batch_size": 8,
+            "feasible": true,
+            "gradient_checkpointing": false,
+            "memory": {
+              "configured_maximum_swap_growth_bytes": 1073741824,
+              "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+              "hard_constraint_peak_bytes": 4623613952,
+              "mps_driver_baseline_bytes": 1107787776,
+              "mps_driver_delta_bytes": 3515826176,
+              "mps_driver_peak_bytes": 4623613952,
+              "process_rss_baseline_bytes": 1284587520,
+              "process_rss_delta_bytes": 0,
+              "process_rss_peak_bytes": 1284587520,
+              "sample_interval_seconds": 0.02,
+              "swap_sample_interval_seconds": 0.5,
+              "system_swap_after_bytes": 7500726272,
+              "system_swap_before_bytes": 7500726272,
+              "system_swap_growth_bytes": 0,
+              "system_swap_peak_bytes": 7500726272,
+              "system_swap_peak_growth_bytes": 0
+            },
+            "micro_batch_size": 8
+          }
+        ],
+        "candidate_micro_batch_sizes": [
+          8,
+          4,
+          2,
+          1
+        ],
+        "configured_maximum_peak_bytes": 28991029248,
+        "configured_maximum_swap_growth_bytes": 1073741824,
+        "effective_batch_size": 8,
+        "gradient_checkpointing_fallback": true,
+        "selected_gradient_checkpointing": false,
+        "selected_micro_batch_size": 8,
+        "target_only_training_loss": true
+      },
+      "passed": false,
+      "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2"
+    }
+  ],
+  "correlation_id": "107cc59a-ab49-4217-a52d-ce9ab8185ed1",
+  "manifest_sha256": "e468d0700f55425a6ae0d189216d7acbfaf7152fd4c2a9c3e43c7d78786b9a47",
+  "schema_version": "pretrained-base-amendment-4-equivalence-v1",
+  "status": "failed",
+  "tolerances": {
+    "loss_absolute": 5e-05,
+    "update_maximum_absolute": 1e-06,
+    "update_relative_l2": 0.0001
+  }
+}

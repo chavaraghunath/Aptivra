@@ -1,0 +1,30 @@
+{
+  "correlation_id": "1252ea43-2e5c-4e14-b342-6a9f403e630d",
+  "decision_status": "no_eligible_candidate",
+  "manifest_sha256": "45d4bb9779750a77ec7c5fe957bf787834f731ab04d577778821f4eff1c6e8fb",
+  "pairwise_family_clustered_comparisons": [],
+  "ranked_candidates": [],
+  "ranking_order": [
+    "mean learned task accuracy (descending; ties when absolute difference <= 0.02 or the paired family-clustered difference interval intersects the configured practical tie region)",
+    "mean task accuracy gain (descending; same numeric/interval tie rule)",
+    "combined held-out bits per byte (ascending)",
+    "median family probe training tokens per second (descending)",
+    "unique parameters (ascending)"
+  ],
+  "reference_records": [],
+  "rejected_candidates": [
+    {
+      "candidate_id": "qwen2.5-0.5b",
+      "reasons": [
+        "peak memory does not leave the configured minimum target-machine headroom"
+      ]
+    }
+  ],
+  "saturated_family_analysis": {
+    "candidate_aggregates": [],
+    "criterion": "learned successes equal total for every eligible probed candidate",
+    "family_ids": []
+  },
+  "schema_version": "pretrained-base-ranking-v4",
+  "selected_candidate": null
+}

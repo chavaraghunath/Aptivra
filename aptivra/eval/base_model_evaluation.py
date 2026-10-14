@@ -20,6 +20,7 @@ import re
 import resource
 import socket
 import statistics
+import subprocess
 import sys
 import tempfile
 import threading
@@ -56,11 +57,15 @@ from aptivra.huggingface.tokenization_aptivra import AptivraByteTokenizer
 from aptivra.tasks.base import TaskFamily, TaskInstance
 from aptivra.tasks.stream import ContinualTaskStream
 
-EVALUATION_SCHEMA_VERSION = "pretrained-base-evaluation-v4"
+EVALUATION_SCHEMA_VERSION = "pretrained-base-evaluation-v5"
 SEED_EVALUATION_SCHEMA_VERSION = "pretrained-base-seed-evaluation-v1"
-RANKING_SCHEMA_VERSION = "pretrained-base-ranking-v4"
+RANKING_SCHEMA_VERSION = "pretrained-base-ranking-v5"
 MANIFEST_SCHEMA_VERSION = "pretrained-base-manifest-v2"
 DERIVED_ANALYSIS_SCHEMA_VERSION = "pretrained-base-derived-analysis-v1"
+AMENDMENT_3_ANALYSIS_SCHEMA_VERSION = "pretrained-base-amendment-3-analysis-v1"
+AMENDMENT_4_EQUIVALENCE_SCHEMA_VERSION = "pretrained-base-amendment-4-equivalence-v1"
+AMENDMENT_4A_EQUIVALENCE_SCHEMA_VERSION = "pretrained-base-amendment-4a-equivalence-v1"
+AMENDMENT_4B_EQUIVALENCE_SCHEMA_VERSION = "pretrained-base-amendment-4b-equivalence-v1"
 UNIFORM_BYTE_BASELINE_BPB = 8.0
 
 
@@ -99,6 +104,12 @@ class CausalLM(Protocol):
 
     def to(self, device: torch.device | str) -> CausalLM:
         """Move the model to a device."""
+
+    def get_decoder(self) -> nn.Module:
+        """Return the decoder backbone without the language-model head."""
+
+    def get_output_embeddings(self) -> nn.Module:
+        """Return the output projection used as the language-model head."""
 
 
 @dataclass(frozen=True)
@@ -151,6 +162,26 @@ class MeasurementSettings:
     utf8_roundtrip_samples: tuple[str, ...]
     heldout_text_path: Path
     heldout_prompts_path: Path
+    probe_micro_batch_sizes: tuple[int, ...] = (8, 4, 2, 1)
+    target_only_training_loss: bool = True
+    gradient_checkpointing_fallback: bool = True
+    equivalence_candidate_ids: tuple[str, ...] = ("smollm2-135m", "gpt2")
+    equivalence_steps: int = 3
+    equivalence_loss_absolute_tolerance: float = 5e-5
+    equivalence_update_max_absolute_tolerance: float = 1e-6
+    equivalence_update_relative_l2_tolerance: float = 1e-4
+    equivalence_exact_loss_absolute_tolerance: float = 1e-12
+    equivalence_exact_gradient_relative_l2_tolerance: float = 1e-10
+    equivalence_noise_floor_batches: int = 3
+    equivalence_noise_floor_multiplier: float = 2.0
+    equivalence_trajectory_steps: int = 50
+    equivalence_protocol: str = "amendment_4a"
+    equivalence_shape_control_chunk_size: int = 1
+    equivalence_outcome_seeds: tuple[int, int] = (0, 1)
+    swap_sample_interval_seconds: float = 0.5
+    environment_minimum_free_memory_percent: float = 10.0
+    environment_recovery_timeout_seconds: float = 900.0
+    environment_max_attempts: int = 2
 
 
 @dataclass(frozen=True)
@@ -164,6 +195,8 @@ class DecisionSettings:
     minimum_mean_accuracy_gain: float
     learnability_tie_margin: float
     clustered_confidence_interval_intersects_tie_region: bool
+    maximum_swap_growth_bytes: int = 1_073_741_824
+    require_complete_candidate_measurements: bool = False
 
 
 @dataclass(frozen=True)
@@ -182,6 +215,7 @@ class BaseModelEvaluationSettings:
     measurement: MeasurementSettings
     decision: DecisionSettings
     execution: ExecutionSettings | None = None
+    equivalence_gate_owner_override: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -191,6 +225,24 @@ class LoadedCandidate:
     model: CausalLM
     tokenizer: PreTrainedTokenizerBase
     resolved_revision: str
+
+
+@dataclass(frozen=True)
+class TrainingRecipe:
+    """Candidate-specific Amendment 4 memory recipe."""
+
+    micro_batch_size: int
+    gradient_checkpointing: bool
+
+
+@dataclass
+class _VectorMeasurement:
+    """One internal loss/gradient/update observation."""
+
+    loss: float
+    gradients: list[torch.Tensor]
+    updates: list[torch.Tensor]
+    dropout_modules_disabled: int
 
 
 @dataclass(frozen=True)
@@ -215,7 +267,7 @@ class GenerationResult:
 CandidateLoader = Callable[[CandidateSpec, MeasurementSettings], LoadedCandidate]
 
 
-ROOT_KEYS = {"candidates", "measurement", "decision", "execution"}
+ROOT_KEYS = {"candidates", "measurement", "decision", "execution", "equivalence_gate"}
 CANDIDATE_KEYS = {
     "id",
     "source",
@@ -242,6 +294,22 @@ MEASUREMENT_KEYS = {
     "max_new_tokens",
     "probe_steps",
     "probe_batch_size",
+    "probe_micro_batch_sizes",
+    "target_only_training_loss",
+    "gradient_checkpointing_fallback",
+    "equivalence_candidate_ids",
+    "equivalence_steps",
+    "equivalence_loss_absolute_tolerance",
+    "equivalence_update_max_absolute_tolerance",
+    "equivalence_update_relative_l2_tolerance",
+    "equivalence_exact_loss_absolute_tolerance",
+    "equivalence_exact_gradient_relative_l2_tolerance",
+    "equivalence_noise_floor_batches",
+    "equivalence_noise_floor_multiplier",
+    "equivalence_trajectory_steps",
+    "equivalence_protocol",
+    "equivalence_shape_control_chunk_size",
+    "equivalence_outcome_seeds",
     "probe_learning_rates",
     "probe_warmup_steps",
     "probe_weight_decay",
@@ -255,6 +323,10 @@ MEASUREMENT_KEYS = {
     "load_retries",
     "load_retry_backoff_seconds",
     "memory_sample_interval_seconds",
+    "swap_sample_interval_seconds",
+    "environment_minimum_free_memory_percent",
+    "environment_recovery_timeout_seconds",
+    "environment_max_attempts",
     "candidate_timeout_seconds",
     "expected_wall_time_seconds",
     "utf8_roundtrip_samples",
@@ -269,8 +341,11 @@ DECISION_KEYS = {
     "minimum_mean_accuracy_gain",
     "learnability_tie_margin",
     "clustered_confidence_interval_intersects_tie_region",
+    "maximum_swap_growth_bytes",
+    "require_complete_candidate_measurements",
 }
 EXECUTION_KEYS = {"output_dir", "resume"}
+OWNER_OVERRIDE_KEYS = {"by", "date", "adr_section"}
 
 
 def _reject_unknown_keys(row: Mapping[str, object], allowed: set[str], name: str) -> None:
@@ -285,6 +360,18 @@ def sha256_file(path: Path) -> str:
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
+    return digest.hexdigest()
+
+
+def sha256_source_tree(path: Path) -> str:
+    """Hash relative paths and bytes for every Python source below a directory."""
+    digest = hashlib.sha256()
+    for source in sorted(path.rglob("*.py")):
+        digest.update(str(source.relative_to(path)).encode("utf-8"))
+        digest.update(b"\0")
+        with source.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
     return digest.hexdigest()
 
 
@@ -395,6 +482,33 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
     _reject_unknown_keys(measurement, MEASUREMENT_KEYS, "measurement")
     _reject_unknown_keys(decision, DECISION_KEYS, "decision")
     _reject_unknown_keys(execution, EXECUTION_KEYS, "execution")
+    owner_override: dict[str, str] | None = None
+    if "equivalence_gate" in root:
+        equivalence_gate = _mapping(root["equivalence_gate"], "equivalence_gate")
+        _reject_unknown_keys(equivalence_gate, {"owner_override"}, "equivalence_gate")
+        if "owner_override" in equivalence_gate:
+            raw_override = _mapping(
+                equivalence_gate["owner_override"],
+                "equivalence_gate.owner_override",
+            )
+            _reject_unknown_keys(
+                raw_override,
+                OWNER_OVERRIDE_KEYS,
+                "equivalence_gate.owner_override",
+            )
+            if set(raw_override) != OWNER_OVERRIDE_KEYS:
+                raise ValueError(
+                    "equivalence_gate.owner_override requires by, date, and adr_section"
+                )
+            owner_override = {
+                key: cast(
+                    str,
+                    _string(
+                        raw_override[key], f"equivalence_gate.owner_override.{key}"
+                    ),
+                )
+                for key in ("by", "date", "adr_section")
+            }
     samples = tuple(
         cast(str, _string(item, "measurement.utf8_roundtrip_samples[]"))
         for item in _sequence(
@@ -429,6 +543,30 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
     probe_steps = _integer(
         measurement.get("probe_steps"), "measurement.probe_steps", 1, 10_000
     )
+    probe_batch_size = _integer(
+        measurement.get("probe_batch_size"),
+        "measurement.probe_batch_size",
+        1,
+        256,
+    )
+    micro_batch_sizes = tuple(
+        _integer(item, "measurement.probe_micro_batch_sizes[]", 1, probe_batch_size)
+        for item in _sequence(
+            measurement.get("probe_micro_batch_sizes"),
+            "measurement.probe_micro_batch_sizes",
+        )
+    )
+    if (
+        not micro_batch_sizes
+        or micro_batch_sizes[0] != probe_batch_size
+        or tuple(sorted(set(micro_batch_sizes), reverse=True)) != micro_batch_sizes
+        or micro_batch_sizes[-1] != 1
+        or any(probe_batch_size % item != 0 for item in micro_batch_sizes)
+    ):
+        raise ValueError(
+            "measurement.probe_micro_batch_sizes must be unique descending divisors "
+            "of probe_batch_size, beginning with probe_batch_size and ending with 1"
+        )
     warmup_steps = _integer(
         measurement.get("probe_warmup_steps"),
         "measurement.probe_warmup_steps",
@@ -446,6 +584,46 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
     )
     if not licenses:
         raise ValueError("decision.permissive_licenses must not be empty")
+    equivalence_candidate_ids = tuple(
+        cast(str, _string(item, "measurement.equivalence_candidate_ids[]"))
+        for item in _sequence(
+            measurement.get("equivalence_candidate_ids"),
+            "measurement.equivalence_candidate_ids",
+        )
+    )
+    selectable_ids = {
+        candidate.candidate_id for candidate in candidates if not candidate.reference_only
+    }
+    if (
+        not equivalence_candidate_ids
+        or len(set(equivalence_candidate_ids)) != len(equivalence_candidate_ids)
+        or any(item not in selectable_ids for item in equivalence_candidate_ids)
+    ):
+        raise ValueError(
+            "measurement.equivalence_candidate_ids must be unique selectable candidates"
+        )
+    equivalence_protocol = cast(
+        str,
+        _string(
+            measurement.get("equivalence_protocol", "amendment_4a"),
+            "measurement.equivalence_protocol",
+        ),
+    )
+    if equivalence_protocol not in {"amendment_4a", "amendment_4b"}:
+        raise ValueError(
+            "measurement.equivalence_protocol must be amendment_4a or amendment_4b"
+        )
+    outcome_seeds = tuple(
+        _integer(item, "measurement.equivalence_outcome_seeds[]", 0, 2**31 - 1)
+        for item in _sequence(
+            measurement.get("equivalence_outcome_seeds", [0, 1]),
+            "measurement.equivalence_outcome_seeds",
+        )
+    )
+    if len(outcome_seeds) != 2 or outcome_seeds[0] == outcome_seeds[1]:
+        raise ValueError(
+            "measurement.equivalence_outcome_seeds must contain two distinct seeds"
+        )
 
     return BaseModelEvaluationSettings(
         candidates=tuple(candidates),
@@ -501,12 +679,7 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
                 measurement.get("max_new_tokens"), "measurement.max_new_tokens", 1, 2_048
             ),
             probe_steps=probe_steps,
-            probe_batch_size=_integer(
-                measurement.get("probe_batch_size"),
-                "measurement.probe_batch_size",
-                1,
-                256,
-            ),
+            probe_batch_size=probe_batch_size,
             probe_learning_rates=learning_rates,
             probe_warmup_steps=warmup_steps,
             probe_weight_decay=_number(
@@ -575,6 +748,30 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
                 0.001,
                 10.0,
             ),
+            swap_sample_interval_seconds=_number(
+                measurement.get("swap_sample_interval_seconds"),
+                "measurement.swap_sample_interval_seconds",
+                0.05,
+                60.0,
+            ),
+            environment_minimum_free_memory_percent=_number(
+                measurement.get("environment_minimum_free_memory_percent", 10.0),
+                "measurement.environment_minimum_free_memory_percent",
+                0.0,
+                100.0,
+            ),
+            environment_recovery_timeout_seconds=_number(
+                measurement.get("environment_recovery_timeout_seconds", 900.0),
+                "measurement.environment_recovery_timeout_seconds",
+                0.0,
+                86_400.0,
+            ),
+            environment_max_attempts=_integer(
+                measurement.get("environment_max_attempts", 2),
+                "measurement.environment_max_attempts",
+                1,
+                20,
+            ),
             candidate_timeout_seconds=_number(
                 measurement.get("candidate_timeout_seconds"),
                 "measurement.candidate_timeout_seconds",
@@ -606,6 +803,80 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
                     ),
                 )
             )).resolve(),
+            probe_micro_batch_sizes=micro_batch_sizes,
+            target_only_training_loss=_boolean(
+                measurement.get("target_only_training_loss"),
+                "measurement.target_only_training_loss",
+            ),
+            gradient_checkpointing_fallback=_boolean(
+                measurement.get("gradient_checkpointing_fallback"),
+                "measurement.gradient_checkpointing_fallback",
+            ),
+            equivalence_candidate_ids=equivalence_candidate_ids,
+            equivalence_steps=_integer(
+                measurement.get("equivalence_steps"),
+                "measurement.equivalence_steps",
+                1,
+                100,
+            ),
+            equivalence_loss_absolute_tolerance=_number(
+                measurement.get("equivalence_loss_absolute_tolerance"),
+                "measurement.equivalence_loss_absolute_tolerance",
+                0.0,
+                1.0,
+            ),
+            equivalence_update_max_absolute_tolerance=_number(
+                measurement.get("equivalence_update_max_absolute_tolerance"),
+                "measurement.equivalence_update_max_absolute_tolerance",
+                0.0,
+                1.0,
+            ),
+            equivalence_update_relative_l2_tolerance=_number(
+                measurement.get("equivalence_update_relative_l2_tolerance"),
+                "measurement.equivalence_update_relative_l2_tolerance",
+                0.0,
+                1.0,
+            ),
+            equivalence_exact_loss_absolute_tolerance=_number(
+                measurement.get("equivalence_exact_loss_absolute_tolerance", 1e-12),
+                "measurement.equivalence_exact_loss_absolute_tolerance",
+                0.0,
+                1.0,
+            ),
+            equivalence_exact_gradient_relative_l2_tolerance=_number(
+                measurement.get(
+                    "equivalence_exact_gradient_relative_l2_tolerance", 1e-10
+                ),
+                "measurement.equivalence_exact_gradient_relative_l2_tolerance",
+                0.0,
+                1.0,
+            ),
+            equivalence_noise_floor_batches=_integer(
+                measurement.get("equivalence_noise_floor_batches", 3),
+                "measurement.equivalence_noise_floor_batches",
+                3,
+                100,
+            ),
+            equivalence_noise_floor_multiplier=_number(
+                measurement.get("equivalence_noise_floor_multiplier", 2.0),
+                "measurement.equivalence_noise_floor_multiplier",
+                1.0,
+                10.0,
+            ),
+            equivalence_trajectory_steps=_integer(
+                measurement.get("equivalence_trajectory_steps", 50),
+                "measurement.equivalence_trajectory_steps",
+                1,
+                1_000,
+            ),
+            equivalence_protocol=equivalence_protocol,
+            equivalence_shape_control_chunk_size=_integer(
+                measurement.get("equivalence_shape_control_chunk_size", 1),
+                "measurement.equivalence_shape_control_chunk_size",
+                1,
+                32_768,
+            ),
+            equivalence_outcome_seeds=outcome_seeds,
         ),
         decision=DecisionSettings(
             permissive_licenses=licenses,
@@ -643,6 +914,16 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
                 decision.get("clustered_confidence_interval_intersects_tie_region"),
                 "decision.clustered_confidence_interval_intersects_tie_region",
             ),
+            maximum_swap_growth_bytes=_integer(
+                decision.get("maximum_swap_growth_bytes"),
+                "decision.maximum_swap_growth_bytes",
+                0,
+                2**63 - 1,
+            ),
+            require_complete_candidate_measurements=_boolean(
+                decision.get("require_complete_candidate_measurements", False),
+                "decision.require_complete_candidate_measurements",
+            ),
         ),
         execution=ExecutionSettings(
             output_dir=(
@@ -656,6 +937,7 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
             ).resolve(),
             resume=_boolean(execution.get("resume"), "execution.resume"),
         ),
+        equivalence_gate_owner_override=owner_override,
     )
 
 
@@ -771,10 +1053,14 @@ def prepare_run_manifest(
             / "scripts"
             / "evaluate_base_model_candidates.py"
         ),
+        "task_sources_sha256": sha256_source_tree(
+            Path(__file__).resolve().parents[1] / "tasks"
+        ),
         "heldout_text_sha256": sha256_file(settings.measurement.heldout_text_path),
         "heldout_prompts_sha256": sha256_file(settings.measurement.heldout_prompts_path),
         "candidates": candidates,
         "seed": settings.measurement.seed,
+        "equivalence_gate_owner_override": settings.equivalence_gate_owner_override,
         "environment": {
             "python": platform.python_version(),
             "platform": platform.platform(),
@@ -1224,54 +1510,67 @@ def tokenizer_fitness(
     stream: ContinualTaskStream,
     configured_samples: Sequence[str],
 ) -> dict[str, object]:
-    """Check lossless UTF-8 round trips and token density on the task stream."""
+    """Check the amended NFC and exact task-stream round-trip contracts."""
     task_texts: list[str] = []
     for family in stream.families:
         split = stream.get_split(family.family_id)
         for item in (*split.train, *split.val, *split.test):
             task_texts.extend((item.prompt, item.target_solution, item.training_target()))
     samples = [*configured_samples, *task_texts]
-    failures: list[dict[str, object]] = []
+
+    def diagnose(sample: str, decoded: str, token_ids: list[int]) -> dict[str, object]:
+        cleaned = tokenizer.decode(
+            token_ids,
+            skip_special_tokens=False,
+            clean_up_tokenization_spaces=True,
+        )
+        if not isinstance(cleaned, str):
+            raise TypeError("tokenizer.decode must return a string for one token sequence")
+        normalized_forms = {
+            form: unicodedata.normalize(form, sample) for form in ("NFC", "NFD")
+        }
+        backend = getattr(tokenizer, "backend_tokenizer", None)
+        normalizer = getattr(backend, "normalizer", None)
+        cause = "unclassified_loss"
+        if decoded == normalized_forms["NFC"] and sample != normalized_forms["NFC"]:
+            cause = "tokenizer_unicode_normalization_nfc"
+        elif decoded == normalized_forms["NFD"] and sample != normalized_forms["NFD"]:
+            cause = "tokenizer_unicode_normalization_nfd"
+        elif cleaned != decoded:
+            cause = "decode_cleanup_setting"
+        return {
+            "input": sample,
+            "decoded": decoded,
+            "input_code_points": [f"U+{ord(character):04X}" for character in sample],
+            "decoded_code_points": [f"U+{ord(character):04X}" for character in decoded],
+            "token_ids": token_ids,
+            "add_special_tokens": False,
+            "decode_skip_special_tokens": False,
+            "decoded_with_cleanup_enabled": cleaned,
+            "decoded_with_cleanup_disabled": decoded,
+            "backend_normalizer": str(normalizer) if normalizer is not None else None,
+            "diagnosed_cause": cause,
+        }
+
+    raw_failures: list[dict[str, object]] = []
     for sample in samples:
         token_ids = _encode(tokenizer, sample)
         decoded = _decode(tokenizer, token_ids)
         if decoded != sample:
-            cleaned = tokenizer.decode(
-                token_ids,
-                skip_special_tokens=False,
-                clean_up_tokenization_spaces=True,
-            )
-            if not isinstance(cleaned, str):
-                raise TypeError("tokenizer.decode must return a string for one token sequence")
-            normalized_forms = {
-                form: unicodedata.normalize(form, sample) for form in ("NFC", "NFD")
-            }
-            backend = getattr(tokenizer, "backend_tokenizer", None)
-            normalizer = getattr(backend, "normalizer", None)
-            cause = "unclassified_loss"
-            if decoded == normalized_forms["NFC"] and sample != normalized_forms["NFC"]:
-                cause = "tokenizer_unicode_normalization_nfc"
-            elif decoded == normalized_forms["NFD"] and sample != normalized_forms["NFD"]:
-                cause = "tokenizer_unicode_normalization_nfd"
-            elif cleaned != decoded:
-                cause = "decode_cleanup_setting"
-            failures.append(
-                {
-                    "input": sample,
-                    "decoded": decoded,
-                    "input_code_points": [f"U+{ord(character):04X}" for character in sample],
-                    "decoded_code_points": [
-                        f"U+{ord(character):04X}" for character in decoded
-                    ],
-                    "token_ids": token_ids,
-                    "add_special_tokens": False,
-                    "decode_skip_special_tokens": False,
-                    "decoded_with_cleanup_enabled": cleaned,
-                    "decoded_with_cleanup_disabled": decoded,
-                    "backend_normalizer": str(normalizer) if normalizer is not None else None,
-                    "diagnosed_cause": cause,
-                }
-            )
+            raw_failures.append(diagnose(sample, decoded, token_ids))
+    nfc_failures: list[dict[str, object]] = []
+    for sample in configured_samples:
+        normalized = unicodedata.normalize("NFC", sample)
+        token_ids = _encode(tokenizer, normalized)
+        decoded = _decode(tokenizer, token_ids)
+        if decoded != normalized:
+            nfc_failures.append(diagnose(normalized, decoded, token_ids))
+    task_failures: list[dict[str, object]] = []
+    for sample in task_texts:
+        token_ids = _encode(tokenizer, sample)
+        decoded = _decode(tokenizer, token_ids)
+        if decoded != sample:
+            task_failures.append(diagnose(sample, decoded, token_ids))
     total_bytes = sum(len(text.encode("utf-8")) for text in task_texts)
     total_tokens = sum(len(_encode(tokenizer, text)) for text in task_texts)
     eos_token_id = tokenizer.eos_token_id
@@ -1292,9 +1591,21 @@ def tokenizer_fitness(
         and _decode(tokenizer, [eos_token_id]) == tokenizer.eos_token
     )
     return {
-        "exact_utf8_roundtrip": not failures,
+        "exact_utf8_roundtrip": not raw_failures,
+        "exact_roundtrip_after_nfc_normalization": not nfc_failures,
+        "exact_task_stream_roundtrip": not task_failures,
+        "roundtrip_contract": (
+            "configured samples round-trip after NFC normalization and every stored "
+            "task-stream prompt, target, and training target round-trips exactly"
+        ),
+        "non_nfc_input_cost": (
+            "canonically equivalent non-NFC input is normalized and its original "
+            "code-point sequence is not preserved"
+        ),
         "roundtrip_samples": len(samples),
-        "roundtrip_failures": failures[:10],
+        "roundtrip_failures": raw_failures[:10],
+        "nfc_roundtrip_failures": nfc_failures[:10],
+        "task_stream_roundtrip_failures": task_failures[:10],
         "task_stream_bytes": total_bytes,
         "task_stream_tokens": total_tokens,
         "mean_bytes_per_token": total_bytes / total_tokens if total_tokens else None,
@@ -1746,6 +2057,54 @@ def evaluate_batched_accuracy(
     return _accuracy_record(successes, len(instances), confidence_level)
 
 
+def evaluate_zero_shot_readiness(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    settings: MeasurementSettings,
+    context_length: int,
+    device: torch.device,
+) -> dict[str, object]:
+    """Measure held-out task accuracy before allocating any training state."""
+    predictor = TransformersPredictor(
+        model,
+        tokenizer,
+        device=device,
+        context_length=context_length,
+        max_new_tokens=settings.max_new_tokens,
+    )
+    families = [
+        {
+            "family_id": family.family_id,
+            "zero_shot": evaluate_batched_accuracy(
+                predictor,
+                family,
+                stream.get_split(family.family_id).test,
+                batch_size=settings.evaluation_batch_size,
+                confidence_level=settings.confidence_level,
+            ),
+        }
+        for family in stream.families
+    ]
+    successes = sum(
+        cast(int, cast(dict[str, object], item["zero_shot"])["successes"])
+        for item in families
+    )
+    total = sum(
+        cast(int, cast(dict[str, object], item["zero_shot"])["total"])
+        for item in families
+    )
+    mean = _accuracy_record(successes, total, settings.confidence_level)
+    return {
+        "families": families,
+        "mean_zero_shot": mean,
+        "mean_zero_shot_accuracy": mean["accuracy"],
+        "heldout_split": "test",
+        "evaluation_generation": "right-padded batched greedy decoding",
+        "measurement_timing": "before any learnability-probe training allocation",
+    }
+
+
 def _training_example(
     tokenizer: PreTrainedTokenizerBase,
     instance: TaskInstance,
@@ -1802,6 +2161,269 @@ def _training_batch(
     )
 
 
+def _target_only_loss_mean(
+    model: CausalLM,
+    input_ids: torch.Tensor,
+    labels: torch.Tensor,
+    attention_mask: torch.Tensor,
+) -> tuple[torch.Tensor, int]:
+    """Compute causal loss after selecting supervised hidden-state positions.
+
+    The decoder runs for the complete prompt and target because causal context is
+    required, but the vocabulary projection is applied only where shifted labels
+    carry supervision. This avoids materializing prompt-position logits.
+    """
+    decoder = model.get_decoder()
+    output = decoder(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+        return_dict=True,
+    )
+    hidden_states = getattr(output, "last_hidden_state", None)
+    if not isinstance(hidden_states, torch.Tensor):
+        raise TypeError("causal decoder did not return last_hidden_state")
+    shifted_labels = labels[:, 1:]
+    supervised = shifted_labels != -100
+    target_count = int(supervised.sum().item())
+    if target_count == 0:
+        raise ValueError("training batch contains no supervised target positions")
+    selected_hidden_rows: list[torch.Tensor] = []
+    selected_label_rows: list[torch.Tensor] = []
+    for row_index in range(shifted_labels.shape[0]):
+        positions = torch.nonzero(supervised[row_index], as_tuple=False).flatten()
+        if positions.numel() == 0:
+            continue
+        start = int(positions[0].item())
+        stop = int(positions[-1].item()) + 1
+        if positions.numel() != stop - start:
+            raise ValueError("supervised target positions must be contiguous per example")
+        selected_hidden_rows.append(hidden_states[row_index, start:stop, :])
+        selected_label_rows.append(shifted_labels[row_index, start:stop])
+    selected_hidden = torch.cat(selected_hidden_rows, dim=0)
+    selected_labels = torch.cat(selected_label_rows, dim=0)
+    logits = model.get_output_embeddings()(selected_hidden)
+    if not isinstance(logits, torch.Tensor):
+        raise TypeError("language-model head did not return logits")
+    return F.cross_entropy(logits, selected_labels, reduction="mean"), target_count
+
+
+def _set_gradient_checkpointing(model: CausalLM, enabled: bool) -> None:
+    method_name = (
+        "gradient_checkpointing_enable" if enabled else "gradient_checkpointing_disable"
+    )
+    method = getattr(model, method_name, None)
+    if not callable(method):
+        if enabled:
+            raise TypeError("candidate does not expose gradient checkpointing")
+        return
+    method()
+    if enabled and hasattr(model.config, "use_cache"):
+        model.config.use_cache = False
+
+
+def _backward_target_only(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+    *,
+    resource_guard: MemoryPeakSampler | None = None,
+) -> dict[str, float | int]:
+    """Backpropagate one token-weighted target-only effective batch."""
+    batches = [
+        _training_batch(
+            tokenizer,
+            instances[offset : offset + recipe.micro_batch_size],
+            context_length,
+            device,
+        )
+        for offset in range(0, len(instances), recipe.micro_batch_size)
+    ]
+    supervised_tokens = sum(int((labels != -100).sum().item()) for _, labels, _, _ in batches)
+    if supervised_tokens == 0:
+        raise ValueError("effective training batch contains no supervised target tokens")
+    loss_sum_value = 0.0
+    processed_tokens = 0
+    trained_bytes = 0
+    for input_ids, labels, attention_mask, byte_count in batches:
+        loss_mean, target_count = _target_only_loss_mean(
+            model, input_ids, labels, attention_mask
+        )
+        if target_count != int((labels[:, 1:] != -100).sum().item()):
+            raise RuntimeError("target-only loss selected an inconsistent token count")
+        token_fraction = target_count / supervised_tokens
+        torch.autograd.backward(loss_mean * token_fraction)
+        loss_sum_value += float(loss_mean.detach().item()) * target_count
+        processed_tokens += int(attention_mask.sum().item())
+        trained_bytes += byte_count
+        if resource_guard is not None:
+            resource_guard.raise_if_swap_limit_exceeded()
+    return {
+        "loss": loss_sum_value / supervised_tokens,
+        "processed_tokens": processed_tokens,
+        "supervised_tokens": supervised_tokens,
+        "trained_bytes": trained_bytes,
+        "accumulation_steps": len(batches),
+    }
+
+
+def _optimizer_step_target_only(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    context_length: int,
+    device: torch.device,
+    optimizer: torch.optim.Optimizer,
+    recipe: TrainingRecipe,
+    *,
+    resource_guard: MemoryPeakSampler | None = None,
+) -> dict[str, float | int]:
+    """Run one effective-batch step with token-weighted gradient accumulation."""
+    optimizer.zero_grad(set_to_none=True)
+    result = _backward_target_only(
+        model,
+        tokenizer,
+        instances,
+        context_length,
+        device,
+        recipe,
+        resource_guard=resource_guard,
+    )
+    optimizer.step()
+    if resource_guard is not None:
+        resource_guard.raise_if_swap_limit_exceeded()
+    return result
+
+
+def _backward_legacy(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    context_length: int,
+    device: torch.device,
+) -> float:
+    """Backpropagate the frozen Amendment 1 full-logit effective batch."""
+    input_ids, labels, attention_mask, _ = _training_batch(
+        tokenizer, instances, context_length, device
+    )
+    output = model(
+        input_ids=input_ids,
+        labels=labels,
+        attention_mask=attention_mask,
+        return_dict=True,
+    )
+    loss = getattr(output, "loss", None)
+    if not isinstance(loss, torch.Tensor):
+        raise TypeError("causal model did not return a training loss")
+    torch.autograd.backward(loss)
+    return float(loss.detach().item())
+
+
+def _backward_legacy_full_logits_exact(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    context_length: int,
+    device: torch.device,
+) -> float:
+    """Backpropagate full-logit cross-entropy without implementation dtype casts."""
+    input_ids, labels, attention_mask, _ = _training_batch(
+        tokenizer, instances, context_length, device
+    )
+    output = model(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+        return_dict=True,
+    )
+    logits = getattr(output, "logits", None)
+    if not isinstance(logits, torch.Tensor):
+        raise TypeError("causal model did not return logits")
+    shifted_labels = labels[:, 1:]
+    supervised = shifted_labels != -100
+    target_count = int(supervised.sum().item())
+    if target_count == 0:
+        raise ValueError("training batch contains no supervised target positions")
+    loss = F.cross_entropy(
+        logits[:, :-1, :][supervised],
+        shifted_labels[supervised],
+        reduction="sum",
+    ) / target_count
+    torch.autograd.backward(loss)
+    return float(loss.detach().item())
+
+
+def _backward_legacy_chunked_head(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    context_length: int,
+    device: torch.device,
+    sequence_chunk_size: int,
+) -> float:
+    """Backpropagate the legacy objective through sequence-shaped head chunks."""
+    if sequence_chunk_size < 1:
+        raise ValueError("sequence chunk size must be positive")
+    input_ids, labels, attention_mask, _ = _training_batch(
+        tokenizer, instances, context_length, device
+    )
+    decoder = model.get_decoder()
+    output = decoder(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+        return_dict=True,
+    )
+    hidden_states = getattr(output, "last_hidden_state", None)
+    if not isinstance(hidden_states, torch.Tensor):
+        raise TypeError("causal decoder did not return last_hidden_state")
+    shifted_labels = labels[:, 1:]
+    target_count = int((shifted_labels != -100).sum().item())
+    if target_count == 0:
+        raise ValueError("training batch contains no supervised target positions")
+    loss_sum: torch.Tensor | None = None
+    sequence_positions = shifted_labels.shape[1]
+    for start in range(0, sequence_positions, sequence_chunk_size):
+        stop = min(start + sequence_chunk_size, sequence_positions)
+        logits = model.get_output_embeddings()(hidden_states[:, start:stop, :])
+        if not isinstance(logits, torch.Tensor):
+            raise TypeError("language-model head did not return logits")
+        chunk_labels = shifted_labels[:, start:stop]
+        chunk_targets = int((chunk_labels != -100).sum().item())
+        if chunk_targets == 0:
+            continue
+        chunk_loss_sum = F.cross_entropy(
+            logits.reshape(-1, logits.shape[-1]),
+            chunk_labels.reshape(-1),
+            ignore_index=-100,
+            reduction="sum",
+        )
+        loss_sum = chunk_loss_sum if loss_sum is None else loss_sum + chunk_loss_sum
+    if loss_sum is None:
+        raise RuntimeError("chunked legacy loss found no supervised target chunk")
+    loss = loss_sum / target_count
+    torch.autograd.backward(loss)
+    return float(loss.detach().item())
+
+
+def _optimizer_step_legacy(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    context_length: int,
+    device: torch.device,
+    optimizer: torch.optim.Optimizer,
+) -> float:
+    """Run the frozen Amendment 1 full-logit batch-8 step for equivalence proof."""
+    optimizer.zero_grad(set_to_none=True)
+    loss = _backward_legacy(model, tokenizer, instances, context_length, device)
+    optimizer.step()
+    return loss
+
+
 def synchronize_device(device: torch.device) -> None:
     """Synchronize accelerator work before or after a timed interval."""
     if device.type == "mps" and hasattr(torch, "mps"):
@@ -1843,6 +2465,8 @@ def run_learnability_probe(
     learning_rate: float | None = None,
     zero_shot: Mapping[str, object] | None = None,
     evaluate_test: bool = True,
+    recipe: TrainingRecipe | None = None,
+    resource_guard: MemoryPeakSampler | None = None,
 ) -> dict[str, object]:
     """Train an isolated family probe, optionally reserving test for the final LR."""
     seed_everything(settings.seed + family_index)
@@ -1851,6 +2475,11 @@ def run_learnability_probe(
     selected_learning_rate = (
         settings.probe_learning_rates[0] if learning_rate is None else learning_rate
     )
+    selected_recipe = recipe or TrainingRecipe(settings.probe_batch_size, False)
+    if settings.probe_batch_size % selected_recipe.micro_batch_size != 0:
+        raise ValueError("micro-batch size must divide the effective probe batch")
+    if not settings.target_only_training_loss:
+        raise ValueError("Amendment 4 requires target_only_training_loss=true")
     before: dict[str, object] | None = None
     if evaluate_test:
         base_predictor = TransformersPredictor(
@@ -1873,6 +2502,7 @@ def run_learnability_probe(
         )
     probe = copy.deepcopy(base_model).to(device)
     probe.train()
+    _set_gradient_checkpointing(probe, selected_recipe.gradient_checkpointing)
     optimizer = torch.optim.AdamW(
         probe.parameters(),
         lr=selected_learning_rate,
@@ -1896,26 +2526,21 @@ def run_learnability_probe(
             split.train[(offset + index) % len(split.train)]
             for index in range(settings.probe_batch_size)
         ]
-        input_ids, labels, attention_mask, byte_count = _training_batch(
-            tokenizer, batch, context_length, device
+        step_result = _optimizer_step_target_only(
+            probe,
+            tokenizer,
+            batch,
+            context_length,
+            device,
+            optimizer,
+            selected_recipe,
+            resource_guard=resource_guard,
         )
-        optimizer.zero_grad(set_to_none=True)
-        output = probe(
-            input_ids=input_ids,
-            labels=labels,
-            attention_mask=attention_mask,
-            return_dict=True,
-        )
-        loss = getattr(output, "loss", None)
-        if not isinstance(loss, torch.Tensor):
-            raise TypeError("causal model did not return a training loss")
-        torch.autograd.backward(loss)
-        optimizer.step()
         scheduler.step()
-        losses.append(float(loss.detach().item()))
-        processed_tokens += int(attention_mask.sum().item())
-        supervised_tokens += int((labels != -100).sum().item())
-        trained_bytes += byte_count
+        losses.append(cast(float, step_result["loss"]))
+        processed_tokens += cast(int, step_result["processed_tokens"])
+        supervised_tokens += cast(int, step_result["supervised_tokens"])
+        trained_bytes += cast(int, step_result["trained_bytes"])
     synchronize_device(device)
     elapsed = time.perf_counter() - started
     probe.eval()
@@ -1953,6 +2578,13 @@ def run_learnability_probe(
         "test_evaluated": evaluate_test,
         "steps": settings.probe_steps,
         "batch_size": settings.probe_batch_size,
+        "effective_batch_size": settings.probe_batch_size,
+        "micro_batch_size": selected_recipe.micro_batch_size,
+        "gradient_accumulation_steps": (
+            settings.probe_batch_size // selected_recipe.micro_batch_size
+        ),
+        "gradient_checkpointing": selected_recipe.gradient_checkpointing,
+        "loss_materialization": "target positions only before language-model head",
         "warmup_steps": settings.probe_warmup_steps,
         "seconds": elapsed,
         "processed_nonpadding_tokens": processed_tokens,
@@ -1993,6 +2625,10 @@ def evaluate_task_readiness(
     settings: MeasurementSettings,
     context_length: int,
     device: torch.device,
+    *,
+    zero_shot_readiness: Mapping[str, object] | None = None,
+    recipe: TrainingRecipe | None = None,
+    resource_guard: MemoryPeakSampler | None = None,
 ) -> dict[str, object]:
     """Select one candidate-wide LR on validation, then report held-out test results."""
     before_digest = model_state_digest(model)
@@ -2009,6 +2645,8 @@ def evaluate_task_readiness(
                 device,
                 learning_rate=learning_rate,
                 evaluate_test=False,
+                recipe=recipe,
+                resource_guard=resource_guard,
             )
             for index in range(len(stream.families))
         ]
@@ -2045,23 +2683,24 @@ def evaluate_task_readiness(
         ),
     )
     selected_learning_rate = cast(float, selected_summary["learning_rate"])
-    base_predictor = TransformersPredictor(
-        model,
-        tokenizer,
-        device=device,
-        context_length=context_length,
-        max_new_tokens=settings.max_new_tokens,
-    )
-    zero_shot = [
-        evaluate_batched_accuracy(
-            base_predictor,
-            family,
-            stream.get_split(family.family_id).test,
-            batch_size=settings.evaluation_batch_size,
-            confidence_level=settings.confidence_level,
+    zero_shot_summary = (
+        dict(zero_shot_readiness)
+        if zero_shot_readiness is not None
+        else evaluate_zero_shot_readiness(
+            model, tokenizer, stream, settings, context_length, device
         )
-        for family in stream.families
-    ]
+    )
+    zero_shot_rows = zero_shot_summary.get("families")
+    if not isinstance(zero_shot_rows, list) or len(zero_shot_rows) != len(stream.families):
+        raise ValueError("zero-shot readiness must contain one row per task family")
+    zero_shot = []
+    for family, row in zip(stream.families, zero_shot_rows, strict=True):
+        if not isinstance(row, dict) or row.get("family_id") != family.family_id:
+            raise ValueError("zero-shot readiness family order does not match the task stream")
+        result = row.get("zero_shot")
+        if not isinstance(result, dict):
+            raise TypeError("zero-shot readiness family result is malformed")
+        zero_shot.append(cast(dict[str, object], result))
     probes = [
         run_learnability_probe(
             model,
@@ -2074,6 +2713,8 @@ def evaluate_task_readiness(
             learning_rate=selected_learning_rate,
             zero_shot=zero_shot[index],
             evaluate_test=True,
+            recipe=recipe,
+            resource_guard=resource_guard,
         )
         for index in range(len(stream.families))
     ]
@@ -2158,15 +2799,132 @@ def evaluate_task_readiness(
     }
 
 
+def full_finetuning_memory_feasibility(
+    unique_parameters: int,
+    settings: MeasurementSettings,
+    decision: DecisionSettings,
+) -> dict[str, object]:
+    """Return a conservative parameter-state lower bound for the frozen probe.
+
+    The probe retains the pristine base model and deep-copies a trainable model. AdamW
+    additionally allocates gradients and two optimizer moments. Activations, allocator
+    overhead, tokenizer state, and the Python process are deliberately excluded, making
+    this a lower bound rather than a capacity estimate.
+    """
+    element_bytes = {"float32": 4, "float16": 2, "bfloat16": 2}[settings.torch_dtype]
+    optimizer_state_bytes = 8
+    bytes_per_parameter = 3 * element_bytes + optimizer_state_bytes
+    components = {
+        "pristine_base_weights": unique_parameters * element_bytes,
+        "trainable_copy_weights": unique_parameters * element_bytes,
+        "gradients": unique_parameters * element_bytes,
+        "adamw_first_and_second_moments": unique_parameters * optimizer_state_bytes,
+    }
+    lower_bound = sum(components.values())
+    maximum = int(
+        decision.target_memory_bytes * (1.0 - decision.minimum_memory_headroom_fraction)
+    )
+    return {
+        "fits_parameter_state_lower_bound": lower_bound <= maximum,
+        "unique_parameters": unique_parameters,
+        "torch_dtype": settings.torch_dtype,
+        "bytes_per_parameter": bytes_per_parameter,
+        "parameter_state_lower_bound_bytes": lower_bound,
+        "configured_maximum_peak_bytes": maximum,
+        "configured_target_memory_bytes": decision.target_memory_bytes,
+        "configured_minimum_headroom_fraction": decision.minimum_memory_headroom_fraction,
+        "components_bytes": components,
+        "excluded_from_lower_bound": [
+            "activations",
+            "allocator overhead",
+            "tokenizer and Python process state",
+        ],
+        "method": (
+            "pristine weights + trainable copied weights + gradients + two float32 "
+            "AdamW moments; failure is definitive because omitted allocations are non-negative"
+        ),
+    }
+
+
 def _rss_high_water_bytes() -> int:
     value = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
     return value if sys.platform == "darwin" else value * 1024
 
 
+def system_swap_used_bytes() -> int:
+    """Read host swap use without adding a runtime dependency."""
+    if sys.platform == "darwin":
+        completed = subprocess.run(
+            ["/usr/sbin/sysctl", "-n", "vm.swapusage"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        match = re.search(r"used\s*=\s*([0-9.]+)([KMGTP])", completed.stdout)
+        if match is None:
+            raise RuntimeError("could not parse Darwin vm.swapusage")
+        multipliers = {
+            "K": 1024,
+            "M": 1024**2,
+            "G": 1024**3,
+            "T": 1024**4,
+            "P": 1024**5,
+        }
+        return int(float(match.group(1)) * multipliers[match.group(2)])
+    meminfo = Path("/proc/meminfo")
+    if meminfo.is_file():
+        fields: dict[str, int] = {}
+        for line in meminfo.read_text(encoding="utf-8").splitlines():
+            name, separator, value = line.partition(":")
+            if separator and name in {"SwapTotal", "SwapFree"}:
+                fields[name] = int(value.strip().split()[0]) * 1024
+        if fields.keys() >= {"SwapTotal", "SwapFree"}:
+            return max(0, fields["SwapTotal"] - fields["SwapFree"])
+    raise RuntimeError(f"system swap measurement is unsupported on {sys.platform}")
+
+
+def system_free_memory_percentage() -> float:
+    """Return the host free-memory percentage used as environment-health evidence."""
+    if sys.platform == "darwin":
+        completed = subprocess.run(
+            ["/usr/bin/memory_pressure"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+        )
+        match = re.search(
+            r"System-wide memory free percentage:\s*([0-9]+(?:\.[0-9]+)?)%",
+            completed.stdout,
+        )
+        if match is None:
+            raise RuntimeError("could not parse Darwin memory_pressure output")
+        return float(match.group(1))
+    meminfo = Path("/proc/meminfo")
+    if meminfo.is_file():
+        fields: dict[str, int] = {}
+        for line in meminfo.read_text(encoding="utf-8").splitlines():
+            name, separator, value = line.partition(":")
+            if separator and name in {"MemTotal", "MemAvailable"}:
+                fields[name] = int(value.strip().split()[0])
+        if fields.keys() >= {"MemTotal", "MemAvailable"} and fields["MemTotal"]:
+            return 100.0 * fields["MemAvailable"] / fields["MemTotal"]
+    raise RuntimeError(f"system memory-pressure measurement is unsupported on {sys.platform}")
+
+
 class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
     """Sample per-process RSS and accelerator allocation high-water values."""
 
-    def __init__(self, device: torch.device, interval_seconds: float) -> None:
+    def __init__(
+        self,
+        device: torch.device,
+        interval_seconds: float,
+        *,
+        maximum_swap_growth_bytes: int | None = None,
+        swap_baseline_bytes: int | None = None,
+        swap_sample_interval_seconds: float = 0.5,
+    ) -> None:
         self.device = device
         self.interval_seconds = interval_seconds
         self._stop = threading.Event()
@@ -2175,6 +2933,16 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
         self.rss_peak = self.rss_baseline
         self.mps_baseline: int | None = self._mps_bytes()
         self.mps_peak: int | None = self.mps_baseline
+        self.maximum_swap_growth_bytes = maximum_swap_growth_bytes
+        self.swap_sample_interval_seconds = swap_sample_interval_seconds
+        self.swap_baseline = (
+            system_swap_used_bytes()
+            if swap_baseline_bytes is None
+            else swap_baseline_bytes
+        )
+        self.swap_peak = self.swap_baseline
+        self.swap_after = self.swap_baseline
+        self._last_swap_sample = 0.0
 
     def _mps_bytes(self) -> int | None:
         if self.device.type != "mps" or not hasattr(torch, "mps"):
@@ -2184,18 +2952,27 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
         except RuntimeError:
             return None
 
-    def _sample(self) -> None:
+    def _sample(self, *, force_swap: bool = False) -> None:
         self.rss_peak = max(self.rss_peak, _rss_high_water_bytes())
         mps_value = self._mps_bytes()
         if mps_value is not None:
             self.mps_peak = max(self.mps_peak or 0, mps_value)
+        now = time.monotonic()
+        if force_swap or now - self._last_swap_sample >= self.swap_sample_interval_seconds:
+            self.swap_after = system_swap_used_bytes()
+            self.swap_peak = max(self.swap_peak, self.swap_after)
+            self._last_swap_sample = now
+
+    def raise_if_swap_limit_exceeded(self) -> None:
+        """Sample swap at legacy cooperative boundaries without judging feasibility."""
+        self._sample()
 
     def _run(self) -> None:
         while not self._stop.wait(self.interval_seconds):
             self._sample()
 
     def __enter__(self) -> MemoryPeakSampler:
-        self._sample()
+        self._sample(force_swap=True)
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
         return self
@@ -2204,7 +2981,7 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=max(1.0, self.interval_seconds * 5))
-        self._sample()
+        self._sample(force_swap=True)
 
     def record(self) -> dict[str, object]:
         """Return raw and derived values without double-counting unified memory."""
@@ -2229,7 +3006,1987 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
                 else "absolute process RSS peak"
             ),
             "sample_interval_seconds": self.interval_seconds,
+            "system_swap_before_bytes": self.swap_baseline,
+            "system_swap_after_bytes": self.swap_after,
+            "system_swap_peak_bytes": self.swap_peak,
+            "system_swap_growth_bytes": max(0, self.swap_after - self.swap_baseline),
+            "system_swap_peak_growth_bytes": max(
+                0, self.swap_peak - self.swap_baseline
+            ),
+            "configured_maximum_swap_growth_bytes": self.maximum_swap_growth_bytes,
+            "swap_sample_interval_seconds": self.swap_sample_interval_seconds,
         }
+
+
+def _worst_case_training_instances(
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    context_length: int,
+    effective_batch_size: int,
+) -> list[TaskInstance]:
+    """Select the longest supervised examples for one-step memory calibration."""
+    scored: list[tuple[int, int, str, TaskInstance]] = []
+    for family in stream.families:
+        for instance in stream.get_split(family.family_id).train:
+            ids, labels, _ = _training_example(tokenizer, instance, context_length)
+            scored.append(
+                (
+                    len(ids),
+                    sum(label != -100 for label in labels),
+                    instance.task_id,
+                    instance,
+                )
+            )
+    scored.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+    if len(scored) < effective_batch_size:
+        raise ValueError("task stream has too few examples for memory calibration")
+    return [item[3] for item in scored[:effective_batch_size]]
+
+
+def select_training_recipe(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    settings: MeasurementSettings,
+    decision: DecisionSettings,
+    context_length: int,
+    device: torch.device,
+    *,
+    resource_guard: MemoryPeakSampler,
+) -> tuple[TrainingRecipe | None, dict[str, object]]:
+    """Choose the largest fitting micro-batch and retain every attempt as evidence."""
+    instances = _worst_case_training_instances(
+        tokenizer,
+        stream,
+        context_length,
+        settings.probe_batch_size,
+    )
+    maximum_peak = int(
+        decision.target_memory_bytes * (1.0 - decision.minimum_memory_headroom_fraction)
+    )
+    recipes = [TrainingRecipe(size, False) for size in settings.probe_micro_batch_sizes]
+    if settings.gradient_checkpointing_fallback:
+        recipes.append(TrainingRecipe(settings.probe_micro_batch_sizes[-1], True))
+    attempts: list[dict[str, object]] = []
+    selected: TrainingRecipe | None = None
+    for recipe in recipes:
+        seed_everything(settings.seed)
+        probe: CausalLM | None = None
+        optimizer: torch.optim.Optimizer | None = None
+        error: BaseException | None = None
+        attempt_sampler = MemoryPeakSampler(
+            device,
+            settings.memory_sample_interval_seconds,
+            maximum_swap_growth_bytes=decision.maximum_swap_growth_bytes,
+            swap_sample_interval_seconds=settings.swap_sample_interval_seconds,
+        )
+        with attempt_sampler:
+            try:
+                probe = copy.deepcopy(base_model).to(device)
+                probe.train()
+                _set_gradient_checkpointing(probe, recipe.gradient_checkpointing)
+                optimizer = torch.optim.AdamW(
+                    probe.parameters(),
+                    lr=settings.probe_learning_rates[0],
+                    weight_decay=settings.probe_weight_decay,
+                )
+                _optimizer_step_target_only(
+                    probe,
+                    tokenizer,
+                    instances,
+                    context_length,
+                    device,
+                    optimizer,
+                    recipe,
+                    resource_guard=resource_guard,
+                )
+                synchronize_device(device)
+                resource_guard.raise_if_swap_limit_exceeded()
+            except BaseException as caught:
+                error = caught
+        memory = attempt_sampler.record()
+        peak = cast(int, memory["hard_constraint_peak_bytes"])
+        feasible = error is None and peak <= maximum_peak
+        attempt: dict[str, object] = {
+            "micro_batch_size": recipe.micro_batch_size,
+            "gradient_checkpointing": recipe.gradient_checkpointing,
+            "effective_batch_size": settings.probe_batch_size,
+            "calibration_steps": 1,
+            "calibration_instance_ids": [item.task_id for item in instances],
+            "memory": memory,
+            "configured_maximum_peak_bytes": maximum_peak,
+            "feasible": feasible,
+        }
+        if error is not None:
+            attempt["failure"] = {
+                "type": type(error).__name__,
+                "message": str(error),
+                "out_of_memory": _is_out_of_memory(error),
+            }
+        elif peak > maximum_peak:
+            attempt["rejection_reason"] = "calibration peak exceeded the memory cap"
+        attempts.append(attempt)
+        del optimizer, probe
+        cleanup_device(device)
+        if error is not None and not _is_out_of_memory(error):
+            raise error
+        if feasible:
+            selected = recipe
+            break
+    return selected, {
+        "effective_batch_size": settings.probe_batch_size,
+        "candidate_micro_batch_sizes": list(settings.probe_micro_batch_sizes),
+        "target_only_training_loss": settings.target_only_training_loss,
+        "gradient_checkpointing_fallback": settings.gradient_checkpointing_fallback,
+        "configured_maximum_peak_bytes": maximum_peak,
+        "system_swap_role": "environment-health signal only; not candidate feasibility",
+        "attempts": attempts,
+        "selected_micro_batch_size": (
+            None if selected is None else selected.micro_batch_size
+        ),
+        "selected_gradient_checkpointing": (
+            None if selected is None else selected.gradient_checkpointing
+        ),
+    }
+
+
+def _rng_state(device: torch.device) -> tuple[torch.Tensor, torch.Tensor | None]:
+    accelerator_state: torch.Tensor | None = None
+    if device.type == "mps" and hasattr(torch, "mps"):
+        accelerator_state = torch.mps.get_rng_state()
+    elif device.type == "cuda":
+        accelerator_state = torch.cuda.get_rng_state(device)
+    return torch.get_rng_state(), accelerator_state
+
+
+def _restore_rng_state(
+    device: torch.device, state: tuple[torch.Tensor, torch.Tensor | None]
+) -> None:
+    cpu_state, accelerator_state = state
+    torch.set_rng_state(cpu_state)
+    if accelerator_state is None:
+        return
+    if device.type == "mps" and hasattr(torch, "mps"):
+        torch.mps.set_rng_state(accelerator_state)
+    elif device.type == "cuda":
+        torch.cuda.set_rng_state(accelerator_state, device)
+
+
+def _parameter_snapshots(model: CausalLM) -> list[torch.Tensor]:
+    return [parameter.detach().to(device="cpu").clone() for parameter in model.parameters()]
+
+
+def _gradient_snapshots(model: CausalLM) -> list[torch.Tensor]:
+    snapshots: list[torch.Tensor] = []
+    for parameter in model.parameters():
+        if parameter.grad is None:
+            snapshots.append(torch.zeros_like(parameter, device="cpu"))
+        else:
+            snapshots.append(parameter.grad.detach().to(device="cpu").clone())
+    return snapshots
+
+
+def _updates_from_snapshots(
+    model: CausalLM, before: Sequence[torch.Tensor]
+) -> list[torch.Tensor]:
+    return [
+        parameter.detach().to(device="cpu") - old
+        for parameter, old in zip(model.parameters(), before, strict=True)
+    ]
+
+
+def _vector_relative_l2_difference(
+    reference: Sequence[torch.Tensor], candidate: Sequence[torch.Tensor]
+) -> dict[str, float]:
+    difference_squared = 0.0
+    reference_squared = 0.0
+    maximum_absolute = 0.0
+    for reference_tensor, candidate_tensor in zip(reference, candidate, strict=True):
+        difference = reference_tensor.double() - candidate_tensor.double()
+        if difference.numel() > 0:
+            maximum_absolute = max(
+                maximum_absolute, float(difference.abs().max().item())
+            )
+        difference_squared += float(torch.sum(difference.square()).item())
+        reference_squared += float(
+            torch.sum(reference_tensor.double().square()).item()
+        )
+    difference_l2 = math.sqrt(difference_squared)
+    reference_l2 = math.sqrt(reference_squared)
+    if not all(
+        math.isfinite(value)
+        for value in (difference_l2, reference_l2, maximum_absolute)
+    ):
+        raise FloatingPointError("gradient or update comparison is non-finite")
+    return {
+        "relative_l2": difference_l2
+        / max(reference_l2, torch.finfo(torch.float64).eps),
+        "difference_l2": difference_l2,
+        "reference_l2": reference_l2,
+        "maximum_absolute": maximum_absolute,
+    }
+
+
+def _disable_dropout_only(model: CausalLM) -> int:
+    """Remove stochastic-mask confounding without disabling autograd."""
+    model.eval()
+    disabled = 0
+    dropout_types = (
+        nn.Dropout,
+        nn.Dropout1d,
+        nn.Dropout2d,
+        nn.Dropout3d,
+        nn.AlphaDropout,
+        nn.FeatureAlphaDropout,
+    )
+    for _, module in model.named_modules():
+        if isinstance(module, dropout_types):
+            module.eval()
+            disabled += 1
+    return disabled
+
+
+def _move_model_for_measurement(
+    model: CausalLM, device: torch.device, dtype: torch.dtype
+) -> None:
+    """Move device before dtype so MPS never receives an unsupported float64 cast."""
+    cast(Any, model).to(device=device)
+    cast(Any, model).to(dtype=dtype)
+
+
+def _measure_gradient_and_update(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    settings: MeasurementSettings,
+    context_length: int,
+    device: torch.device,
+    *,
+    dtype: torch.dtype,
+    target_only: bool,
+    recipe: TrainingRecipe,
+    include_update: bool,
+    exact_full_logits: bool = False,
+    legacy_sequence_chunk_size: int | None = None,
+) -> _VectorMeasurement:
+    model = copy.deepcopy(base_model)
+    _move_model_for_measurement(model, device, dtype)
+    _set_gradient_checkpointing(model, target_only and recipe.gradient_checkpointing)
+    dropout_modules_disabled = _disable_dropout_only(model)
+    seed_everything(settings.seed)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=settings.probe_learning_rates[0],
+        weight_decay=settings.probe_weight_decay,
+    )
+    optimizer.zero_grad(set_to_none=True)
+    before = _parameter_snapshots(model) if include_update else []
+    if target_only and legacy_sequence_chunk_size is not None:
+        raise ValueError("target-only and legacy chunked-head modes are mutually exclusive")
+    if target_only:
+        result = _backward_target_only(
+            model,
+            tokenizer,
+            instances,
+            context_length,
+            device,
+            recipe,
+        )
+        loss = cast(float, result["loss"])
+    elif exact_full_logits:
+        loss = _backward_legacy_full_logits_exact(
+            model, tokenizer, instances, context_length, device
+        )
+    elif legacy_sequence_chunk_size is not None:
+        loss = _backward_legacy_chunked_head(
+            model,
+            tokenizer,
+            instances,
+            context_length,
+            device,
+            legacy_sequence_chunk_size,
+        )
+    else:
+        loss = _backward_legacy(
+            model, tokenizer, instances, context_length, device
+        )
+    if not math.isfinite(loss):
+        raise FloatingPointError("loss measurement is non-finite")
+    synchronize_device(device)
+    gradients = _gradient_snapshots(model)
+    updates: list[torch.Tensor] = []
+    if include_update:
+        optimizer.step()
+        synchronize_device(device)
+        updates = _updates_from_snapshots(model, before)
+    del optimizer, before, model
+    cleanup_device(device)
+    return _VectorMeasurement(
+        loss=loss,
+        gradients=gradients,
+        updates=updates,
+        dropout_modules_disabled=dropout_modules_disabled,
+    )
+
+
+def prove_exact_gradient_equivalence(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    settings: MeasurementSettings,
+    context_length: int,
+    recipe: TrainingRecipe,
+) -> dict[str, object]:
+    """Prove full-logit and target-only objectives match in float64 on CPU."""
+    if len(instances) != settings.probe_batch_size:
+        raise ValueError("exact equivalence requires one complete effective batch")
+    device = torch.device("cpu")
+    legacy = _measure_gradient_and_update(
+        base_model,
+        tokenizer,
+        instances,
+        settings,
+        context_length,
+        device,
+        dtype=torch.float64,
+        target_only=False,
+        recipe=TrainingRecipe(settings.probe_batch_size, False),
+        include_update=False,
+        exact_full_logits=True,
+    )
+    micro_batch_sizes = tuple(dict.fromkeys((recipe.micro_batch_size, 1)))
+    comparisons: list[dict[str, object]] = []
+    passed = True
+    dropout_modules_disabled = legacy.dropout_modules_disabled
+    for micro_batch_size in micro_batch_sizes:
+        amended = _measure_gradient_and_update(
+            base_model,
+            tokenizer,
+            instances,
+            settings,
+            context_length,
+            device,
+            dtype=torch.float64,
+            target_only=True,
+            recipe=TrainingRecipe(micro_batch_size, recipe.gradient_checkpointing),
+            include_update=False,
+        )
+        difference = _vector_relative_l2_difference(
+            legacy.gradients, amended.gradients
+        )
+        loss_difference = abs(legacy.loss - amended.loss)
+        comparison_passed = (
+            loss_difference <= settings.equivalence_exact_loss_absolute_tolerance
+            and difference["relative_l2"]
+            <= settings.equivalence_exact_gradient_relative_l2_tolerance
+        )
+        passed = passed and comparison_passed
+        comparisons.append(
+            {
+                "micro_batch_size": micro_batch_size,
+                "legacy_loss": legacy.loss,
+                "target_only_loss": amended.loss,
+                "absolute_loss_difference": loss_difference,
+                "gradient_relative_l2_difference": difference["relative_l2"],
+                "gradient_difference": difference,
+                "passed": comparison_passed,
+            }
+        )
+        del amended
+    del legacy
+    return {
+        "passed": passed,
+        "device": "cpu",
+        "dtype": "float64",
+        "dropout_disabled": True,
+        "dropout_modules_disabled": dropout_modules_disabled,
+        "effective_batch_size": settings.probe_batch_size,
+        "comparisons": comparisons,
+    }
+
+
+def assess_noise_floor(
+    batches: Sequence[Mapping[str, float]], *, multiplier: float
+) -> dict[str, object]:
+    """Apply the pre-registered batchwise gradient and update noise-floor gate."""
+    if multiplier < 1.0:
+        raise ValueError("noise-floor multiplier must be at least 1")
+    assessed: list[dict[str, object]] = []
+    for batch in batches:
+        gradient_limit = multiplier * batch["control_gradient_relative_l2"]
+        update_limit = multiplier * batch["control_update_relative_l2"]
+        gradient_passed = batch["target_gradient_relative_l2"] <= gradient_limit
+        update_passed = batch["target_update_relative_l2"] <= update_limit
+        assessed.append(
+            {
+                **batch,
+                "gradient_limit": gradient_limit,
+                "update_limit": update_limit,
+                "gradient_passed": gradient_passed,
+                "update_passed": update_passed,
+                "passed": gradient_passed and update_passed,
+            }
+        )
+    return {
+        "passed": bool(assessed) and all(row["passed"] is True for row in assessed),
+        "multiplier": multiplier,
+        "batches": assessed,
+    }
+
+
+def assess_training_trajectory(
+    *,
+    legacy_losses: Sequence[float],
+    control_losses: Sequence[float],
+    target_losses: Sequence[float],
+    legacy_accuracy: Mapping[str, float],
+    target_accuracy: Mapping[str, float],
+    noise_multiplier: float,
+    accuracy_tie_margin: float,
+) -> dict[str, object]:
+    """Apply trajectory-noise and per-family final-accuracy gates."""
+    if not legacy_losses or not (
+        len(legacy_losses) == len(control_losses) == len(target_losses)
+    ):
+        raise ValueError("trajectory losses must be non-empty and equal length")
+    if legacy_accuracy.keys() != target_accuracy.keys() or not legacy_accuracy:
+        raise ValueError("trajectory accuracy maps must have identical non-empty keys")
+    control_difference = max(
+        abs(legacy - control)
+        for legacy, control in zip(legacy_losses, control_losses, strict=True)
+    )
+    target_difference = max(
+        abs(legacy - target)
+        for legacy, target in zip(legacy_losses, target_losses, strict=True)
+    )
+    trajectory_limit = noise_multiplier * control_difference
+    trajectory_passed = target_difference <= trajectory_limit
+    family_rows = []
+    for family_id in legacy_accuracy:
+        difference = abs(legacy_accuracy[family_id] - target_accuracy[family_id])
+        family_rows.append(
+            {
+                "family_id": family_id,
+                "legacy_accuracy": legacy_accuracy[family_id],
+                "target_only_accuracy": target_accuracy[family_id],
+                "absolute_difference": difference,
+                "passed": difference <= accuracy_tie_margin + 1e-12,
+            }
+        )
+    legacy_mean = statistics.fmean(legacy_accuracy.values())
+    target_mean = statistics.fmean(target_accuracy.values())
+    mean_difference = abs(legacy_mean - target_mean)
+    mean_passed = mean_difference <= accuracy_tie_margin + 1e-12
+    accuracy_passed = mean_passed and all(
+        row["passed"] is True for row in family_rows
+    )
+    return {
+        "passed": trajectory_passed and accuracy_passed,
+        "trajectory_passed": trajectory_passed,
+        "accuracy_passed": accuracy_passed,
+        "maximum_control_loss_difference": control_difference,
+        "maximum_target_loss_difference": target_difference,
+        "trajectory_limit": trajectory_limit,
+        "accuracy_tie_margin": accuracy_tie_margin,
+        "family_accuracy": family_rows,
+        "mean_accuracy": {
+            "legacy": legacy_mean,
+            "target_only": target_mean,
+            "absolute_difference": mean_difference,
+            "passed": mean_passed,
+        },
+    }
+
+
+def _equivalence_batches(
+    stream: ContinualTaskStream, *, count: int, batch_size: int
+) -> list[list[TaskInstance]]:
+    """Build the preregistered family-round-robin batch sequence."""
+    training_rows = [
+        stream.get_split(family.family_id).train for family in stream.families
+    ]
+    if any(not rows for rows in training_rows):
+        raise ValueError("equivalence requires non-empty training rows for every family")
+    ordered: list[TaskInstance] = []
+    item_index = 0
+    required = count * batch_size
+    while len(ordered) < required:
+        for rows in training_rows:
+            ordered.append(rows[item_index % len(rows)])
+            if len(ordered) == required:
+                break
+        item_index += 1
+    return [
+        ordered[offset : offset + batch_size]
+        for offset in range(0, required, batch_size)
+    ]
+
+
+def measure_noise_floor(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    batches: Sequence[Sequence[TaskInstance]],
+    settings: MeasurementSettings,
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+) -> dict[str, object]:
+    """Measure recipe differences against within-batch permutation noise."""
+    if device.type != "mps":
+        raise ValueError("Amendment 4a noise-floor measurement requires MPS")
+    if len(batches) < settings.equivalence_noise_floor_batches:
+        raise ValueError("noise-floor measurement received too few batches")
+    rows: list[dict[str, float]] = []
+    identities: list[dict[str, object]] = []
+    for batch_index, batch in enumerate(
+        batches[: settings.equivalence_noise_floor_batches]
+    ):
+        legacy = _measure_gradient_and_update(
+            base_model,
+            tokenizer,
+            batch,
+            settings,
+            context_length,
+            device,
+            dtype=torch.float32,
+            target_only=False,
+            recipe=TrainingRecipe(settings.probe_batch_size, False),
+            include_update=True,
+        )
+        control_batch = list(reversed(batch))
+        control = _measure_gradient_and_update(
+            base_model,
+            tokenizer,
+            control_batch,
+            settings,
+            context_length,
+            device,
+            dtype=torch.float32,
+            target_only=False,
+            recipe=TrainingRecipe(settings.probe_batch_size, False),
+            include_update=True,
+        )
+        target = _measure_gradient_and_update(
+            base_model,
+            tokenizer,
+            batch,
+            settings,
+            context_length,
+            device,
+            dtype=torch.float32,
+            target_only=True,
+            recipe=recipe,
+            include_update=True,
+        )
+        control_gradient = _vector_relative_l2_difference(
+            legacy.gradients, control.gradients
+        )
+        target_gradient = _vector_relative_l2_difference(
+            legacy.gradients, target.gradients
+        )
+        control_update = _vector_relative_l2_difference(
+            legacy.updates, control.updates
+        )
+        target_update = _vector_relative_l2_difference(
+            legacy.updates, target.updates
+        )
+        rows.append(
+            {
+                "control_gradient_relative_l2": control_gradient["relative_l2"],
+                "target_gradient_relative_l2": target_gradient["relative_l2"],
+                "control_update_relative_l2": control_update["relative_l2"],
+                "target_update_relative_l2": target_update["relative_l2"],
+            }
+        )
+        identities.append(
+            {
+                "batch": batch_index + 1,
+                "instance_ids": [item.task_id for item in batch],
+                "control_instance_ids": [item.task_id for item in control_batch],
+                "legacy_loss": legacy.loss,
+                "control_loss": control.loss,
+                "target_only_loss": target.loss,
+                "control_gradient_difference": control_gradient,
+                "target_gradient_difference": target_gradient,
+                "control_update_difference": control_update,
+                "target_update_difference": target_update,
+            }
+        )
+        del legacy, control, target
+    assessment = assess_noise_floor(
+        rows, multiplier=settings.equivalence_noise_floor_multiplier
+    )
+    assessed_rows = cast(list[dict[str, object]], assessment["batches"])
+    for identity, assessed in zip(identities, assessed_rows, strict=True):
+        identity.update(
+            {
+                "gradient_limit": assessed["gradient_limit"],
+                "update_limit": assessed["update_limit"],
+                "gradient_passed": assessed["gradient_passed"],
+                "update_passed": assessed["update_passed"],
+                "passed": assessed["passed"],
+            }
+        )
+    return {
+        "passed": assessment["passed"],
+        "device": str(device),
+        "dtype": "float32",
+        "dropout_disabled": True,
+        "effective_batch_size": settings.probe_batch_size,
+        "target_only_micro_batch_size": recipe.micro_batch_size,
+        "multiplier": settings.equivalence_noise_floor_multiplier,
+        "batches": identities,
+    }
+
+
+def measure_shape_changing_control(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    batches: Sequence[Sequence[TaskInstance]],
+    settings: MeasurementSettings,
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+) -> dict[str, object]:
+    """Measure a shape-changing legacy control without making it a gate."""
+    if device.type != "mps":
+        raise ValueError("Amendment 4b shape-changing control requires MPS")
+    if not batches:
+        raise ValueError("shape-changing control requires at least one batch")
+    rows: list[dict[str, object]] = []
+    for batch_index, batch in enumerate(batches):
+        legacy = _measure_gradient_and_update(
+            base_model,
+            tokenizer,
+            batch,
+            settings,
+            context_length,
+            device,
+            dtype=torch.float32,
+            target_only=False,
+            recipe=TrainingRecipe(settings.probe_batch_size, False),
+            include_update=True,
+        )
+        shape_control = _measure_gradient_and_update(
+            base_model,
+            tokenizer,
+            batch,
+            settings,
+            context_length,
+            device,
+            dtype=torch.float32,
+            target_only=False,
+            recipe=TrainingRecipe(settings.probe_batch_size, False),
+            include_update=True,
+            legacy_sequence_chunk_size=(
+                settings.equivalence_shape_control_chunk_size
+            ),
+        )
+        target = _measure_gradient_and_update(
+            base_model,
+            tokenizer,
+            batch,
+            settings,
+            context_length,
+            device,
+            dtype=torch.float32,
+            target_only=True,
+            recipe=recipe,
+            include_update=True,
+        )
+        control_gradient = _vector_relative_l2_difference(
+            legacy.gradients, shape_control.gradients
+        )
+        target_gradient = _vector_relative_l2_difference(
+            legacy.gradients, target.gradients
+        )
+        control_update = _vector_relative_l2_difference(
+            legacy.updates, shape_control.updates
+        )
+        target_update = _vector_relative_l2_difference(
+            legacy.updates, target.updates
+        )
+        rows.append(
+            {
+                "batch": batch_index + 1,
+                "instance_ids": [item.task_id for item in batch],
+                "legacy_loss": legacy.loss,
+                "shape_control_loss": shape_control.loss,
+                "target_only_loss": target.loss,
+                "shape_control_gradient_difference": control_gradient,
+                "target_only_gradient_difference": target_gradient,
+                "shape_control_update_difference": control_update,
+                "target_only_update_difference": target_update,
+                "target_gradient_within_shape_control": (
+                    target_gradient["relative_l2"]
+                    <= control_gradient["relative_l2"]
+                ),
+                "target_update_within_shape_control": (
+                    target_update["relative_l2"] <= control_update["relative_l2"]
+                ),
+            }
+        )
+        del legacy, shape_control, target
+    return {
+        "status": "completed",
+        "gating": False,
+        "device": str(device),
+        "dtype": "float32",
+        "dropout_disabled": True,
+        "effective_batch_size": settings.probe_batch_size,
+        "target_only_micro_batch_size": recipe.micro_batch_size,
+        "sequence_chunk_size": settings.equivalence_shape_control_chunk_size,
+        "batches": rows,
+    }
+
+
+def _probe_accuracy_map(summary: Mapping[str, object]) -> dict[str, float]:
+    rows = summary.get("families")
+    if not isinstance(rows, list):
+        raise TypeError("probe accuracy summary has no family rows")
+    result: dict[str, float] = {}
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("family_id"), str):
+            raise TypeError("probe accuracy family row is malformed")
+        accuracy = row.get("zero_shot")
+        if not isinstance(accuracy, dict) or not isinstance(
+            accuracy.get("accuracy"), (int, float)
+        ):
+            raise TypeError("probe accuracy result is malformed")
+        result[row["family_id"]] = float(accuracy["accuracy"])
+    return result
+
+
+def assess_outcome_gate(
+    *,
+    old_seed_0_losses: Sequence[float],
+    old_seed_1_losses: Sequence[float],
+    new_seed_0_losses: Sequence[float],
+    old_seed_0_accuracy: Mapping[str, float],
+    old_seed_1_accuracy: Mapping[str, float],
+    new_seed_0_accuracy: Mapping[str, float],
+    accuracy_tie_margin: float,
+) -> dict[str, object]:
+    """Apply Amendment 4b's trajectory and final mean-accuracy outcome rules."""
+    if not old_seed_0_losses or not (
+        len(old_seed_0_losses)
+        == len(old_seed_1_losses)
+        == len(new_seed_0_losses)
+    ):
+        raise ValueError("outcome losses must be non-empty and equal length")
+    if not old_seed_0_accuracy or not (
+        old_seed_0_accuracy.keys()
+        == old_seed_1_accuracy.keys()
+        == new_seed_0_accuracy.keys()
+    ):
+        raise ValueError("outcome accuracy maps must have identical non-empty keys")
+    seed_loss_difference = max(
+        abs(seed_0 - seed_1)
+        for seed_0, seed_1 in zip(
+            old_seed_0_losses, old_seed_1_losses, strict=True
+        )
+    )
+    recipe_loss_difference = max(
+        abs(old - new)
+        for old, new in zip(old_seed_0_losses, new_seed_0_losses, strict=True)
+    )
+    trajectory_passed = recipe_loss_difference <= seed_loss_difference
+    old_seed_0_mean = statistics.fmean(old_seed_0_accuracy.values())
+    old_seed_1_mean = statistics.fmean(old_seed_1_accuracy.values())
+    new_seed_0_mean = statistics.fmean(new_seed_0_accuracy.values())
+    seed_accuracy_difference = abs(old_seed_0_mean - old_seed_1_mean)
+    recipe_accuracy_difference = abs(old_seed_0_mean - new_seed_0_mean)
+    accuracy_limit = max(accuracy_tie_margin, seed_accuracy_difference)
+    accuracy_passed = recipe_accuracy_difference <= accuracy_limit
+    family_rows = [
+        {
+            "family_id": family_id,
+            "old_seed_0": old_seed_0_accuracy[family_id],
+            "old_seed_1": old_seed_1_accuracy[family_id],
+            "new_seed_0": new_seed_0_accuracy[family_id],
+        }
+        for family_id in old_seed_0_accuracy
+    ]
+    return {
+        "passed": trajectory_passed and accuracy_passed,
+        "trajectory_passed": trajectory_passed,
+        "maximum_old_seed_to_seed_loss_difference": seed_loss_difference,
+        "maximum_new_vs_old_seed_0_loss_difference": recipe_loss_difference,
+        "accuracy_passed": accuracy_passed,
+        "accuracy_tie_margin": accuracy_tie_margin,
+        "old_seed_to_seed_accuracy_difference": seed_accuracy_difference,
+        "new_vs_old_seed_0_accuracy_difference": recipe_accuracy_difference,
+        "accuracy_limit": accuracy_limit,
+        "mean_accuracy": {
+            "old_seed_0": old_seed_0_mean,
+            "old_seed_1": old_seed_1_mean,
+            "new_seed_0": new_seed_0_mean,
+        },
+        "family_accuracy": family_rows,
+    }
+
+
+def _run_outcome_variant(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    batches: Sequence[Sequence[TaskInstance]],
+    settings: MeasurementSettings,
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+    *,
+    seed: int,
+    target_only: bool,
+    resource_guard: MemoryPeakSampler,
+) -> dict[str, object]:
+    model = copy.deepcopy(base_model)
+    cast(Any, model).to(device=device, dtype=torch.float32)
+    model.train()
+    _set_gradient_checkpointing(model, target_only and recipe.gradient_checkpointing)
+    seed_everything(seed)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=settings.probe_learning_rates[0],
+        weight_decay=settings.probe_weight_decay,
+    )
+    scheduler = torch.optim.lr_scheduler.LambdaLR(
+        optimizer,
+        lr_lambda=lambda step: min(
+            (step + 1) / max(1, settings.probe_warmup_steps), 1.0
+        ),
+    )
+    losses: list[float] = []
+    for batch in batches:
+        if target_only:
+            step = _optimizer_step_target_only(
+                model,
+                tokenizer,
+                batch,
+                context_length,
+                device,
+                optimizer,
+                recipe,
+                resource_guard=resource_guard,
+            )
+            losses.append(cast(float, step["loss"]))
+        else:
+            losses.append(
+                _optimizer_step_legacy(
+                    model,
+                    tokenizer,
+                    batch,
+                    context_length,
+                    device,
+                    optimizer,
+                )
+            )
+        scheduler.step()
+        resource_guard.raise_if_swap_limit_exceeded()
+    accuracy = _probe_accuracy_map(
+        evaluate_zero_shot_readiness(
+            model, tokenizer, stream, settings, context_length, device
+        )
+    )
+    del optimizer, scheduler, model
+    cleanup_device(device)
+    return {"seed": seed, "losses": losses, "accuracy": accuracy}
+
+
+def measure_outcome_gate(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    settings: MeasurementSettings,
+    decision: DecisionSettings,
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+    *,
+    resource_guard: MemoryPeakSampler,
+) -> dict[str, object]:
+    """Run Amendment 4b's seeded 50-step outcome comparison."""
+    if device.type != "mps":
+        raise ValueError("Amendment 4b outcome gate requires MPS")
+    batches = _equivalence_batches(
+        stream,
+        count=settings.equivalence_trajectory_steps,
+        batch_size=settings.probe_batch_size,
+    )
+    seed_0, seed_1 = settings.equivalence_outcome_seeds
+    old_seed_0 = _run_outcome_variant(
+        base_model,
+        tokenizer,
+        stream,
+        batches,
+        settings,
+        context_length,
+        device,
+        recipe,
+        seed=seed_0,
+        target_only=False,
+        resource_guard=resource_guard,
+    )
+    old_seed_1 = _run_outcome_variant(
+        base_model,
+        tokenizer,
+        stream,
+        batches,
+        settings,
+        context_length,
+        device,
+        recipe,
+        seed=seed_1,
+        target_only=False,
+        resource_guard=resource_guard,
+    )
+    new_seed_0 = _run_outcome_variant(
+        base_model,
+        tokenizer,
+        stream,
+        batches,
+        settings,
+        context_length,
+        device,
+        recipe,
+        seed=seed_0,
+        target_only=True,
+        resource_guard=resource_guard,
+    )
+    accuracy_rows = (
+        old_seed_0["accuracy"],
+        old_seed_1["accuracy"],
+        new_seed_0["accuracy"],
+    )
+    if not all(isinstance(row, dict) for row in accuracy_rows):
+        raise TypeError("outcome variants did not return final test accuracy")
+    assessment = assess_outcome_gate(
+        old_seed_0_losses=cast(list[float], old_seed_0["losses"]),
+        old_seed_1_losses=cast(list[float], old_seed_1["losses"]),
+        new_seed_0_losses=cast(list[float], new_seed_0["losses"]),
+        old_seed_0_accuracy=cast(dict[str, float], old_seed_0["accuracy"]),
+        old_seed_1_accuracy=cast(dict[str, float], old_seed_1["accuracy"]),
+        new_seed_0_accuracy=cast(dict[str, float], new_seed_0["accuracy"]),
+        accuracy_tie_margin=decision.learnability_tie_margin,
+    )
+    return {
+        **assessment,
+        "device": str(device),
+        "dtype": "float32",
+        "steps": settings.equivalence_trajectory_steps,
+        "seeds": [seed_0, seed_1],
+        "data_order": "identical across all variants",
+        "batch_instance_ids": [
+            [item.task_id for item in batch] for batch in batches
+        ],
+        "old_seed_0_losses": old_seed_0["losses"],
+        "old_seed_1_losses": old_seed_1["losses"],
+        "new_seed_0_losses": new_seed_0["losses"],
+    }
+
+
+def _run_trajectory_variant(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    batches: Sequence[Sequence[TaskInstance]],
+    settings: MeasurementSettings,
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+    *,
+    target_only: bool,
+    permute_within_batch: bool,
+    evaluate_accuracy: bool,
+    resource_guard: MemoryPeakSampler,
+) -> dict[str, object]:
+    model = copy.deepcopy(base_model)
+    cast(Any, model).to(device=device, dtype=torch.float32)
+    _set_gradient_checkpointing(model, target_only and recipe.gradient_checkpointing)
+    dropout_modules_disabled = _disable_dropout_only(model)
+    seed_everything(settings.seed)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=settings.probe_learning_rates[0],
+        weight_decay=settings.probe_weight_decay,
+    )
+    scheduler = torch.optim.lr_scheduler.LambdaLR(
+        optimizer,
+        lr_lambda=lambda step: min(
+            (step + 1) / max(1, settings.probe_warmup_steps), 1.0
+        ),
+    )
+    losses: list[float] = []
+    for batch in batches:
+        instances = list(reversed(batch)) if permute_within_batch else list(batch)
+        if target_only:
+            step = _optimizer_step_target_only(
+                model,
+                tokenizer,
+                instances,
+                context_length,
+                device,
+                optimizer,
+                recipe,
+                resource_guard=resource_guard,
+            )
+            losses.append(cast(float, step["loss"]))
+        else:
+            losses.append(
+                _optimizer_step_legacy(
+                    model,
+                    tokenizer,
+                    instances,
+                    context_length,
+                    device,
+                    optimizer,
+                )
+            )
+        scheduler.step()
+        resource_guard.raise_if_swap_limit_exceeded()
+    accuracy: dict[str, float] | None = None
+    if evaluate_accuracy:
+        accuracy = _probe_accuracy_map(
+            evaluate_zero_shot_readiness(
+                model, tokenizer, stream, settings, context_length, device
+            )
+        )
+    del optimizer, scheduler, model
+    cleanup_device(device)
+    return {
+        "losses": losses,
+        "accuracy": accuracy,
+        "dropout_modules_disabled": dropout_modules_disabled,
+    }
+
+
+def measure_training_trajectory(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    settings: MeasurementSettings,
+    decision: DecisionSettings,
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+    *,
+    resource_guard: MemoryPeakSampler,
+) -> dict[str, object]:
+    """Run the preregistered 50-step SmolLM2 trajectory comparison."""
+    if device.type != "mps":
+        raise ValueError("Amendment 4a trajectory measurement requires MPS")
+    batches = _equivalence_batches(
+        stream,
+        count=settings.equivalence_trajectory_steps,
+        batch_size=settings.probe_batch_size,
+    )
+    legacy = _run_trajectory_variant(
+        base_model,
+        tokenizer,
+        stream,
+        batches,
+        settings,
+        context_length,
+        device,
+        recipe,
+        target_only=False,
+        permute_within_batch=False,
+        evaluate_accuracy=True,
+        resource_guard=resource_guard,
+    )
+    control = _run_trajectory_variant(
+        base_model,
+        tokenizer,
+        stream,
+        batches,
+        settings,
+        context_length,
+        device,
+        recipe,
+        target_only=False,
+        permute_within_batch=True,
+        evaluate_accuracy=False,
+        resource_guard=resource_guard,
+    )
+    target = _run_trajectory_variant(
+        base_model,
+        tokenizer,
+        stream,
+        batches,
+        settings,
+        context_length,
+        device,
+        recipe,
+        target_only=True,
+        permute_within_batch=False,
+        evaluate_accuracy=True,
+        resource_guard=resource_guard,
+    )
+    legacy_accuracy = legacy["accuracy"]
+    target_accuracy = target["accuracy"]
+    if not isinstance(legacy_accuracy, dict) or not isinstance(target_accuracy, dict):
+        raise TypeError("trajectory variants did not return final test accuracy")
+    assessment = assess_training_trajectory(
+        legacy_losses=cast(list[float], legacy["losses"]),
+        control_losses=cast(list[float], control["losses"]),
+        target_losses=cast(list[float], target["losses"]),
+        legacy_accuracy=cast(dict[str, float], legacy_accuracy),
+        target_accuracy=cast(dict[str, float], target_accuracy),
+        noise_multiplier=settings.equivalence_noise_floor_multiplier,
+        accuracy_tie_margin=decision.learnability_tie_margin,
+    )
+    return {
+        **assessment,
+        "device": str(device),
+        "dtype": "float32",
+        "dropout_disabled": True,
+        "steps": settings.equivalence_trajectory_steps,
+        "batch_instance_ids": [
+            [item.task_id for item in batch] for batch in batches
+        ],
+        "legacy_losses": legacy["losses"],
+        "control_losses": control["losses"],
+        "target_only_losses": target["losses"],
+    }
+
+
+def _parameter_update_difference(
+    legacy_model: CausalLM,
+    amended_model: CausalLM,
+    legacy_before: Sequence[torch.Tensor],
+    amended_before: Sequence[torch.Tensor],
+) -> dict[str, float]:
+    maximum_absolute = 0.0
+    difference_squared = 0.0
+    reference_squared = 0.0
+    rows = zip(
+        legacy_model.parameters(),
+        amended_model.parameters(),
+        legacy_before,
+        amended_before,
+        strict=True,
+    )
+    for legacy, amended, old_legacy, old_amended in rows:
+        legacy_update = legacy.detach().to(device="cpu") - old_legacy
+        amended_update = amended.detach().to(device="cpu") - old_amended
+        difference = legacy_update - amended_update
+        maximum_absolute = max(maximum_absolute, float(difference.abs().max().item()))
+        difference_squared += float(torch.sum(difference.double().square()).item())
+        reference_squared += float(torch.sum(legacy_update.double().square()).item())
+    relative_l2 = math.sqrt(difference_squared) / max(
+        math.sqrt(reference_squared), torch.finfo(torch.float64).eps
+    )
+    return {
+        "maximum_absolute": maximum_absolute,
+        "relative_l2": relative_l2,
+        "difference_l2": math.sqrt(difference_squared),
+        "legacy_update_l2": math.sqrt(reference_squared),
+    }
+
+
+def prove_training_recipe_equivalence(
+    base_model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    stream: ContinualTaskStream,
+    settings: MeasurementSettings,
+    context_length: int,
+    device: torch.device,
+    recipe: TrainingRecipe,
+    *,
+    resource_guard: MemoryPeakSampler,
+) -> dict[str, object]:
+    """Compare legacy full logits with Amendment 4 from identical train-mode state."""
+    legacy_model = copy.deepcopy(base_model).to(device)
+    amended_model = copy.deepcopy(base_model).to(device)
+    legacy_model.train()
+    amended_model.train()
+    _set_gradient_checkpointing(amended_model, recipe.gradient_checkpointing)
+    legacy_optimizer = torch.optim.AdamW(
+        legacy_model.parameters(),
+        lr=settings.probe_learning_rates[0],
+        weight_decay=settings.probe_weight_decay,
+    )
+    amended_optimizer = torch.optim.AdamW(
+        amended_model.parameters(),
+        lr=settings.probe_learning_rates[0],
+        weight_decay=settings.probe_weight_decay,
+    )
+    legacy_scheduler = torch.optim.lr_scheduler.LambdaLR(
+        legacy_optimizer,
+        lr_lambda=lambda step: min(
+            (step + 1) / max(1, settings.probe_warmup_steps), 1.0
+        ),
+    )
+    amended_scheduler = torch.optim.lr_scheduler.LambdaLR(
+        amended_optimizer,
+        lr_lambda=lambda step: min(
+            (step + 1) / max(1, settings.probe_warmup_steps), 1.0
+        ),
+    )
+    family = stream.families[0]
+    train = stream.get_split(family.family_id).train
+    steps: list[dict[str, object]] = []
+    passed = True
+    for step in range(settings.equivalence_steps):
+        offset = (step * settings.probe_batch_size) % len(train)
+        instances = [
+            train[(offset + index) % len(train)]
+            for index in range(settings.probe_batch_size)
+        ]
+        legacy_before = _parameter_snapshots(legacy_model)
+        amended_before = _parameter_snapshots(amended_model)
+        state = _rng_state(device)
+        legacy_loss = _optimizer_step_legacy(
+            legacy_model,
+            tokenizer,
+            instances,
+            context_length,
+            device,
+            legacy_optimizer,
+        )
+        legacy_scheduler.step()
+        _restore_rng_state(device, state)
+        amended_step = _optimizer_step_target_only(
+            amended_model,
+            tokenizer,
+            instances,
+            context_length,
+            device,
+            amended_optimizer,
+            recipe,
+            resource_guard=resource_guard,
+        )
+        amended_scheduler.step()
+        synchronize_device(device)
+        update_difference = _parameter_update_difference(
+            legacy_model,
+            amended_model,
+            legacy_before,
+            amended_before,
+        )
+        loss_difference = abs(legacy_loss - cast(float, amended_step["loss"]))
+        step_passed = (
+            loss_difference <= settings.equivalence_loss_absolute_tolerance
+            and update_difference["maximum_absolute"]
+            <= settings.equivalence_update_max_absolute_tolerance
+            and update_difference["relative_l2"]
+            <= settings.equivalence_update_relative_l2_tolerance
+        )
+        passed = passed and step_passed
+        steps.append(
+            {
+                "step": step + 1,
+                "instance_ids": [item.task_id for item in instances],
+                "legacy_loss": legacy_loss,
+                "amendment_4_loss": amended_step["loss"],
+                "absolute_loss_difference": loss_difference,
+                "parameter_update_difference": update_difference,
+                "passed": step_passed,
+            }
+        )
+        del legacy_before, amended_before
+        resource_guard.raise_if_swap_limit_exceeded()
+        if not step_passed:
+            break
+    del legacy_optimizer, amended_optimizer, legacy_model, amended_model
+    cleanup_device(device)
+    return {
+        "passed": passed,
+        "family_id": family.family_id,
+        "steps_requested": settings.equivalence_steps,
+        "steps_completed": len(steps),
+        "effective_batch_size": settings.probe_batch_size,
+        "amendment_4_micro_batch_size": recipe.micro_batch_size,
+        "amendment_4_gradient_checkpointing": recipe.gradient_checkpointing,
+        "training_mode": True,
+        "dropout_disabled_for_proof": False,
+        "steps": steps,
+    }
+
+
+def run_amendment_4_equivalence(
+    config_path: Path | str,
+    output_dir: Path | str,
+    *,
+    loader: CandidateLoader = load_candidate,
+) -> dict[str, object]:
+    """Persist the mandatory pre-sweep equivalence gate and fail closed."""
+    settings = load_base_model_evaluation_settings(config_path)
+    destination = Path(output_dir)
+    manifest, manifest_sha256 = prepare_run_manifest(
+        config_path, destination, settings
+    )
+    record_path = destination / "equivalence.json"
+    if record_path.is_file():
+        existing = _read_json(record_path)
+        if (
+            existing.get("schema_version") == AMENDMENT_4_EQUIVALENCE_SCHEMA_VERSION
+            and existing.get("manifest_sha256") == manifest_sha256
+            and existing.get("status") in {"passed", "failed"}
+        ):
+            return existing
+        raise RuntimeError(
+            "existing equivalence evidence does not match the frozen Amendment 4 manifest"
+        )
+    record: dict[str, object] = {
+        "schema_version": AMENDMENT_4_EQUIVALENCE_SCHEMA_VERSION,
+        "manifest_sha256": manifest_sha256,
+        "correlation_id": manifest["correlation_id"],
+        "status": "running",
+        "tolerances": {
+            "loss_absolute": settings.measurement.equivalence_loss_absolute_tolerance,
+            "update_maximum_absolute": (
+                settings.measurement.equivalence_update_max_absolute_tolerance
+            ),
+            "update_relative_l2": (
+                settings.measurement.equivalence_update_relative_l2_tolerance
+            ),
+        },
+        "candidate_results": [],
+    }
+    write_json(record_path, record)
+    by_id = {candidate.candidate_id: candidate for candidate in settings.candidates}
+    device = resolve_device(settings.measurement.device)
+    for candidate_id in settings.measurement.equivalence_candidate_ids:
+        candidate = by_id[candidate_id]
+        sampler = MemoryPeakSampler(
+            device,
+            settings.measurement.memory_sample_interval_seconds,
+            maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+            swap_sample_interval_seconds=(
+                settings.measurement.swap_sample_interval_seconds
+            ),
+        )
+        candidate_result: dict[str, object]
+        model: CausalLM | None = None
+        with sampler:
+            try:
+                seed_everything(settings.measurement.seed)
+                configure_determinism(settings.measurement)
+                loaded, load_attempts = _load_with_retries(
+                    candidate, settings.measurement, loader
+                )
+                model = loaded.model
+                tokenizer = loaded.tokenizer
+                context_length = model_context_length(model, tokenizer)
+                stream = ContinualTaskStream(
+                    num_train_per_task=settings.measurement.train_items_per_family,
+                    num_val_per_task=settings.measurement.validation_items_per_family,
+                    num_test_per_task=settings.measurement.test_items_per_family,
+                    seed=settings.measurement.seed,
+                    max_generation_attempts=(
+                        settings.measurement.max_generation_attempts
+                    ),
+                )
+                recipe, selection = select_training_recipe(
+                    model,
+                    tokenizer,
+                    stream,
+                    settings.measurement,
+                    settings.decision,
+                    context_length,
+                    device,
+                    resource_guard=sampler,
+                )
+                if recipe is None:
+                    raise RuntimeError("equivalence proof model has no feasible memory recipe")
+                proof = prove_training_recipe_equivalence(
+                    model,
+                    tokenizer,
+                    stream,
+                    settings.measurement,
+                    context_length,
+                    device,
+                    recipe,
+                    resource_guard=sampler,
+                )
+                candidate_result = {
+                    "candidate_id": candidate_id,
+                    "resolved_revision": loaded.resolved_revision,
+                    "load_attempts": load_attempts,
+                    "memory_recipe_selection": selection,
+                    "equivalence": proof,
+                    "passed": proof["passed"],
+                }
+            except Exception as error:
+                candidate_result = {
+                    "candidate_id": candidate_id,
+                    "passed": False,
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "out_of_memory": _is_out_of_memory(error),
+                    },
+                }
+        candidate_result["memory"] = sampler.record()
+        cast(list[dict[str, object]], record["candidate_results"]).append(
+            candidate_result
+        )
+        model = None
+        cleanup_device(device)
+        if candidate_result["passed"] is not True:
+            record["status"] = "failed"
+            write_json(record_path, record)
+            return record
+        write_json(record_path, record)
+    record["status"] = "passed"
+    write_json(record_path, record)
+    return record
+
+
+def _new_equivalence_stream(settings: MeasurementSettings) -> ContinualTaskStream:
+    return ContinualTaskStream(
+        num_train_per_task=settings.train_items_per_family,
+        num_val_per_task=settings.validation_items_per_family,
+        num_test_per_task=settings.test_items_per_family,
+        seed=settings.seed,
+        max_generation_attempts=settings.max_generation_attempts,
+    )
+
+
+def run_amendment_4a_equivalence(
+    config_path: Path | str,
+    output_dir: Path | str,
+    *,
+    loader: CandidateLoader = load_candidate,
+) -> dict[str, object]:
+    """Run and persist the three-stage Amendment 4a fail-closed gate."""
+    settings = load_base_model_evaluation_settings(config_path)
+    destination = Path(output_dir)
+    manifest, manifest_sha256 = prepare_run_manifest(
+        config_path, destination, settings
+    )
+    record_path = destination / "equivalence-amendment-4a.json"
+    if record_path.is_file():
+        existing = _read_json(record_path)
+        if (
+            existing.get("schema_version") == AMENDMENT_4A_EQUIVALENCE_SCHEMA_VERSION
+            and existing.get("manifest_sha256") == manifest_sha256
+            and existing.get("status") in {"passed", "failed"}
+        ):
+            return existing
+        raise RuntimeError(
+            "existing Amendment 4a evidence is incomplete or does not match its manifest"
+        )
+    device = resolve_device(settings.measurement.device)
+    if device.type != "mps":
+        raise RuntimeError("Amendment 4a requires the configured real MPS device")
+    record: dict[str, object] = {
+        "schema_version": AMENDMENT_4A_EQUIVALENCE_SCHEMA_VERSION,
+        "manifest_sha256": manifest_sha256,
+        "correlation_id": manifest["correlation_id"],
+        "status": "running",
+        "protocol": {
+            "exact_loss_absolute_tolerance": (
+                settings.measurement.equivalence_exact_loss_absolute_tolerance
+            ),
+            "exact_gradient_relative_l2_tolerance": (
+                settings.measurement.equivalence_exact_gradient_relative_l2_tolerance
+            ),
+            "noise_floor_batches": (
+                settings.measurement.equivalence_noise_floor_batches
+            ),
+            "noise_floor_multiplier": (
+                settings.measurement.equivalence_noise_floor_multiplier
+            ),
+            "trajectory_steps": settings.measurement.equivalence_trajectory_steps,
+            "accuracy_tie_margin": settings.decision.learnability_tie_margin,
+            "seed": settings.measurement.seed,
+            "learning_rate": settings.measurement.probe_learning_rates[0],
+            "weight_decay": settings.measurement.probe_weight_decay,
+            "warmup_steps": settings.measurement.probe_warmup_steps,
+            "control_permutation": "reverse within each effective batch",
+            "batch_order": "training item index outer, configured family order inner",
+            "dropout_disabled": True,
+        },
+        "exact_math": {"status": "running", "candidate_results": []},
+        "noise_floor": {"status": "pending", "candidate_results": []},
+        "training_trajectory": {"status": "pending"},
+    }
+    write_json(record_path, record)
+    by_id = {candidate.candidate_id: candidate for candidate in settings.candidates}
+    recipes: dict[str, TrainingRecipe] = {}
+    exact_section = cast(dict[str, object], record["exact_math"])
+    exact_results = cast(list[dict[str, object]], exact_section["candidate_results"])
+    for candidate_id in settings.measurement.equivalence_candidate_ids:
+        sampler = MemoryPeakSampler(
+            device,
+            settings.measurement.memory_sample_interval_seconds,
+            maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+            swap_sample_interval_seconds=(
+                settings.measurement.swap_sample_interval_seconds
+            ),
+        )
+        result: dict[str, object]
+        with sampler:
+            try:
+                seed_everything(settings.measurement.seed)
+                configure_determinism(settings.measurement)
+                loaded, load_attempts = _load_with_retries(
+                    by_id[candidate_id], settings.measurement, loader
+                )
+                context_length = model_context_length(loaded.model, loaded.tokenizer)
+                stream = _new_equivalence_stream(settings.measurement)
+                recipe, selection = select_training_recipe(
+                    loaded.model,
+                    loaded.tokenizer,
+                    stream,
+                    settings.measurement,
+                    settings.decision,
+                    context_length,
+                    device,
+                    resource_guard=sampler,
+                )
+                if recipe is None:
+                    raise RuntimeError("equivalence proof model has no feasible memory recipe")
+                recipes[candidate_id] = recipe
+                batch = _equivalence_batches(
+                    stream, count=1, batch_size=settings.measurement.probe_batch_size
+                )[0]
+                proof = prove_exact_gradient_equivalence(
+                    loaded.model,
+                    loaded.tokenizer,
+                    batch,
+                    settings.measurement,
+                    context_length,
+                    recipe,
+                )
+                result = {
+                    "candidate_id": candidate_id,
+                    "resolved_revision": loaded.resolved_revision,
+                    "load_attempts": load_attempts,
+                    "instance_ids": [item.task_id for item in batch],
+                    "memory_recipe_selection": selection,
+                    "recipe": {
+                        "micro_batch_size": recipe.micro_batch_size,
+                        "gradient_checkpointing": recipe.gradient_checkpointing,
+                    },
+                    "proof": proof,
+                    "passed": proof["passed"],
+                }
+            except Exception as error:
+                result = {
+                    "candidate_id": candidate_id,
+                    "passed": False,
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "out_of_memory": _is_out_of_memory(error),
+                    },
+                }
+        result["memory"] = sampler.record()
+        exact_results.append(result)
+        cleanup_device(device)
+        if result["passed"] is not True:
+            exact_section["status"] = "failed"
+            record["status"] = "failed"
+            record["failed_stage"] = "exact_math"
+            write_json(record_path, record)
+            return record
+        write_json(record_path, record)
+    exact_section["status"] = "passed"
+    noise_section = cast(dict[str, object], record["noise_floor"])
+    noise_section["status"] = "running"
+    noise_results = cast(list[dict[str, object]], noise_section["candidate_results"])
+    write_json(record_path, record)
+    for candidate_id in settings.measurement.equivalence_candidate_ids:
+        sampler = MemoryPeakSampler(
+            device,
+            settings.measurement.memory_sample_interval_seconds,
+            maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+            swap_sample_interval_seconds=(
+                settings.measurement.swap_sample_interval_seconds
+            ),
+        )
+        with sampler:
+            try:
+                seed_everything(settings.measurement.seed)
+                loaded, load_attempts = _load_with_retries(
+                    by_id[candidate_id], settings.measurement, loader
+                )
+                context_length = model_context_length(loaded.model, loaded.tokenizer)
+                stream = _new_equivalence_stream(settings.measurement)
+                batches = _equivalence_batches(
+                    stream,
+                    count=settings.measurement.equivalence_noise_floor_batches,
+                    batch_size=settings.measurement.probe_batch_size,
+                )
+                proof = measure_noise_floor(
+                    loaded.model,
+                    loaded.tokenizer,
+                    batches,
+                    settings.measurement,
+                    context_length,
+                    device,
+                    recipes[candidate_id],
+                )
+                result = {
+                    "candidate_id": candidate_id,
+                    "resolved_revision": loaded.resolved_revision,
+                    "load_attempts": load_attempts,
+                    "proof": proof,
+                    "passed": proof["passed"],
+                }
+            except Exception as error:
+                result = {
+                    "candidate_id": candidate_id,
+                    "passed": False,
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "out_of_memory": _is_out_of_memory(error),
+                    },
+                }
+        result["memory"] = sampler.record()
+        noise_results.append(result)
+        cleanup_device(device)
+        if result["passed"] is not True:
+            noise_section["status"] = "failed"
+            record["status"] = "failed"
+            record["failed_stage"] = "noise_floor"
+            write_json(record_path, record)
+            return record
+        write_json(record_path, record)
+    noise_section["status"] = "passed"
+    trajectory_section = cast(dict[str, object], record["training_trajectory"])
+    trajectory_section["status"] = "running"
+    write_json(record_path, record)
+    trajectory_candidate_id = "smollm2-135m"
+    sampler = MemoryPeakSampler(
+        device,
+        settings.measurement.memory_sample_interval_seconds,
+        maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+        swap_sample_interval_seconds=settings.measurement.swap_sample_interval_seconds,
+    )
+    with sampler:
+        try:
+            seed_everything(settings.measurement.seed)
+            loaded, load_attempts = _load_with_retries(
+                by_id[trajectory_candidate_id], settings.measurement, loader
+            )
+            context_length = model_context_length(loaded.model, loaded.tokenizer)
+            stream = _new_equivalence_stream(settings.measurement)
+            proof = measure_training_trajectory(
+                loaded.model,
+                loaded.tokenizer,
+                stream,
+                settings.measurement,
+                settings.decision,
+                context_length,
+                device,
+                recipes[trajectory_candidate_id],
+                resource_guard=sampler,
+            )
+            trajectory_section.update(
+                {
+                    "candidate_id": trajectory_candidate_id,
+                    "resolved_revision": loaded.resolved_revision,
+                    "load_attempts": load_attempts,
+                    "proof": proof,
+                    "passed": proof["passed"],
+                }
+            )
+        except Exception as error:
+            trajectory_section.update(
+                {
+                    "candidate_id": trajectory_candidate_id,
+                    "passed": False,
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "out_of_memory": _is_out_of_memory(error),
+                    },
+                }
+            )
+    trajectory_section["memory"] = sampler.record()
+    cleanup_device(device)
+    if trajectory_section["passed"] is not True:
+        trajectory_section["status"] = "failed"
+        record["status"] = "failed"
+        record["failed_stage"] = "training_trajectory"
+        write_json(record_path, record)
+        return record
+    trajectory_section["status"] = "passed"
+    record["status"] = "passed"
+    write_json(record_path, record)
+    return record
+
+
+def run_amendment_4b_equivalence(
+    config_path: Path | str,
+    output_dir: Path | str,
+    *,
+    loader: CandidateLoader = load_candidate,
+) -> dict[str, object]:
+    """Run and persist Amendment 4b's identity proof and outcome gate."""
+    settings = load_base_model_evaluation_settings(config_path)
+    if settings.measurement.equivalence_protocol != "amendment_4b":
+        raise ValueError("Amendment 4b requires equivalence_protocol=amendment_4b")
+    destination = Path(output_dir)
+    manifest, manifest_sha256 = prepare_run_manifest(
+        config_path, destination, settings
+    )
+    record_path = destination / "equivalence-amendment-4b.json"
+    if record_path.is_file():
+        existing = _read_json(record_path)
+        if (
+            existing.get("schema_version") == AMENDMENT_4B_EQUIVALENCE_SCHEMA_VERSION
+            and existing.get("manifest_sha256") == manifest_sha256
+            and existing.get("status") in {"passed", "failed"}
+        ):
+            return existing
+        raise RuntimeError(
+            "existing Amendment 4b evidence is incomplete or does not match its manifest"
+        )
+    device = resolve_device(settings.measurement.device)
+    if device.type != "mps":
+        raise RuntimeError("Amendment 4b requires the configured real MPS device")
+    outcome_seed_0, outcome_seed_1 = settings.measurement.equivalence_outcome_seeds
+    record: dict[str, object] = {
+        "schema_version": AMENDMENT_4B_EQUIVALENCE_SCHEMA_VERSION,
+        "manifest_sha256": manifest_sha256,
+        "correlation_id": manifest["correlation_id"],
+        "status": "running",
+        "protocol": {
+            "exact_loss_absolute_tolerance": (
+                settings.measurement.equivalence_exact_loss_absolute_tolerance
+            ),
+            "exact_gradient_relative_l2_tolerance": (
+                settings.measurement.equivalence_exact_gradient_relative_l2_tolerance
+            ),
+            "shape_control_gating": False,
+            "shape_control_batches": (
+                settings.measurement.equivalence_noise_floor_batches
+            ),
+            "shape_control_sequence_chunk_size": (
+                settings.measurement.equivalence_shape_control_chunk_size
+            ),
+            "outcome_steps": settings.measurement.equivalence_trajectory_steps,
+            "outcome_seeds": [outcome_seed_0, outcome_seed_1],
+            "accuracy_tie_margin": settings.decision.learnability_tie_margin,
+            "learning_rate": settings.measurement.probe_learning_rates[0],
+            "weight_decay": settings.measurement.probe_weight_decay,
+            "warmup_steps": settings.measurement.probe_warmup_steps,
+            "batch_order": "training item index outer, configured family order inner",
+            "data_order": "identical across outcome variants",
+        },
+        "exact_math": {"status": "running", "candidate_results": []},
+        "shape_changing_control": {
+            "status": "pending",
+            "gating": False,
+            "candidate_results": [],
+        },
+        "outcome_gate": {"status": "pending"},
+    }
+    write_json(record_path, record)
+    by_id = {candidate.candidate_id: candidate for candidate in settings.candidates}
+    recipes: dict[str, TrainingRecipe] = {}
+    exact_section = cast(dict[str, object], record["exact_math"])
+    exact_results = cast(list[dict[str, object]], exact_section["candidate_results"])
+    for candidate_id in settings.measurement.equivalence_candidate_ids:
+        sampler = MemoryPeakSampler(
+            device,
+            settings.measurement.memory_sample_interval_seconds,
+            maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+            swap_sample_interval_seconds=(
+                settings.measurement.swap_sample_interval_seconds
+            ),
+        )
+        result: dict[str, object]
+        with sampler:
+            try:
+                seed_everything(settings.measurement.seed)
+                configure_determinism(settings.measurement)
+                loaded, load_attempts = _load_with_retries(
+                    by_id[candidate_id], settings.measurement, loader
+                )
+                context_length = model_context_length(loaded.model, loaded.tokenizer)
+                stream = _new_equivalence_stream(settings.measurement)
+                recipe, selection = select_training_recipe(
+                    loaded.model,
+                    loaded.tokenizer,
+                    stream,
+                    settings.measurement,
+                    settings.decision,
+                    context_length,
+                    device,
+                    resource_guard=sampler,
+                )
+                if recipe is None:
+                    raise RuntimeError("equivalence proof model has no feasible memory recipe")
+                recipes[candidate_id] = recipe
+                batch = _equivalence_batches(
+                    stream, count=1, batch_size=settings.measurement.probe_batch_size
+                )[0]
+                proof = prove_exact_gradient_equivalence(
+                    loaded.model,
+                    loaded.tokenizer,
+                    batch,
+                    settings.measurement,
+                    context_length,
+                    recipe,
+                )
+                result = {
+                    "candidate_id": candidate_id,
+                    "resolved_revision": loaded.resolved_revision,
+                    "load_attempts": load_attempts,
+                    "instance_ids": [item.task_id for item in batch],
+                    "memory_recipe_selection": selection,
+                    "recipe": {
+                        "micro_batch_size": recipe.micro_batch_size,
+                        "gradient_checkpointing": recipe.gradient_checkpointing,
+                    },
+                    "proof": proof,
+                    "passed": proof["passed"],
+                }
+            except Exception as error:
+                result = {
+                    "candidate_id": candidate_id,
+                    "passed": False,
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "out_of_memory": _is_out_of_memory(error),
+                    },
+                }
+        result["memory"] = sampler.record()
+        exact_results.append(result)
+        cleanup_device(device)
+        if result["passed"] is not True:
+            exact_section["status"] = "failed"
+            record["status"] = "failed"
+            record["failed_stage"] = "exact_math"
+            write_json(record_path, record)
+            return record
+        write_json(record_path, record)
+    exact_section["status"] = "passed"
+
+    control_section = cast(dict[str, object], record["shape_changing_control"])
+    control_section["status"] = "running"
+    control_results = cast(
+        list[dict[str, object]], control_section["candidate_results"]
+    )
+    write_json(record_path, record)
+    for candidate_id in settings.measurement.equivalence_candidate_ids:
+        sampler = MemoryPeakSampler(
+            device,
+            settings.measurement.memory_sample_interval_seconds,
+            maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+            swap_sample_interval_seconds=(
+                settings.measurement.swap_sample_interval_seconds
+            ),
+        )
+        with sampler:
+            try:
+                seed_everything(settings.measurement.seed)
+                loaded, load_attempts = _load_with_retries(
+                    by_id[candidate_id], settings.measurement, loader
+                )
+                context_length = model_context_length(loaded.model, loaded.tokenizer)
+                stream = _new_equivalence_stream(settings.measurement)
+                batches = _equivalence_batches(
+                    stream,
+                    count=settings.measurement.equivalence_noise_floor_batches,
+                    batch_size=settings.measurement.probe_batch_size,
+                )
+                proof = measure_shape_changing_control(
+                    loaded.model,
+                    loaded.tokenizer,
+                    batches,
+                    settings.measurement,
+                    context_length,
+                    device,
+                    recipes[candidate_id],
+                )
+                result = {
+                    "candidate_id": candidate_id,
+                    "resolved_revision": loaded.resolved_revision,
+                    "load_attempts": load_attempts,
+                    "status": "completed",
+                    "proof": proof,
+                }
+            except Exception as error:
+                result = {
+                    "candidate_id": candidate_id,
+                    "status": "diagnostic_failed",
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "out_of_memory": _is_out_of_memory(error),
+                    },
+                }
+        result["memory"] = sampler.record()
+        control_results.append(result)
+        cleanup_device(device)
+        write_json(record_path, record)
+    control_section["status"] = (
+        "completed"
+        if all(item["status"] == "completed" for item in control_results)
+        else "completed_with_diagnostic_failures"
+    )
+
+    outcome_section = cast(dict[str, object], record["outcome_gate"])
+    outcome_section["status"] = "running"
+    write_json(record_path, record)
+    outcome_candidate_id = "smollm2-135m"
+    sampler = MemoryPeakSampler(
+        device,
+        settings.measurement.memory_sample_interval_seconds,
+        maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+        swap_sample_interval_seconds=settings.measurement.swap_sample_interval_seconds,
+    )
+    with sampler:
+        try:
+            seed_everything(settings.measurement.seed)
+            loaded, load_attempts = _load_with_retries(
+                by_id[outcome_candidate_id], settings.measurement, loader
+            )
+            context_length = model_context_length(loaded.model, loaded.tokenizer)
+            stream = _new_equivalence_stream(settings.measurement)
+            proof = measure_outcome_gate(
+                loaded.model,
+                loaded.tokenizer,
+                stream,
+                settings.measurement,
+                settings.decision,
+                context_length,
+                device,
+                recipes[outcome_candidate_id],
+                resource_guard=sampler,
+            )
+            outcome_section.update(
+                {
+                    "candidate_id": outcome_candidate_id,
+                    "resolved_revision": loaded.resolved_revision,
+                    "load_attempts": load_attempts,
+                    "proof": proof,
+                    "passed": proof["passed"],
+                }
+            )
+        except Exception as error:
+            outcome_section.update(
+                {
+                    "candidate_id": outcome_candidate_id,
+                    "passed": False,
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "out_of_memory": _is_out_of_memory(error),
+                    },
+                }
+            )
+    outcome_section["memory"] = sampler.record()
+    cleanup_device(device)
+    if outcome_section["passed"] is not True:
+        outcome_section["status"] = "failed"
+        record["status"] = "failed"
+        record["failed_stage"] = "outcome_gate"
+        write_json(record_path, record)
+        return record
+    outcome_section["status"] = "passed"
+    record["status"] = "passed"
+    write_json(record_path, record)
+    return record
 
 
 def benchmark_generation(
@@ -2315,6 +5072,15 @@ def _is_out_of_memory(error: BaseException) -> bool:
     return "out of memory" in message or "mps backend out of memory" in message
 
 
+def _tokenizer_contract_satisfied(fitness: Mapping[str, object]) -> bool:
+    """Accept Amendment 3 evidence or stricter legacy exact-round-trip evidence."""
+    nfc = fitness.get("exact_roundtrip_after_nfc_normalization")
+    task = fitness.get("exact_task_stream_roundtrip")
+    if nfc is not None or task is not None:
+        return nfc is True and task is True
+    return fitness.get("exact_utf8_roundtrip") is True
+
+
 def _config_fingerprint(
     candidate: CandidateSpec, settings: MeasurementSettings, manifest_sha256: str
 ) -> str:
@@ -2372,13 +5138,23 @@ def evaluate_candidate(
     decision_settings: DecisionSettings | None = None,
     manifest_sha256: str = "test-manifest",
     correlation_id: str = "test-correlation-id",
+    equivalence_gate_owner_override: Mapping[str, str] | None = None,
 ) -> dict[str, object]:
     """Evaluate one candidate, converting every failure into a durable record."""
     fingerprint = _config_fingerprint(candidate, settings, manifest_sha256)
     phase = "load"
     started = time.perf_counter()
     device = resolve_device(settings.device)
-    sampler = MemoryPeakSampler(device, settings.memory_sample_interval_seconds)
+    sampler = MemoryPeakSampler(
+        device,
+        settings.memory_sample_interval_seconds,
+        maximum_swap_growth_bytes=(
+            None
+            if decision_settings is None
+            else decision_settings.maximum_swap_growth_bytes
+        ),
+        swap_sample_interval_seconds=settings.swap_sample_interval_seconds,
+    )
     partial: dict[str, object] = {}
     model: CausalLM | None = None
     with sampler:
@@ -2386,6 +5162,7 @@ def evaluate_candidate(
             seed_everything(settings.seed)
             configure_determinism(settings)
             loaded, load_attempts = _load_with_retries(candidate, settings, loader)
+            sampler.raise_if_swap_limit_exceeded()
             model = loaded.model
             tokenizer = loaded.tokenizer
             context_length = model_context_length(model, tokenizer)
@@ -2428,6 +5205,7 @@ def evaluate_candidate(
             phase = "structural_fitness"
             structure = inspect_expert_attachment_structure(model, hidden_size)
             partial["structural_fitness"] = structure
+            sampler.raise_if_swap_limit_exceeded()
             cheap_reasons: list[str] = []
             if decision_settings is not None:
                 allowed = {
@@ -2441,8 +5219,10 @@ def evaluate_candidate(
                     cheap_reasons.append(
                         f"licence {candidate.license!r} is not in the permissive allowlist"
                     )
-            if token_fitness["exact_utf8_roundtrip"] is not True:
-                cheap_reasons.append("tokenizer failed exact UTF-8 round-trip")
+            if not _tokenizer_contract_satisfied(token_fitness):
+                cheap_reasons.append(
+                    "tokenizer failed NFC-normalized or exact task-stream round-trip"
+                )
             if token_fitness["eos_usable_as_answer_terminator"] is not True:
                 cheap_reasons.append(
                     "tokenizer/model EOS is not usable as an answer terminator"
@@ -2487,62 +5267,195 @@ def evaluate_candidate(
                     model, tokenizer, settings, context_length, device
                 )
                 partial["language_modeling"] = language
-                phase = "task_readiness"
-                readiness = evaluate_task_readiness(
+                sampler.raise_if_swap_limit_exceeded()
+                phase = "zero_shot_readiness"
+                zero_shot = evaluate_zero_shot_readiness(
                     model, tokenizer, stream, settings, context_length, device
                 )
-                partial["task_stream_readiness"] = readiness
-                phase = "cost"
-                generation = benchmark_generation(
-                    model, tokenizer, stream, settings, context_length, device
+                partial["zero_shot_readiness"] = zero_shot
+                sampler.raise_if_swap_limit_exceeded()
+                parameter_count = cast(int, identity["unique_parameters"])
+                feasibility = (
+                    full_finetuning_memory_feasibility(
+                        parameter_count, settings, decision_settings
+                    )
+                    if decision_settings is not None
+                    else None
                 )
-                families = cast(list[dict[str, object]], readiness["families"])
-                cost: dict[str, object] = {
-                    "device": str(device),
-                    "generation": generation,
-                    "median_probe_training_tokens_per_second": statistics.median(
-                        cast(float, item["training_tokens_per_second"])
-                        for item in families
-                    ),
-                    "median_probe_training_bytes_per_second": statistics.median(
-                        cast(float, item["training_bytes_per_second"])
-                        for item in families
-                    ),
-                    "probe_throughput_definition": (
-                        "median selected-LR family rate: all non-padding tokens divided "
-                        "by synchronized elapsed seconds across the configured probe steps"
-                    ),
-                    "total_seconds": time.perf_counter() - started,
-                }
-                result = {
-                    "schema_version": EVALUATION_SCHEMA_VERSION,
-                    "manifest_sha256": manifest_sha256,
-                    "correlation_id": correlation_id,
-                    "config_fingerprint": fingerprint,
-                    "status": "completed",
-                    "candidate_id": candidate.candidate_id,
-                    "reference_only": candidate.reference_only,
-                    **partial,
-                    "cost": cost,
-                    "measurement_protocol": {
-                        "seed": settings.seed,
-                        "variance_seeds": list(settings.variance_seeds),
-                        "train_items_per_family": settings.train_items_per_family,
-                        "validation_items_per_family": settings.validation_items_per_family,
-                        "test_items_per_family": settings.test_items_per_family,
-                        "probe_steps": settings.probe_steps,
-                        "probe_batch_size": settings.probe_batch_size,
-                        "probe_learning_rates": list(settings.probe_learning_rates),
-                        "probe_warmup_steps": settings.probe_warmup_steps,
-                        "evaluation_batch_size": settings.evaluation_batch_size,
-                        "confidence_level": settings.confidence_level,
-                        "expected_wall_time_seconds": settings.expected_wall_time_seconds,
-                        "max_new_tokens": settings.max_new_tokens,
-                        "scoring_stride_tokens": settings.scoring_stride_tokens,
-                        "deterministic_algorithms": settings.deterministic_algorithms,
-                        "deterministic_warn_only": settings.deterministic_warn_only,
-                    },
-                }
+                if feasibility is not None:
+                    feasibility["verdict_role"] = (
+                        "informational lower bound; Amendment 4c feasibility uses only "
+                        "the measured candidate peak"
+                    )
+                    partial["full_finetuning_memory_feasibility"] = feasibility
+                if not candidate.reference_only:
+                    phase = "memory_recipe_selection"
+                    recipe: TrainingRecipe | None
+                    if decision_settings is None:
+                        recipe = TrainingRecipe(settings.probe_batch_size, False)
+                        recipe_evidence: dict[str, object] = {
+                            "selected_micro_batch_size": settings.probe_batch_size,
+                            "selected_gradient_checkpointing": False,
+                            "selection_skipped": "decision settings were not supplied",
+                        }
+                    else:
+                        recipe, recipe_evidence = select_training_recipe(
+                            model,
+                            tokenizer,
+                            stream,
+                            settings,
+                            decision_settings,
+                            context_length,
+                            device,
+                            resource_guard=sampler,
+                        )
+                    partial["training_memory_recipe"] = recipe_evidence
+                    if recipe is None:
+                        attempts = cast(
+                            list[dict[str, object]], recipe_evidence.get("attempts", [])
+                        )
+                        maximum_peak = cast(
+                            int, recipe_evidence["configured_maximum_peak_bytes"]
+                        )
+                        measured_over_cap = any(
+                            cast(int, cast(dict[str, object], item["memory"])[
+                                "hard_constraint_peak_bytes"
+                            ])
+                            > maximum_peak
+                            for item in attempts
+                        )
+                        if measured_over_cap:
+                            reason = (
+                                "candidate's measured process/MPS peak exceeded the "
+                                "configured memory cap"
+                            )
+                            result = {
+                                "schema_version": EVALUATION_SCHEMA_VERSION,
+                                "manifest_sha256": manifest_sha256,
+                                "correlation_id": correlation_id,
+                                "config_fingerprint": fingerprint,
+                                "status": "hard_constraint_rejected",
+                                "rejection_category": "candidate_footprint",
+                                "candidate_id": candidate.candidate_id,
+                                "reference_only": candidate.reference_only,
+                                **partial,
+                                "hard_constraint_reasons": [reason],
+                                "probe_skipped": True,
+                                "probe_skip_reason": reason,
+                                "elapsed_seconds": time.perf_counter() - started,
+                            }
+                        else:
+                            reason = (
+                                "no training recipe completed and no measured candidate "
+                                "peak exceeded the configured memory cap"
+                            )
+                            result = {
+                                "schema_version": EVALUATION_SCHEMA_VERSION,
+                                "manifest_sha256": manifest_sha256,
+                                "correlation_id": correlation_id,
+                                "config_fingerprint": fingerprint,
+                                "status": "failed",
+                                "candidate_id": candidate.candidate_id,
+                                "reference_only": candidate.reference_only,
+                                "partial_measurements": partial,
+                                "failure": {
+                                    "phase": "memory_recipe_selection",
+                                    "type": "TrainingRecipeMeasurementFailure",
+                                    "message": reason,
+                                    "out_of_memory": True,
+                                },
+                                "elapsed_seconds": time.perf_counter() - started,
+                            }
+                    else:
+                        phase = "task_readiness"
+                        readiness = evaluate_task_readiness(
+                            model,
+                            tokenizer,
+                            stream,
+                            settings,
+                            context_length,
+                            device,
+                            zero_shot_readiness=zero_shot,
+                            recipe=recipe,
+                            resource_guard=sampler,
+                        )
+                        partial["task_stream_readiness"] = readiness
+                        sampler.raise_if_swap_limit_exceeded()
+                        phase = "cost"
+                        generation = benchmark_generation(
+                            model, tokenizer, stream, settings, context_length, device
+                        )
+                        sampler.raise_if_swap_limit_exceeded()
+                        families = cast(list[dict[str, object]], readiness["families"])
+                        cost: dict[str, object] = {
+                            "device": str(device),
+                            "generation": generation,
+                            "median_probe_training_tokens_per_second": statistics.median(
+                                cast(float, item["training_tokens_per_second"])
+                                for item in families
+                            ),
+                            "median_probe_training_bytes_per_second": statistics.median(
+                                cast(float, item["training_bytes_per_second"])
+                                for item in families
+                            ),
+                            "probe_throughput_definition": (
+                                "median selected-LR family rate: all non-padding tokens divided "
+                                "by synchronized elapsed seconds across the configured probe steps"
+                            ),
+                            "total_seconds": time.perf_counter() - started,
+                        }
+                        result = {
+                            "schema_version": EVALUATION_SCHEMA_VERSION,
+                            "manifest_sha256": manifest_sha256,
+                            "correlation_id": correlation_id,
+                            "config_fingerprint": fingerprint,
+                            "status": "completed",
+                            "candidate_id": candidate.candidate_id,
+                            "reference_only": candidate.reference_only,
+                            **partial,
+                            "cost": cost,
+                            "measurement_protocol": {
+                                "seed": settings.seed,
+                                "variance_seeds": list(settings.variance_seeds),
+                                "train_items_per_family": settings.train_items_per_family,
+                                "validation_items_per_family": (
+                                    settings.validation_items_per_family
+                                ),
+                                "test_items_per_family": settings.test_items_per_family,
+                                "probe_steps": settings.probe_steps,
+                                "probe_batch_size": settings.probe_batch_size,
+                                "probe_micro_batch_size": recipe.micro_batch_size,
+                                "gradient_accumulation_steps": (
+                                    settings.probe_batch_size
+                                    // recipe.micro_batch_size
+                                ),
+                                "gradient_checkpointing": (
+                                    recipe.gradient_checkpointing
+                                ),
+                                "target_only_training_loss": (
+                                    settings.target_only_training_loss
+                                ),
+                                "probe_learning_rates": list(
+                                    settings.probe_learning_rates
+                                ),
+                                "probe_warmup_steps": settings.probe_warmup_steps,
+                                "evaluation_batch_size": (
+                                    settings.evaluation_batch_size
+                                ),
+                                "confidence_level": settings.confidence_level,
+                                "expected_wall_time_seconds": (
+                                    settings.expected_wall_time_seconds
+                                ),
+                                "max_new_tokens": settings.max_new_tokens,
+                                "scoring_stride_tokens": settings.scoring_stride_tokens,
+                                "deterministic_algorithms": (
+                                    settings.deterministic_algorithms
+                                ),
+                                "deterministic_warn_only": (
+                                    settings.deterministic_warn_only
+                                ),
+                            },
+                        }
         except Exception as error:
             result = {
                 "schema_version": EVALUATION_SCHEMA_VERSION,
@@ -2566,6 +5479,10 @@ def evaluate_candidate(
         cast(dict[str, object], result["cost"])["memory"] = memory
     else:
         result["memory"] = memory
+    if equivalence_gate_owner_override is not None:
+        result["equivalence_gate_owner_override"] = dict(
+            equivalence_gate_owner_override
+        )
     model = None
     cleanup_device(device)
     return result
@@ -2621,6 +5538,9 @@ def evaluate_all_candidates(
             decision_settings=settings.decision,
             manifest_sha256=manifest_sha256,
             correlation_id=correlation_id,
+            equivalence_gate_owner_override=(
+                settings.equivalence_gate_owner_override
+            ),
         )
         write_json(record_path, record)
         records.append(record)
@@ -2641,6 +5561,20 @@ def _metric(record: Mapping[str, object], *keys: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise TypeError(f"metric {'.'.join(keys)} is not numeric")
     return float(value)
+
+
+def _optional_nested(record: Mapping[str, object], *keys: str) -> object | None:
+    try:
+        return _nested(record, *keys)
+    except KeyError:
+        return None
+
+
+def _optional_metric(record: Mapping[str, object], *keys: str) -> float | None:
+    try:
+        return _metric(record, *keys)
+    except (KeyError, TypeError):
+        return None
 
 
 def _hard_constraint_reasons(
@@ -2671,8 +5605,11 @@ def _hard_constraint_reasons(
             reasons.append(
                 "peak memory does not leave the configured minimum target-machine headroom"
             )
-        if _nested(record, "tokenizer_fitness", "exact_utf8_roundtrip") is not True:
-            reasons.append("tokenizer failed exact UTF-8 round-trip")
+        tokenizer = _nested(record, "tokenizer_fitness")
+        if not isinstance(tokenizer, dict) or not _tokenizer_contract_satisfied(tokenizer):
+            reasons.append(
+                "tokenizer failed NFC-normalized or exact task-stream round-trip"
+            )
         if (
             _nested(record, "tokenizer_fitness", "eos_usable_as_answer_terminator")
             is not True
@@ -3005,6 +5942,7 @@ def apply_decision_rule(
     rejected: list[dict[str, object]] = []
     eligible: list[Mapping[str, object]] = []
     references: list[dict[str, str]] = []
+    incomplete: list[dict[str, str]] = []
     for record in records:
         candidate_id = str(record.get("candidate_id"))
         if record.get("reference_only") is True:
@@ -3012,6 +5950,17 @@ def apply_decision_rule(
                 {"candidate_id": candidate_id, "reason": "reference-only; excluded from selection"}
             )
             continue
+        status = str(record.get("status"))
+        footprint_rejection = (
+            status == "hard_constraint_rejected"
+            and record.get("rejection_category") == "candidate_footprint"
+        )
+        if (
+            settings.require_complete_candidate_measurements
+            and status != "completed"
+            and not footprint_rejection
+        ):
+            incomplete.append({"candidate_id": candidate_id, "status": status})
         reasons = _hard_constraint_reasons(record, settings)
         if record.get("status") == "completed":
             try:
@@ -3089,6 +6038,24 @@ def apply_decision_rule(
             "unique_parameters": int(
                 _metric(record, "identity", "unique_parameters")
             ),
+            "micro_batch_size": _optional_metric(
+                record, "measurement_protocol", "probe_micro_batch_size"
+            ),
+            "gradient_checkpointing": _optional_nested(
+                record, "measurement_protocol", "gradient_checkpointing"
+            ),
+            "peak_memory_bytes": _optional_metric(
+                record, "cost", "memory", "hard_constraint_peak_bytes"
+            ),
+            "system_swap_before_bytes": _optional_metric(
+                record, "cost", "memory", "system_swap_before_bytes"
+            ),
+            "system_swap_after_bytes": _optional_metric(
+                record, "cost", "memory", "system_swap_after_bytes"
+            ),
+            "system_swap_peak_growth_bytes": _optional_metric(
+                record, "cost", "memory", "system_swap_peak_growth_bytes"
+            ),
         }
         for index, record in enumerate(ranked)
     ]
@@ -3117,11 +6084,16 @@ def apply_decision_rule(
         "decision_status": (
             "measurement_pending"
             if not records
+            else "measurement_incomplete"
+            if incomplete
             else "ranked_no_adr_decision"
             if ranking
             else "no_eligible_candidate"
         ),
-        "selected_candidate": ranking[0]["candidate_id"] if ranking else None,
+        "selected_candidate": (
+            ranking[0]["candidate_id"] if ranking and not incomplete else None
+        ),
+        "missing_candidates": incomplete,
         "ranking_order": [
             (
                 "mean learned task accuracy (descending; ties when absolute difference "
@@ -3186,6 +6158,9 @@ def run_evaluation(
                 "status": "failed",
                 "candidate_id": candidate.candidate_id,
                 "reference_only": candidate.reference_only,
+                "equivalence_gate_owner_override": (
+                    settings.equivalence_gate_owner_override
+                ),
                 "failure": {
                     "phase": "preflight_resolution",
                     **cast(dict[str, object], failure),
@@ -3211,6 +6186,7 @@ def run_evaluation(
         measurement=settings.measurement,
         decision=settings.decision,
         execution=settings.execution,
+        equivalence_gate_owner_override=settings.equivalence_gate_owner_override,
     )
     records = evaluate_all_candidates(
         resolved_settings,
@@ -3296,6 +6272,7 @@ def run_seed_variance_evaluation(
         decision_settings=settings.decision,
         manifest_sha256=manifest_sha256,
         correlation_id=str(manifest["correlation_id"]),
+        equivalence_gate_owner_override=settings.equivalence_gate_owner_override,
     )
     record["variance_role"] = "top-candidate seed-to-seed estimate"
     record["primary_selected_learning_rate"] = learning_rate
@@ -3395,7 +6372,13 @@ def derive_existing_records_analysis(
 
     records: list[dict[str, object]] = []
     source_records: list[dict[str, str]] = []
+    manifest_candidate_ids = {
+        str(row.get("candidate_id"))
+        for row in cast(list[dict[str, object]], manifest["candidates"])
+    }
     for candidate in settings.candidates:
+        if candidate.candidate_id not in manifest_candidate_ids:
+            continue
         path = _candidate_record_path(destination, candidate.candidate_id)
         if not path.is_file():
             raise ValueError(f"candidate record is missing: {candidate.candidate_id}")
@@ -3413,6 +6396,8 @@ def derive_existing_records_analysis(
                 "schema_version": str(record.get("schema_version")),
             }
         )
+    if {str(record.get("candidate_id")) for record in records} != manifest_candidate_ids:
+        raise ValueError("configured candidates do not cover the frozen manifest")
 
     old_ranking_path = destination / "ranking.json"
     old_ranking = _read_json(old_ranking_path) if old_ranking_path.is_file() else {}
@@ -3544,7 +6529,7 @@ def derive_existing_records_analysis(
         ),
     }
     ranking["amendment_2_decision_audit"] = amendment_effect
-    analysis = {
+    analysis: dict[str, object] = {
         "schema_version": DERIVED_ANALYSIS_SCHEMA_VERSION,
         "manifest_sha256": manifest_sha256,
         "correlation_id": correlation_id,
@@ -3630,6 +6615,118 @@ def rank_existing_candidate_records(
     return ranking
 
 
+def derive_amendment_3_analysis(
+    config_path: Path | str,
+    output_dir: Path | str,
+    prior_output_dir: Path | str,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Combine immutable prior records with Amendment 3 records and re-rank them."""
+    settings = load_base_model_evaluation_settings(config_path)
+    destination = Path(output_dir)
+    prior = Path(prior_output_dir)
+
+    def manifest_identity(directory: Path) -> tuple[dict[str, object], str]:
+        path = directory / "run_manifest.json"
+        if not path.is_file():
+            raise ValueError(f"evidence manifest is missing: {path}")
+        value = _read_json(path)
+        payload = json.dumps(value, sort_keys=True, allow_nan=False).encode("utf-8")
+        return value, hashlib.sha256(payload).hexdigest()
+
+    current_manifest, current_manifest_sha256 = manifest_identity(destination)
+    prior_manifest, prior_manifest_sha256 = manifest_identity(prior)
+    records: list[dict[str, object]] = []
+    source_records: list[dict[str, object]] = []
+    sources_by_id: dict[str, tuple[Path, str]] = {}
+    for candidate in settings.candidates:
+        relative = _candidate_record_path(Path(), candidate.candidate_id)
+        current_path = destination / relative
+        prior_path = prior / relative
+        if current_path.is_file():
+            path = current_path
+            source_root = destination
+            expected_manifest = current_manifest_sha256
+            protocol = "amendment_3"
+        elif prior_path.is_file():
+            path = prior_path
+            source_root = prior
+            expected_manifest = prior_manifest_sha256
+            protocol = "prior_powered"
+        else:
+            raise ValueError(f"candidate record is missing: {candidate.candidate_id}")
+        record = _read_json(path)
+        if record.get("candidate_id") != candidate.candidate_id:
+            raise ValueError(f"candidate record identity mismatch: {path}")
+        if record.get("manifest_sha256") != expected_manifest:
+            raise ValueError(f"candidate record manifest mismatch: {path}")
+        records.append(record)
+        sources_by_id[candidate.candidate_id] = (source_root, expected_manifest)
+        source_records.append(
+            {
+                "candidate_id": candidate.candidate_id,
+                "protocol": protocol,
+                "path": str(path),
+                "sha256": sha256_file(path),
+                "schema_version": str(record.get("schema_version")),
+                "manifest_sha256": expected_manifest,
+            }
+        )
+
+    ranking = apply_decision_rule(records, settings.decision)
+    ranking["manifest_sha256"] = current_manifest_sha256
+    ranking["correlation_id"] = str(current_manifest.get("correlation_id"))
+    ranking["record_provenance"] = source_records
+    record_by_id = {str(record.get("candidate_id")): record for record in records}
+    prior_repeat_ids = {
+        "smollm2-135m",
+        "smollm2-360m",
+    }
+    current_repeat_ids = {
+        path.name.rsplit("-seed-", 1)[0]
+        for path in (destination / "seed_runs").glob("*.json")
+    }
+    variance_ids: list[str] = []
+    for row in cast(list[dict[str, object]], ranking["ranked_candidates"]):
+        candidate_id = cast(str, row["candidate_id"])
+        primary_stem = _candidate_record_path(Path(), candidate_id).stem
+        if candidate_id in prior_repeat_ids or primary_stem in current_repeat_ids:
+            variance_ids.append(candidate_id)
+    ranking["seed_variance"] = [
+        _seed_variance_summary(
+            candidate_id,
+            record_by_id[candidate_id],
+            sources_by_id[candidate_id][0],
+            settings.measurement,
+            sources_by_id[candidate_id][1],
+        )
+        for candidate_id in variance_ids
+    ]
+    analysis: dict[str, object] = {
+        "schema_version": AMENDMENT_3_ANALYSIS_SCHEMA_VERSION,
+        "derivation": (
+            "analysis-only combination of immutable prior powered records and Amendment 3 "
+            "records; no model was loaded, trained, or evaluated"
+        ),
+        "source_manifests": {
+            "prior_powered": {
+                "path": str(prior / "run_manifest.json"),
+                "sha256": prior_manifest_sha256,
+                "correlation_id": prior_manifest.get("correlation_id"),
+            },
+            "amendment_3": {
+                "path": str(destination / "run_manifest.json"),
+                "sha256": current_manifest_sha256,
+                "correlation_id": current_manifest.get("correlation_id"),
+            },
+        },
+        "source_records": source_records,
+        "amended_ranking": ranking,
+    }
+    write_json(destination / "amendment-3-analysis.json", analysis)
+    write_json(destination / "ranking.json", ranking)
+    return analysis, ranking
+
+
 def write_isolated_process_failure(
     config_path: Path | str,
     output_dir: Path | str,
@@ -3638,6 +6735,7 @@ def write_isolated_process_failure(
     returncode: int,
     message: str,
     variance_seed: int | None = None,
+    parent_process_memory: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Persist a failure when an isolated child exits before Python can record it."""
     settings = load_base_model_evaluation_settings(config_path)
@@ -3654,13 +6752,69 @@ def write_isolated_process_failure(
         "status": "failed",
         "candidate_id": candidate_id,
         "reference_only": candidate.reference_only,
+        "equivalence_gate_owner_override": settings.equivalence_gate_owner_override,
         "variance_seed": variance_seed,
         "failure": {
             "phase": "isolated_process",
             "type": "ChildProcessFailure",
             "message": message,
             "returncode": returncode,
-            "out_of_memory": "out of memory" in lowered or returncode in {-9, 137},
+            "out_of_memory": (
+                "out of memory" in lowered or returncode in {-9, 137}
+            ),
+        },
+    }
+    if parent_process_memory is not None:
+        record["parent_process_memory"] = dict(parent_process_memory)
+    record_path = (
+        _candidate_record_path(destination, candidate_id)
+        if variance_seed is None
+        else _seed_record_path(destination, candidate_id, variance_seed)
+    )
+    write_json(record_path, record)
+    return record
+
+
+def write_environment_status(
+    config_path: Path | str,
+    output_dir: Path | str,
+    candidate_id: str,
+    *,
+    status: str,
+    attempts: Sequence[Mapping[str, object]],
+    variance_seed: int | None = None,
+) -> dict[str, object]:
+    """Persist an environment-only attempt outcome without rejecting the candidate."""
+    if status not in {"environment_invalid", "not_measured_environment"}:
+        raise ValueError(f"unsupported environment status: {status}")
+    settings = load_base_model_evaluation_settings(config_path)
+    destination = Path(output_dir)
+    manifest, manifest_sha256 = prepare_run_manifest(config_path, destination, settings)
+    candidate = next(
+        item for item in settings.candidates if item.candidate_id == candidate_id
+    )
+    record: dict[str, object] = {
+        "schema_version": EVALUATION_SCHEMA_VERSION,
+        "manifest_sha256": manifest_sha256,
+        "correlation_id": str(manifest["correlation_id"]),
+        "config_fingerprint": _config_fingerprint(
+            candidate, settings.measurement, manifest_sha256
+        ),
+        "status": status,
+        "candidate_id": candidate_id,
+        "reference_only": candidate.reference_only,
+        "variance_seed": variance_seed,
+        "equivalence_gate_owner_override": settings.equivalence_gate_owner_override,
+        "environment_attempts": [dict(attempt) for attempt in attempts],
+        "failure": {
+            "phase": "environment_health",
+            "type": "EnvironmentInvalid",
+            "message": (
+                "all configured attempts were environment-invalid"
+                if status == "not_measured_environment"
+                else "the latest attempt was environment-invalid and is retryable"
+            ),
+            "out_of_memory": False,
         },
     }
     record_path = (

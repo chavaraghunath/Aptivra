@@ -91,27 +91,55 @@ the preceding byte at each chunk boundary.
 
 ## Base-Model Candidate Evaluation
 
-The proposed [ADR-0008](docs/adr/0008-adopt-pretrained-base-model.md) compares five permissively
+The proposed [ADR-0008](docs/adr/0008-adopt-pretrained-base-model.md) compares seven permissively
 licensed pretrained causal models and the current byte-level checkpoint as a reference. Candidate
 identities, immutable revisions, powered MPS budgets, learning-rate grid, seeds, confidence level,
 and Amendment 2 family-clustered decision rule live in `configs/base_model_candidates.yaml`; the
 exact powered-run config is preserved beside the evidence as `powered-sweep-config.yaml`. The
-evaluator writes an immutable run manifest, one atomic JSON record per candidate, top-two repeat
-seed records, a versioned derived-analysis record, and `ranking.json` under
-`experiments/base_model_candidates/`. Each candidate runs in a fresh process so an MPS allocator
-failure cannot contaminate later measurements; completed matching records are resumable. The
-rejected one-item sweep is preserved under
+Amendment 4a noise-floor and trajectory controls are frozen in
+`configs/base_model_candidates_amendment_4a.yaml`; the current fresh-run protocol is
+`configs/base_model_candidates_amendment_4c.yaml`. The
+evaluator writes an immutable run manifest, one atomic JSON record per candidate, qualifying
+repeat-seed records, a versioned equivalence record, and `ranking.json`. Amendment 3 evidence
+remains historical under `experiments/base_model_candidates/amendment-3/`. Amendment 4 and 4a
+evidence lives under `experiments/base_model_candidates/amendment-4/` and
+`experiments/base_model_candidates/amendment-4a/`; neither protocol produced a ranking.
+The stopped `amendment-4b-override` directory and log are immutable evidence. Amendment 4c writes
+only to `experiments/base_model_candidates/amendment-4c/`.
+Each candidate runs in a fresh process so an MPS allocator failure cannot contaminate later
+measurements; completed matching records are resumable. The rejected one-item sweep is preserved under
 `experiments/base_model_candidates/archive/first_underpowered_sweep/`.
 
 ```bash
 PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
   -m scripts.evaluate_base_model_candidates \
-  --config configs/base_model_candidates.yaml \
-  --derive-existing-analysis
+  --config configs/base_model_candidates_amendment_4c.yaml
 ```
 
-That command performs analysis only. A future v4 measurement must use a new output directory;
-manifest preparation fails closed rather than overwrite the frozen powered evidence.
+That command uses the existing manifested owner override, selects the largest fitting micro-batch
+from `8, 4, 2, 1`, projects through the LM head only at target positions, and uses gradient
+checkpointing only after micro-batch 1 fails. Candidate feasibility is determined only by the
+measured maximum of process RSS and MPS driver allocation against the 36 GiB target with 25%
+headroom. Parent monitors record swap and the `memory_pressure` free-memory percentage before and
+after every attempt. More than 1 GiB swap growth or less than 10% free memory makes the attempt
+`environment_invalid`; the orchestrator waits up to 900 seconds for recovery and retries up to two
+total attempts. Exhaustion records `not_measured_environment`, and ranking refuses to select while
+any non-reference candidate remains unmeasured. Frozen manifests fail closed rather than accept
+changed code or configuration.
+
+The current Amendment 4 equivalence record is failed. SmolLM2-135M step 1 matched loss within
+`1.37e-7` and maximum absolute parameter update within `9.24e-7`, but its relative-L2 update
+difference was `0.001889` against the pre-registered `0.0001` tolerance. The gate stopped before
+GPT-2 and before every candidate worker. There is therefore no Amendment 4 ranking; rerunning the
+command reuses the immutable failed proof and exits without a sweep.
+
+Amendment 4a retained that failure and tested equivalence against a measured noise floor without
+moving any tolerance. Exact float64 CPU loss and gradients passed on SmolLM2-135M and GPT-2 at the
+selected micro-batch and micro-batch 1. SmolLM2-135M then failed MPS batch 1: gradient relative L2
+was `9.84e-6` against a `5.22e-7` limit, and step-1 AdamW update relative L2 was `7.26e-4` against
+a `4.09e-5` limit. Batches 2 and 3 passed. The bug hunt eliminated target-index scatter and aligned
+loss reduction, but the batch-1 result persisted. The workflow stopped before GPT-2's noise check,
+the trajectory check, and all seven candidate workers. There is no Amendment 4a ranking.
 
 The powered records use 256/100/100 train/validation/test items per family, 200 batch-8 updates
 with warmup, batched evaluation, and three seeds for the first-pass top two. Learning-rate choice
@@ -120,12 +148,11 @@ Future runs keep test untouched until retraining the selected rate. Pooled Wilso
 retained but labelled optimistic; selection uses paired family differences and reports results
 with and without four saturated renamed-template families.
 
-Among eligible probed candidates, the evidence gives a cautious preference for SmolLM2-360M over
-SmolLM2-135M, driven mostly by T6 and T8 at roughly twice the measured primary training time.
-Learned accuracy and gain are clustered ties, so the ranking falls through to bits per byte.
-Pythia-160M and Qwen2.5-0.5B were excluded under the exact code-point constraint and were never
-probed. ADR-0008 remains Proposed; the owner must choose the cost trade-off and whether to relax
-that tokenizer constraint before integration or publication.
+The earlier powered evidence cautiously preferred SmolLM2-360M over SmolLM2-135M, but Amendment 3
+showed that full-sequence logits could make the recipe—not the model—breach the memory cap.
+Amendment 4 therefore supersedes that ranking only after all seven candidates are rerun. The NFC
+verifier contract from Amendment 3 remains unchanged. ADR-0008 remains Proposed until the new
+equivalence evidence, ranking, and owner review are complete.
 
 ## Load the Hub Layout
 

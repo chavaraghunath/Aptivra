@@ -1,0 +1,7 @@
+{"candidate_id": "gpt2", "event": "candidate_started"}
+{"candidate_id": "smollm2-135m", "event": "candidate_started"}
+{"candidate_id": "pythia-160m", "event": "candidate_started"}
+{"candidate_id": "smollm2-360m", "event": "candidate_started"}
+{"candidate_id": "qwen2.5-0.5b", "event": "candidate_started"}
+{"candidate_id": "qwen2.5-1.5b", "event": "candidate_started"}
+{"candidate_id": "smollm2-1.7b", "event": "candidate_started"}
