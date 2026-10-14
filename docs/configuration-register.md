@@ -49,6 +49,49 @@ row requires the setting to be genuinely gone, not merely undocumented.
 | `model_card_release_gate.supplied_record_metric_tolerance` | global | float | `0.000001` | 0.0–0.001 inclusive (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
 | `verifier_sandbox.timeout_seconds` | service | float | `1.0` | 0.05–30.0 seconds (validated); bounds generated-code hangs in a child process, not a security boundary against hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
 | `verifier_sandbox.memory_limit_mb` | service | integer | `512` | 64–2048 MiB (validated; applied where supported); contains accidental resource use, not hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
+| `base_model_evaluation.candidates[]` | global | object list | six pinned records (five selectable, one reference) | unique non-empty id/source; immutable revision preferred; licence/architecture optional fallback metadata; `reference_only` boolean; loader is `transformers` or `aptivra_legacy` | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.device` | environment | enum | `auto` | `auto`, `cpu`, `mps`, `cuda` with availability validation | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.local_files_only` | environment | boolean | `true` | `true`, `false`; `true` forbids Hub downloads | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.torch_dtype` | environment | enum | `float32` | `float32`, `float16`, `bfloat16` | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.deterministic_algorithms` | environment | boolean | `true` | `true`, `false` | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.deterministic_warn_only` | environment | boolean | `true` | `true`, `false`; controls unsupported deterministic-operator handling | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.seed` | global | integer | `20261014` | 0–2^31-1 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.variance_seeds` | global | integer list | `20261014`, `20261015`, `20261016` | at least three unique values in 0–2^31-1; first must equal `seed` | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.variance_top_candidates` | global | integer | `2` | 2–selectable candidate count | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.train_items_per_family` | global | integer | `256` | 1–10000 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.validation_items_per_family` | global | integer | `100` | 1–2000 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.test_items_per_family` | global | integer | `100` | 1–2000 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.max_generation_attempts` | global | integer | `1000` | 1–1000 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.max_new_tokens` | global | integer | `48` | 1–2048 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.probe_steps` | global | integer | `200` | 1–10000 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.probe_batch_size` | global | integer | `8` | 1–256 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.probe_learning_rates` | global | float list | `0.00001`, `0.00003`, `0.0001` | non-empty unique values, each 1e-8–1.0; candidate-wide selection uses validation-only probes, then retrains the selected rate before one test evaluation | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.probe_warmup_steps` | global | integer | `20` | 0–9999 and less than `probe_steps` | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.probe_weight_decay` | global | float | `0.0` | 0.0–1.0 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.evaluation_batch_size` | environment | integer | `16` | 1–512 prompts | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.confidence_level` | global | float | `0.95` | 0.8–0.999; two-sided pooled Wilson and family-clustered Student-t intervals | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.generation_benchmark_prompts` | global | integer | `2` | 1–1000 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.generation_benchmark_new_tokens` | global | integer | `32` | 1–2048 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.generation_benchmark_warmup_runs` | global | integer | `1` | 0–100 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.generation_benchmark_repetitions` | global | integer | `3` | 1–100 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.scoring_stride_tokens` | global | integer | `256` | 1–32768; capped at context length minus one | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.load_retries` | environment | integer | `4` | 1–20; transient load errors only | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.load_retry_backoff_seconds` | environment | float | `2.0` | 0.0–300.0 seconds with exponential backoff | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.memory_sample_interval_seconds` | environment | float | `0.02` | 0.001–10.0 seconds | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.candidate_timeout_seconds` | environment | float | `7200.0` | 1.0–86400.0 seconds per isolated candidate or repeat seed | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.expected_wall_time_seconds` | environment | float | `10800.0` | 1.0–86400.0 seconds; recorded beside actual orchestration time | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.utf8_roundtrip_samples` | global | string list | whitespace, NUL, combining, CJK, RTL, emoji samples | non-empty valid UTF-8 strings | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.heldout_text_path` | global | path | bundled held-out text v1 | readable UTF-8 file; hash frozen in manifest | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.measurement.heldout_prompts_path` | global | path | bundled held-out prompt/answer v1 | valid prompt/answer JSON; hash frozen in manifest | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.decision.permissive_licenses` | global | string list | `apache-2.0`, `mit` | non-empty canonical licence allowlist | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.decision.target_memory_bytes` | environment | integer | `38654705664` | 1–2^63-1 bytes | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.decision.minimum_memory_headroom_fraction` | environment | float | `0.25` | 0.0–0.95 | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.decision.minimum_mean_learned_accuracy` | global | float | `0.0` | 0.0–1.0; rejection requires the family-clustered interval upper bound to miss the threshold | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.decision.minimum_mean_accuracy_gain` | global | float | `0.0` | 0.0–1.0; rejection requires the family-clustered interval upper bound to miss the threshold | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.decision.learnability_tie_margin` | global | float | `0.02` | 0.0–1.0 absolute accuracy; differences at or below this value tie | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.decision.clustered_confidence_interval_intersects_tie_region` | global | boolean | `true` | `true`, `false`; when true, a paired task-family difference interval intersecting `[-learnability_tie_margin, +learnability_tie_margin]` ties | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.execution.output_dir` | environment | path | `experiments/base_model_candidates` | writable directory inside the worktree | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
+| `base_model_evaluation.execution.resume` | environment | boolean | `true` | `true`, `false`; only matching completed records are skipped | researcher | yes | — | `configs/base_model_candidates.yaml` | no |
 
 ## Column meanings
 
@@ -80,3 +123,4 @@ ADR and link it below.
 | Statistical Test for Promotion Gate | Mathematical decision boundary ($\alpha = 0.05$ paired statistical test) for model promotion | [ADR-0005](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0005-statistical-test-for-promotion-gate.md) |
 | Tiered Memory Runtime & Pure C Engine | Architecture for NVMe expert streaming, usage-heat expert pinning, and pure C runtime export | [ADR-0006](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0006-multitier-nvme-expert-tiering-and-c-engine.md) |
 | Generated-code execution containment | Child-process execution, timeout, and process-group termination semantics; explicitly not a security boundary | [ADR-0007](adr/0007-generated-code-execution-containment.md) |
+| Pretrained Tier 3 base and tokenizer contract | Changes the foundational backbone identity and replaces byte-token stop assumptions with decoded-string plus EOS semantics | [ADR-0008](adr/0008-adopt-pretrained-base-model.md) |

@@ -1,0 +1,64 @@
+{
+  "correlation_id": "359b2c51-69a7-4d24-b601-1f3c4628713a",
+  "decision_status": "ranked_no_adr_decision",
+  "manifest_sha256": "d14c1d7d8c917ee434345f75f0832d4bec4250da69ea27e88dcbe7268fc1ad04",
+  "ranked_candidates": [
+    {
+      "candidate_id": "smollm2-135m",
+      "combined_heldout_bits_per_byte": 0.9283719906497278,
+      "mean_accuracy_gain": 0.08333333333333333,
+      "mean_learned_accuracy": 0.08333333333333333,
+      "rank": 1,
+      "training_tokens_per_second": 296.1855633775811,
+      "unique_parameters": 134515008
+    },
+    {
+      "candidate_id": "smollm2-360m",
+      "combined_heldout_bits_per_byte": 0.8261824892888987,
+      "mean_accuracy_gain": 0.0,
+      "mean_learned_accuracy": 0.0,
+      "rank": 2,
+      "training_tokens_per_second": 246.65232192126777,
+      "unique_parameters": 361821120
+    },
+    {
+      "candidate_id": "gpt2",
+      "combined_heldout_bits_per_byte": 1.3838905581672705,
+      "mean_accuracy_gain": 0.0,
+      "mean_learned_accuracy": 0.0,
+      "rank": 3,
+      "training_tokens_per_second": 384.96935340242794,
+      "unique_parameters": 124439808
+    }
+  ],
+  "ranking_order": [
+    "mean learned task accuracy (descending)",
+    "mean task accuracy gain (descending)",
+    "combined held-out bits per byte (ascending)",
+    "median family probe training tokens per second (descending)",
+    "unique parameters (ascending)"
+  ],
+  "reference_records": [
+    {
+      "candidate_id": "aptivra-byte-reference",
+      "reason": "reference-only; excluded from selection"
+    }
+  ],
+  "rejected_candidates": [
+    {
+      "candidate_id": "pythia-160m",
+      "reasons": [
+        "tokenizer failed exact UTF-8 round-trip"
+      ]
+    },
+    {
+      "candidate_id": "qwen2.5-0.5b",
+      "reasons": [
+        "tokenizer failed exact UTF-8 round-trip",
+        "mean learnability gain is below the configured threshold"
+      ]
+    }
+  ],
+  "schema_version": "pretrained-base-ranking-v2",
+  "selected_candidate": "smollm2-135m"
+}

@@ -1,0 +1,94 @@
+# Pre-registered Aptivra Tier 3 base-model evidence sweep.
+# Budgets and decision thresholds were frozen before model weights were downloaded.
+candidates:
+  - id: smollm2-135m
+    source: HuggingFaceTB/SmolLM2-135M
+    revision: 93efa2f097d58c2a74874c7e644dbc9b0cee75a2
+    license: apache-2.0
+    architecture: llama
+    loader: transformers
+    reference_only: false
+  - id: smollm2-360m
+    source: HuggingFaceTB/SmolLM2-360M
+    revision: f8027fd0eaeea54caa13c31d31b9fdc459c38b49
+    license: apache-2.0
+    architecture: llama
+    loader: transformers
+    reference_only: false
+  - id: pythia-160m
+    source: EleutherAI/pythia-160m
+    revision: 50f5173d932e8e61f858120bcb800b97af589f46
+    license: apache-2.0
+    architecture: gpt_neox
+    loader: transformers
+    reference_only: false
+  - id: gpt2
+    source: openai-community/gpt2
+    revision: 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    license: mit
+    architecture: gpt2
+    loader: transformers
+    reference_only: false
+  - id: qwen2.5-0.5b
+    source: Qwen/Qwen2.5-0.5B
+    revision: 060db6499f32faf8b98477b0a26969ef7d8b9987
+    license: apache-2.0
+    architecture: qwen2
+    loader: transformers
+    reference_only: false
+  - id: aptivra-byte-reference
+    source: raghunath1/aptivra-200m-tiered-memory
+    revision: f55718d191e85be18f75c2726f4eb20322cb1ad6
+    license: apache-2.0
+    architecture: aptivra
+    loader: aptivra_legacy
+    reference_only: true
+
+measurement:
+  device: auto
+  local_files_only: false
+  torch_dtype: float32
+  deterministic_algorithms: true
+  deterministic_warn_only: true
+  seed: 20261014
+  train_items_per_family: 8
+  validation_items_per_family: 1
+  test_items_per_family: 1
+  max_generation_attempts: 100
+  max_new_tokens: 48
+  probe_steps: 8
+  probe_batch_size: 1
+  probe_learning_rate: 0.0005
+  probe_weight_decay: 0.0
+  generation_benchmark_prompts: 2
+  generation_benchmark_new_tokens: 32
+  generation_benchmark_warmup_runs: 1
+  generation_benchmark_repetitions: 3
+  scoring_stride_tokens: 256
+  load_retries: 4
+  load_retry_backoff_seconds: 2.0
+  memory_sample_interval_seconds: 0.02
+  candidate_timeout_seconds: 1800.0
+  utf8_roundtrip_samples:
+    - " leading and trailing whitespace "
+    - "multiple   spaces\tand\nlines"
+    - "nul:\u0000:end"
+    - "e\u0301 and é"
+    - "日本語と漢字"
+    - "مرحبا بالعالم"
+    - "emoji: 🧠🚀🌍"
+  heldout_text_path: ../aptivra/eval/model_card_heldout_text_v1.txt
+  heldout_prompts_path: ../aptivra/eval/model_card_heldout_v1.json
+
+decision:
+  permissive_licenses:
+    - apache-2.0
+    - mit
+  target_memory_bytes: 38654705664
+  minimum_memory_headroom_fraction: 0.25
+  minimum_mean_learned_accuracy: 0.0
+  minimum_mean_accuracy_gain: 0.0
+
+execution:
+  output_dir: ../experiments/base_model_candidates
+  resume: true

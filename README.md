@@ -39,12 +39,12 @@ prediction; see `docs/RESULTS.md` for the erratum and historical context.
 ```text
 aptivra/                  Python package
   benchmarks/             AID-Bench subsystem checks
-  eval/                   Continual-learning metrics and model-card evaluation
+  eval/                   Continual-learning, model-card, and base-model evaluation
   export/                 Hugging Face, GGUF, MLX, and multitier export helpers
   experts/                MoE router and expert modules
   inference/              Local inference wrappers
   model/                  Transformer backbone and config
-configs/                  Runtime and release-gate configuration
+configs/                  Runtime, release-gate, and base-candidate configuration
 docs/                     ADRs, run options, results, and configuration register
 experiments/              Recorded experiment outputs
 scripts/                  Training, export, evaluation, and local runtime CLIs
@@ -88,6 +88,44 @@ The recorded losses establish byte prediction only on the named, hashed prompt a
 They do not establish factual accuracy, generated-answer correctness, instruction following,
 safety, or performance on other inputs. Whole-text scoring uses fixed-context chunks and retains
 the preceding byte at each chunk boundary.
+
+## Base-Model Candidate Evaluation
+
+The proposed [ADR-0008](docs/adr/0008-adopt-pretrained-base-model.md) compares five permissively
+licensed pretrained causal models and the current byte-level checkpoint as a reference. Candidate
+identities, immutable revisions, powered MPS budgets, learning-rate grid, seeds, confidence level,
+and Amendment 2 family-clustered decision rule live in `configs/base_model_candidates.yaml`; the
+exact powered-run config is preserved beside the evidence as `powered-sweep-config.yaml`. The
+evaluator writes an immutable run manifest, one atomic JSON record per candidate, top-two repeat
+seed records, a versioned derived-analysis record, and `ranking.json` under
+`experiments/base_model_candidates/`. Each candidate runs in a fresh process so an MPS allocator
+failure cannot contaminate later measurements; completed matching records are resumable. The
+rejected one-item sweep is preserved under
+`experiments/base_model_candidates/archive/first_underpowered_sweep/`.
+
+```bash
+PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
+  -m scripts.evaluate_base_model_candidates \
+  --config configs/base_model_candidates.yaml \
+  --derive-existing-analysis
+```
+
+That command performs analysis only. A future v4 measurement must use a new output directory;
+manifest preparation fails closed rather than overwrite the frozen powered evidence.
+
+The powered records use 256/100/100 train/validation/test items per family, 200 batch-8 updates
+with warmup, batched evaluation, and three seeds for the first-pass top two. Learning-rate choice
+used validation only, although the historical code also evaluated test for unselected rates.
+Future runs keep test untouched until retraining the selected rate. Pooled Wilson intervals are
+retained but labelled optimistic; selection uses paired family differences and reports results
+with and without four saturated renamed-template families.
+
+Among eligible probed candidates, the evidence gives a cautious preference for SmolLM2-360M over
+SmolLM2-135M, driven mostly by T6 and T8 at roughly twice the measured primary training time.
+Learned accuracy and gain are clustered ties, so the ranking falls through to bits per byte.
+Pythia-160M and Qwen2.5-0.5B were excluded under the exact code-point constraint and were never
+probed. ADR-0008 remains Proposed; the owner must choose the cost trade-off and whether to relax
+that tokenizer constraint before integration or publication.
 
 ## Load the Hub Layout
 
@@ -134,6 +172,8 @@ python scripts/export_gguf.py --output-dir scratch/hf_export/gguf --quant-type f
 - Identity training strings in `aptivra/tasks/identity.py` and
   `aptivra/inference/chat_canonical.py` still contain unsupported capability claims; this task
   reports that provenance without changing training data.
+- The base-model candidate result is a proposed architecture decision, not an integrated runtime;
+  the current byte-level loaders and publication path remain unchanged.
 
 ## License
 

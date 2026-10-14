@@ -99,16 +99,28 @@ class ContinualEvalHarness:
         instance: TaskInstance,
     ) -> tuple[str, VerifierResult]:
         """Generate, task-truncate, and verify one answer at the harness boundary."""
-        raw_output, answer = ContinualEvalHarness._generate_answer(
-            predict_fn, family, instance
+        raw_output = predict_fn(
+            instance.prompt,
+            stop_token_ids=family.stop_token_ids,
         )
+        result = ContinualEvalHarness.verify_generated_output(
+            family, instance, raw_output
+        )
+        return raw_output, result
+
+    @staticmethod
+    def verify_generated_output(
+        family: TaskFamily, instance: TaskInstance, raw_output: str
+    ) -> VerifierResult:
+        """Apply canonical answer extraction and verification to generated text."""
+        answer = extract_model_answer(raw_output, family.answer_stop_characters)
         result = family.verifier.verify(instance, answer)
         if result.execution_status == "infrastructure_error":
             raise EvaluationInfrastructureError(
                 f"Evaluation item '{instance.task_id}' could not run: "
                 f"{result.error_message or 'unknown infrastructure failure'}"
             )
-        return raw_output, result
+        return result
 
     def predict_answer(
         self,

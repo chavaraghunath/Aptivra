@@ -41,6 +41,9 @@ dev = [
 [tool.setuptools.package-data]
 "aptivra.eval" = ["*.json", "*.txt"]
 
+[tool.setuptools.packages.find]
+include = ["aptivra*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

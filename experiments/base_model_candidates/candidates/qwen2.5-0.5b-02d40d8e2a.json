@@ -1,0 +1,124 @@
+{
+  "candidate_id": "qwen2.5-0.5b",
+  "config_fingerprint": "3a1d13af02f99c40a7c0c152dc01666f10950affd60d1263285012cc74983ccf",
+  "correlation_id": "b8f8b4a3-f0c5-48d2-82c1-ae78a4f9a03c",
+  "elapsed_seconds": 1.4112545839998347,
+  "hard_constraint_reasons": [
+    "tokenizer failed exact UTF-8 round-trip"
+  ],
+  "identity": {
+    "architecture": "qwen2",
+    "context_length": 32768,
+    "license": "apache-2.0",
+    "license_source": "config_fallback",
+    "load_attempts": 1,
+    "model_vocabulary_size": 151936,
+    "repo_id_or_path": "Qwen/Qwen2.5-0.5B",
+    "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+    "tokenizer_type": "Qwen2Tokenizer",
+    "tokenizer_vocabulary_size": 151665,
+    "torch_dtype": "float32",
+    "trust_remote_code": false,
+    "unique_parameters": 494032768,
+    "vocabulary_size_mismatch": true
+  },
+  "manifest_sha256": "c332b3bcf758985d7a89174b151bebb87cab1bc2a5d10834fc2ba70066d8ba41",
+  "memory": {
+    "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+    "hard_constraint_peak_bytes": 3514269696,
+    "mps_driver_baseline_bytes": 475136,
+    "mps_driver_delta_bytes": 2777300992,
+    "mps_driver_peak_bytes": 2777776128,
+    "process_rss_baseline_bytes": 438272000,
+    "process_rss_delta_bytes": 3075997696,
+    "process_rss_peak_bytes": 3514269696,
+    "sample_interval_seconds": 0.02
+  },
+  "probe_skipped": true,
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v3",
+  "status": "hard_constraint_rejected",
+  "structural_fitness": {
+    "all_blocks_expose_feed_forward": true,
+    "block_container": "model.layers",
+    "consistent_feed_forward_path": true,
+    "expected_transformer_blocks": 24,
+    "feed_forward_paths": [
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp"
+    ],
+    "hidden_size": 896,
+    "transformer_blocks": 24
+  },
+  "tokenizer_fitness": {
+    "eos_token": "<|endoftext|>",
+    "eos_token_id": 151643,
+    "eos_usable_as_answer_terminator": true,
+    "exact_utf8_roundtrip": false,
+    "mean_bytes_per_token": 2.087101360958765,
+    "model_eos_token_ids": [
+      151643
+    ],
+    "roundtrip_failures": [
+      {
+        "add_special_tokens": false,
+        "backend_normalizer": "NFC()",
+        "decode_skip_special_tokens": false,
+        "decoded": "\u00e9 and \u00e9",
+        "decoded_code_points": [
+          "U+00E9",
+          "U+0020",
+          "U+0061",
+          "U+006E",
+          "U+0064",
+          "U+0020",
+          "U+00E9"
+        ],
+        "decoded_with_cleanup_disabled": "\u00e9 and \u00e9",
+        "decoded_with_cleanup_enabled": "\u00e9 and \u00e9",
+        "diagnosed_cause": "tokenizer_unicode_normalization_nfc",
+        "input": "e\u0301 and \u00e9",
+        "input_code_points": [
+          "U+0065",
+          "U+0301",
+          "U+0020",
+          "U+0061",
+          "U+006E",
+          "U+0064",
+          "U+0020",
+          "U+00E9"
+        ],
+        "token_ids": [
+          963,
+          323,
+          3958
+        ]
+      }
+    ],
+    "roundtrip_samples": 16423,
+    "task_stream_bytes": 667862,
+    "task_stream_tokens": 319995
+  }
+}

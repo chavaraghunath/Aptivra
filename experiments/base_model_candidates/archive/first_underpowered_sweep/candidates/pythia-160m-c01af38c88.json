@@ -1,0 +1,345 @@
+{
+  "candidate_id": "pythia-160m",
+  "config_fingerprint": "2d1beefaa83b3e4fd6996073c5ba9748e800cfc73bdfec95c301f318e00a2142",
+  "correlation_id": "359b2c51-69a7-4d24-b601-1f3c4628713a",
+  "cost": {
+    "device": "mps",
+    "generation": {
+      "median_bytes_per_second": 145.86902034477006,
+      "median_tokens_per_second": 121.55751695397507,
+      "method": "deterministic uncached greedy adapter",
+      "prompts": 2,
+      "repetitions": [
+        {
+          "bytes_per_second": 144.4332274647936,
+          "generated_bytes": 12,
+          "generated_tokens": 10,
+          "seconds": 0.0830833750005695,
+          "tokens_per_second": 120.36102288732799
+        },
+        {
+          "bytes_per_second": 145.86902034477006,
+          "generated_bytes": 12,
+          "generated_tokens": 10,
+          "seconds": 0.08226558299793396,
+          "tokens_per_second": 121.55751695397507
+        },
+        {
+          "bytes_per_second": 148.54510835536846,
+          "generated_bytes": 12,
+          "generated_tokens": 10,
+          "seconds": 0.08078354200188187,
+          "tokens_per_second": 123.78759029614037
+        }
+      ],
+      "warmup_runs": 1
+    },
+    "median_probe_training_bytes_per_second": 868.699321210244,
+    "median_probe_training_tokens_per_second": 346.89988315945357,
+    "memory": {
+      "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+      "hard_constraint_peak_bytes": 4608507904,
+      "mps_driver_baseline_bytes": 475136,
+      "mps_driver_delta_bytes": 4608032768,
+      "mps_driver_peak_bytes": 4608507904,
+      "process_rss_baseline_bytes": 437534720,
+      "process_rss_delta_bytes": 1076002816,
+      "process_rss_peak_bytes": 1513537536,
+      "sample_interval_seconds": 0.02
+    },
+    "probe_throughput_definition": "median family rate: all non-padding tokens divided by synchronized elapsed seconds across exactly the configured probe steps",
+    "total_seconds": 20.48345566699936
+  },
+  "identity": {
+    "architecture": "gpt_neox",
+    "context_length": 2048,
+    "license": "apache-2.0",
+    "license_source": "config_fallback",
+    "load_attempts": 1,
+    "model_vocabulary_size": 50304,
+    "repo_id_or_path": "EleutherAI/pythia-160m",
+    "resolved_revision": "50f5173d932e8e61f858120bcb800b97af589f46",
+    "tokenizer_type": "GPTNeoXTokenizer",
+    "tokenizer_vocabulary_size": 50277,
+    "torch_dtype": "float32",
+    "trust_remote_code": false,
+    "unique_parameters": 162322944,
+    "vocabulary_size_mismatch": true
+  },
+  "language_modeling": {
+    "combined": {
+      "bits_per_byte": 1.0964167760753705,
+      "boundary_convention": "lossless separately tokenized prompt and answer spans",
+      "scored_bytes": 10858,
+      "total_bits": 11904.893354626372
+    },
+    "heldout_prompt_answers": {
+      "bits_per_byte": 1.4056066966349665,
+      "scored_bytes": 660,
+      "scored_tokens": 158,
+      "total_bits": 927.7004197790778,
+      "uniform_byte_baseline_bpb": 8.0,
+      "unigram_byte_baseline_bpb": 4.756592024870373,
+      "windows": 24
+    },
+    "heldout_text": {
+      "bits_per_byte": 1.0764064458567655,
+      "first_token_conditioning": "tokenizer BOS, EOS, or padding seed token",
+      "scored_bytes": 10198,
+      "scored_tokens": 2349,
+      "total_bits": 10977.192934847295,
+      "uniform_byte_baseline_bpb": 8.0,
+      "unigram_byte_baseline_bpb": 4.530826271523949,
+      "windowing_rule": "fixed target stride with maximum available left context; each target token and represented byte scored once",
+      "windows": 10
+    }
+  },
+  "manifest_sha256": "d14c1d7d8c917ee434345f75f0832d4bec4250da69ea27e88dcbe7268fc1ad04",
+  "measurement_protocol": {
+    "deterministic_algorithms": true,
+    "deterministic_warn_only": true,
+    "max_new_tokens": 48,
+    "probe_batch_size": 1,
+    "probe_learning_rate": 0.0005,
+    "probe_steps": 8,
+    "scoring_stride_tokens": 256,
+    "seed": 20261014,
+    "test_items_per_family": 1,
+    "train_items_per_family": 8,
+    "validation_items_per_family": 1
+  },
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v2",
+  "status": "completed",
+  "structural_fitness": {
+    "all_blocks_expose_feed_forward": true,
+    "block_container": "gpt_neox.layers",
+    "consistent_feed_forward_path": true,
+    "expected_transformer_blocks": 12,
+    "feed_forward_paths": [
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp"
+    ],
+    "hidden_size": 768,
+    "transformer_blocks": 12
+  },
+  "task_stream_readiness": {
+    "base_weights_sha256_after": "03d269b776f70e4821a624da026e8901a2afad867f7679f87ef198d6defc05dd",
+    "base_weights_sha256_before": "03d269b776f70e4821a624da026e8901a2afad867f7679f87ef198d6defc05dd",
+    "families": [
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T1_modular_arithmetic",
+        "final_loss": 3.4419524669647217,
+        "initial_loss": 6.203542709350586,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 104,
+        "seconds": 0.5344212919990241,
+        "steps": 8,
+        "supervised_target_tokens": 24,
+        "training_bytes": 250,
+        "training_bytes_per_second": 467.7957329597873,
+        "training_tokens_per_second": 194.60302491127152,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T2_string_transforms",
+        "final_loss": 20.932941436767578,
+        "initial_loss": 4.972348690032959,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 165,
+        "seconds": 0.7302839160001895,
+        "steps": 8,
+        "supervised_target_tokens": 66,
+        "training_bytes": 325,
+        "training_bytes_per_second": 445.03239477057804,
+        "training_tokens_per_second": 225.93952349890887,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T3_list_operations",
+        "final_loss": 24.551443099975586,
+        "initial_loss": 6.233419895172119,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 272,
+        "seconds": 0.7230135000027076,
+        "steps": 8,
+        "supervised_target_tokens": 78,
+        "training_bytes": 591,
+        "training_bytes_per_second": 817.4121230070901,
+        "training_tokens_per_second": 376.20321058871156,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T4_syntax_matching",
+        "final_loss": 9.009499549865723,
+        "initial_loss": 4.9966325759887695,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 140,
+        "seconds": 0.7710397080008988,
+        "steps": 8,
+        "supervised_target_tokens": 37,
+        "training_bytes": 431,
+        "training_bytes_per_second": 558.9854783451666,
+        "training_tokens_per_second": 181.57300920724668,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T5_boolean_logic",
+        "final_loss": 2.5092833042144775,
+        "initial_loss": 6.87129545211792,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 124,
+        "seconds": 0.6289956670007086,
+        "steps": 8,
+        "supervised_target_tokens": 24,
+        "training_bytes": 536,
+        "training_bytes_per_second": 852.1521341408479,
+        "training_tokens_per_second": 197.139672823629,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T6_sequence_completion",
+        "final_loss": 7.11853551864624,
+        "initial_loss": 6.5150837898254395,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 182,
+        "seconds": 0.6392458749978687,
+        "steps": 8,
+        "supervised_target_tokens": 26,
+        "training_bytes": 467,
+        "training_bytes_per_second": 730.5483199270657,
+        "training_tokens_per_second": 284.71048014288215,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T7_state_machines",
+        "final_loss": 2.526824474334717,
+        "initial_loss": 4.5029520988464355,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 571,
+        "seconds": 0.5885917919986241,
+        "steps": 8,
+        "supervised_target_tokens": 32,
+        "training_bytes": 928,
+        "training_bytes_per_second": 1576.6444802923268,
+        "training_tokens_per_second": 970.1120670764209,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T8_python_microsynth",
+        "final_loss": 14.2538423538208,
+        "initial_loss": 5.835402965545654,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 221,
+        "seconds": 0.69585137499962,
+        "steps": 8,
+        "supervised_target_tokens": 82,
+        "training_bytes": 616,
+        "training_bytes_per_second": 885.24650827964,
+        "training_tokens_per_second": 317.5965557301955,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T9_algo_synth",
+        "final_loss": 18.485002517700195,
+        "initial_loss": 1.9318199157714844,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 412,
+        "seconds": 0.637796792001609,
+        "steps": 8,
+        "supervised_target_tokens": 214,
+        "training_bytes": 1054,
+        "training_bytes_per_second": 1652.563972126942,
+        "training_tokens_per_second": 645.9737727858635,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T10_docstring_code",
+        "final_loss": 18.790456771850586,
+        "initial_loss": 1.8576035499572754,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 550,
+        "seconds": 0.5999007090031228,
+        "steps": 8,
+        "supervised_target_tokens": 320,
+        "training_bytes": 1303,
+        "training_bytes_per_second": 2172.026104395248,
+        "training_tokens_per_second": 916.8183863525605,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T11_bug_fixer",
+        "final_loss": 12.613747596740723,
+        "initial_loss": 1.4944260120391846,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 442,
+        "seconds": 0.585072375000891,
+        "steps": 8,
+        "supervised_target_tokens": 214,
+        "training_bytes": 934,
+        "training_bytes_per_second": 1596.3836952626204,
+        "training_tokens_per_second": 755.4620913341308,
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.0,
+        "family_id": "T12_type_inferrer",
+        "final_loss": 18.659765243530273,
+        "initial_loss": 1.8144316673278809,
+        "learned_accuracy": 0.0,
+        "processed_nonpadding_tokens": 440,
+        "seconds": 0.5322776249995513,
+        "steps": 8,
+        "supervised_target_tokens": 234,
+        "training_bytes": 1166,
+        "training_bytes_per_second": 2190.5861626270366,
+        "training_tokens_per_second": 826.6362877837875,
+        "zero_shot_accuracy": 0.0
+      }
+    ],
+    "heldout_split": "test",
+    "mean_accuracy_gain": 0.0,
+    "mean_learned_accuracy": 0.0,
+    "mean_zero_shot_accuracy": 0.0
+  },
+  "tokenizer_fitness": {
+    "eos_token": "<|endoftext|>",
+    "eos_token_id": 0,
+    "eos_usable_as_answer_terminator": true,
+    "exact_utf8_roundtrip": false,
+    "mean_bytes_per_token": 2.397920927062031,
+    "model_eos_token_ids": [
+      0
+    ],
+    "roundtrip_failures": [
+      {
+        "decoded": "\u00e9 and \u00e9",
+        "input": "e\u0301 and \u00e9"
+      }
+    ],
+    "roundtrip_samples": 367,
+    "task_stream_bytes": 14071,
+    "task_stream_tokens": 5868
+  }
+}

@@ -1,0 +1,1044 @@
+{
+  "candidate_id": "smollm2-135m",
+  "config_fingerprint": "06ccec741291de6401ceacfc2a513c8da71242ec43449e62739e3ef39fb44331",
+  "correlation_id": "b8f8b4a3-f0c5-48d2-82c1-ae78a4f9a03c",
+  "cost": {
+    "device": "mps",
+    "generation": {
+      "median_bytes_per_second": 65.77359783219562,
+      "median_tokens_per_second": 58.85006121828029,
+      "method": "deterministic uncached greedy adapter",
+      "prompts": 2,
+      "repetitions": [
+        {
+          "bytes_per_second": 65.570395002452,
+          "generated_bytes": 19,
+          "generated_tokens": 17,
+          "seconds": 0.2897649160004221,
+          "tokens_per_second": 58.66824816008863
+        },
+        {
+          "bytes_per_second": 65.77359783219562,
+          "generated_bytes": 19,
+          "generated_tokens": 17,
+          "seconds": 0.2888697080015845,
+          "tokens_per_second": 58.85006121828029
+        },
+        {
+          "bytes_per_second": 66.11044009910084,
+          "generated_bytes": 19,
+          "generated_tokens": 17,
+          "seconds": 0.2873978750030801,
+          "tokens_per_second": 59.15144640445865
+        }
+      ],
+      "warmup_runs": 1
+    },
+    "median_probe_training_bytes_per_second": 4554.106730960075,
+    "median_probe_training_tokens_per_second": 2274.4379444995716,
+    "memory": {
+      "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+      "hard_constraint_peak_bytes": 10657447936,
+      "mps_driver_baseline_bytes": 475136,
+      "mps_driver_delta_bytes": 10656972800,
+      "mps_driver_peak_bytes": 10657447936,
+      "process_rss_baseline_bytes": 437551104,
+      "process_rss_delta_bytes": 979550208,
+      "process_rss_peak_bytes": 1417101312,
+      "sample_interval_seconds": 0.02
+    },
+    "probe_throughput_definition": "median selected-LR family rate: all non-padding tokens divided by synchronized elapsed seconds across the configured probe steps",
+    "total_seconds": 826.5948172499993
+  },
+  "identity": {
+    "architecture": "llama",
+    "context_length": 8192,
+    "license": "apache-2.0",
+    "license_source": "config_fallback",
+    "load_attempts": 1,
+    "model_vocabulary_size": 49152,
+    "repo_id_or_path": "HuggingFaceTB/SmolLM2-135M",
+    "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "tokenizer_type": "GPT2Tokenizer",
+    "tokenizer_vocabulary_size": 49152,
+    "torch_dtype": "float32",
+    "trust_remote_code": false,
+    "unique_parameters": 134515008,
+    "vocabulary_size_mismatch": false
+  },
+  "language_modeling": {
+    "combined": {
+      "bits_per_byte": 0.9283719906497278,
+      "boundary_convention": "lossless separately tokenized prompt and answer spans",
+      "scored_bytes": 10858,
+      "total_bits": 10080.263074474744
+    },
+    "heldout_prompt_answers": {
+      "bits_per_byte": 0.9627904555447012,
+      "scored_bytes": 660,
+      "scored_tokens": 179,
+      "total_bits": 635.4417006595028,
+      "uniform_byte_baseline_bpb": 8.0,
+      "unigram_byte_baseline_bpb": 4.756592024870373,
+      "windows": 24
+    },
+    "heldout_text": {
+      "bits_per_byte": 0.9261444767420318,
+      "first_token_conditioning": "tokenizer BOS, EOS, or padding seed token",
+      "scored_bytes": 10198,
+      "scored_tokens": 2299,
+      "total_bits": 9444.82137381524,
+      "uniform_byte_baseline_bpb": 8.0,
+      "unigram_byte_baseline_bpb": 4.530826271523949,
+      "windowing_rule": "fixed target stride with maximum available left context; each target token and represented byte scored once",
+      "windows": 9
+    }
+  },
+  "manifest_sha256": "c332b3bcf758985d7a89174b151bebb87cab1bc2a5d10834fc2ba70066d8ba41",
+  "measurement_protocol": {
+    "confidence_level": 0.95,
+    "deterministic_algorithms": true,
+    "deterministic_warn_only": true,
+    "evaluation_batch_size": 16,
+    "expected_wall_time_seconds": 10800.0,
+    "max_new_tokens": 48,
+    "probe_batch_size": 8,
+    "probe_learning_rates": [
+      3e-05
+    ],
+    "probe_steps": 200,
+    "probe_warmup_steps": 20,
+    "scoring_stride_tokens": 256,
+    "seed": 20261016,
+    "test_items_per_family": 100,
+    "train_items_per_family": 256,
+    "validation_items_per_family": 100,
+    "variance_seeds": [
+      20261014,
+      20261015,
+      20261016
+    ]
+  },
+  "primary_selected_learning_rate": 3e-05,
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v3",
+  "status": "completed",
+  "structural_fitness": {
+    "all_blocks_expose_feed_forward": true,
+    "block_container": "model.layers",
+    "consistent_feed_forward_path": true,
+    "expected_transformer_blocks": 30,
+    "feed_forward_paths": [
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp",
+      "mlp"
+    ],
+    "hidden_size": 576,
+    "transformer_blocks": 30
+  },
+  "task_stream_readiness": {
+    "base_weights_sha256_after": "e0da06e444bc9ad258989d27a8908961116754573c80d0106fb819d35e5becd0",
+    "base_weights_sha256_before": "e0da06e444bc9ad258989d27a8908961116754573c80d0106fb819d35e5becd0",
+    "evaluation_generation": "right-padded batched greedy decoding",
+    "families": [
+      {
+        "accuracy_gain": 0.03,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": -0.05673324032733941,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.11451363043492024
+        },
+        "batch_size": 8,
+        "family_id": "T1_modular_arithmetic",
+        "final_loss": 0.9330638647079468,
+        "initial_loss": 4.872844696044922,
+        "learned": {
+          "accuracy": 0.06,
+          "successes": 6,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.027786123963188178,
+            "upper": 0.12476815445895915
+          }
+        },
+        "learned_accuracy": 0.06,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 33161,
+        "seconds": 24.636565875000088,
+        "steps": 200,
+        "supervised_target_tokens": 5890,
+        "training_bytes": 50761,
+        "training_bytes_per_second": 2060.3926804388607,
+        "training_tokens_per_second": 1346.0074008792787,
+        "validation": {
+          "accuracy": 0.09,
+          "successes": 9,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.048072540002565146,
+            "upper": 0.16226212852716307
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.03,
+          "successes": 3,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.010254524024038918,
+            "upper": 0.08451936429052759
+          }
+        },
+        "zero_shot_accuracy": 0.03
+      },
+      {
+        "accuracy_gain": 0.0,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": -0.03699349820698565,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.03699349820698565
+        },
+        "batch_size": 8,
+        "family_id": "T2_string_transforms",
+        "final_loss": 1.4347349405288696,
+        "initial_loss": 5.542237758636475,
+        "learned": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "learned_accuracy": 0.0,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 35718,
+        "seconds": 27.262574666998262,
+        "steps": 200,
+        "supervised_target_tokens": 14510,
+        "training_bytes": 64068,
+        "training_bytes_per_second": 2350.0348291592295,
+        "training_tokens_per_second": 1310.1477184851933,
+        "validation": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.11,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.025548465363660053,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.1863129650308031
+        },
+        "batch_size": 8,
+        "family_id": "T3_list_operations",
+        "final_loss": 0.150151789188385,
+        "initial_loss": 2.0852549076080322,
+        "learned": {
+          "accuracy": 0.11,
+          "successes": 11,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0625419635706457,
+            "upper": 0.1863129650308031
+          }
+        },
+        "learned_accuracy": 0.11,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 94877,
+        "seconds": 34.89026141700015,
+        "steps": 200,
+        "supervised_target_tokens": 31401,
+        "training_bytes": 129336,
+        "training_bytes_per_second": 3706.936971729926,
+        "training_tokens_per_second": 2719.297481496414,
+        "validation": {
+          "accuracy": 0.14,
+          "successes": 14,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.08526343659939134,
+            "upper": 0.22137188210963832
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.82,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.696332917930007,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.8829977450105364
+        },
+        "batch_size": 8,
+        "family_id": "T4_syntax_matching",
+        "final_loss": 0.19918349385261536,
+        "initial_loss": 4.940239906311035,
+        "learned": {
+          "accuracy": 0.82,
+          "successes": 82,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.7333264161369926,
+            "upper": 0.8829977450105364
+          }
+        },
+        "learned_accuracy": 0.82,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 28774,
+        "seconds": 26.55787466700349,
+        "steps": 200,
+        "supervised_target_tokens": 6658,
+        "training_bytes": 89733,
+        "training_bytes_per_second": 3378.7718755781193,
+        "training_tokens_per_second": 1083.4451310876134,
+        "validation": {
+          "accuracy": 0.77,
+          "successes": 77,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.6784561697712622,
+            "upper": 0.8415673411969654
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.81,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.6852180480023706,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.8748524849023126
+        },
+        "batch_size": 8,
+        "family_id": "T5_boolean_logic",
+        "final_loss": 0.11036112904548645,
+        "initial_loss": 3.7581558227539062,
+        "learned": {
+          "accuracy": 0.81,
+          "successes": 81,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.7222115462093562,
+            "upper": 0.8748524849023126
+          }
+        },
+        "learned_accuracy": 0.81,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 30473,
+        "seconds": 25.004634375000023,
+        "steps": 200,
+        "supervised_target_tokens": 7231,
+        "training_bytes": 112765,
+        "training_bytes_per_second": 4509.764002498033,
+        "training_tokens_per_second": 1218.694084584069,
+        "validation": {
+          "accuracy": 0.77,
+          "successes": 77,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.6784561697712622,
+            "upper": 0.8415673411969654
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.49,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.3434683286117279,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.6002780431454263
+        },
+        "batch_size": 8,
+        "family_id": "T6_sequence_completion",
+        "final_loss": 0.10204321146011353,
+        "initial_loss": 4.039491653442383,
+        "learned": {
+          "accuracy": 0.51,
+          "successes": 51,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.41348011934027173,
+            "upper": 0.6057800106955886
+          }
+        },
+        "learned_accuracy": 0.51,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 50437,
+        "seconds": 27.94269025000176,
+        "steps": 200,
+        "supervised_target_tokens": 6922,
+        "training_bytes": 92446,
+        "training_bytes_per_second": 3308.4144430221486,
+        "training_tokens_per_second": 1805.0158931993608,
+        "validation": {
+          "accuracy": 0.52,
+          "successes": 52,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.4231657776522397,
+            "upper": 0.615354482419481
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.02,
+          "successes": 2,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.00550196755016235,
+            "upper": 0.07001179072854385
+          }
+        },
+        "zero_shot_accuracy": 0.02
+      },
+      {
+        "accuracy_gain": 0.42,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.29099032853656165,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.5179351329695703
+        },
+        "batch_size": 8,
+        "family_id": "T7_state_machines",
+        "final_loss": 0.1717243790626526,
+        "initial_loss": 4.021014213562012,
+        "learned": {
+          "accuracy": 0.42,
+          "successes": 42,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.3279838267435473,
+            "upper": 0.5179351329695703
+          }
+        },
+        "learned_accuracy": 0.42,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 119950,
+        "seconds": 35.242482833000395,
+        "steps": 200,
+        "supervised_target_tokens": 6400,
+        "training_bytes": 185550,
+        "training_bytes_per_second": 5264.952553974276,
+        "training_tokens_per_second": 3403.562699268199,
+        "validation": {
+          "accuracy": 0.43,
+          "successes": 43,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.3373329852411011,
+            "upper": 0.5278461045078767
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 0.45,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.3191518815881341,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.5475539700255786
+        },
+        "batch_size": 8,
+        "family_id": "T8_python_microsynth",
+        "final_loss": 0.1273106038570404,
+        "initial_loss": 6.669012546539307,
+        "learned": {
+          "accuracy": 0.45,
+          "successes": 45,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.3561453797951198,
+            "upper": 0.5475539700255786
+          }
+        },
+        "learned_accuracy": 0.45,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 51557,
+        "seconds": 28.1797160419992,
+        "steps": 200,
+        "supervised_target_tokens": 16172,
+        "training_bytes": 129583,
+        "training_bytes_per_second": 4598.449459422118,
+        "training_tokens_per_second": 1829.5784075027289,
+        "validation": {
+          "accuracy": 0.42,
+          "successes": 42,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.3279838267435473,
+            "upper": 0.5179351329695703
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 1.0,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.9260130035860287,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 1.0
+        },
+        "batch_size": 8,
+        "family_id": "T9_algo_synth",
+        "final_loss": 0.0017773356521502137,
+        "initial_loss": 1.3095636367797852,
+        "learned": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "learned_accuracy": 1.0,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 110222,
+        "seconds": 33.43728883299991,
+        "steps": 200,
+        "supervised_target_tokens": 57614,
+        "training_bytes": 230089,
+        "training_bytes_per_second": 6881.209811870892,
+        "training_tokens_per_second": 3296.3796960481964,
+        "validation": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 1.0,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.9260130035860287,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 1.0
+        },
+        "batch_size": 8,
+        "family_id": "T10_docstring_code",
+        "final_loss": 0.001446167123503983,
+        "initial_loss": 1.176353096961975,
+        "learned": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "learned_accuracy": 1.0,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 130100,
+        "seconds": 38.4611856249976,
+        "steps": 200,
+        "supervised_target_tokens": 74082,
+        "training_bytes": 267508,
+        "training_bytes_per_second": 6955.271805925164,
+        "training_tokens_per_second": 3382.631031411636,
+        "validation": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 1.0,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.9260130035860287,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 1.0
+        },
+        "batch_size": 8,
+        "family_id": "T11_bug_fixer",
+        "final_loss": 0.0016297409310936928,
+        "initial_loss": 1.193637728691101,
+        "learned": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "learned_accuracy": 1.0,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 119828,
+        "seconds": 38.35823275000075,
+        "steps": 200,
+        "supervised_target_tokens": 57442,
+        "training_bytes": 210140,
+        "training_bytes_per_second": 5478.354578261843,
+        "training_tokens_per_second": 3123.918684705245,
+        "validation": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      },
+      {
+        "accuracy_gain": 1.0,
+        "accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.9260130035860287,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 1.0
+        },
+        "batch_size": 8,
+        "family_id": "T12_type_inferrer",
+        "final_loss": 0.0015868585323914886,
+        "initial_loss": 1.2699837684631348,
+        "learned": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "learned_accuracy": 1.0,
+        "learning_rate": 3e-05,
+        "processed_nonpadding_tokens": 110532,
+        "seconds": 33.795106707999366,
+        "steps": 200,
+        "supervised_target_tokens": 57769,
+        "training_bytes": 233605,
+        "training_bytes_per_second": 6912.391252923763,
+        "training_tokens_per_second": 3270.6510133266383,
+        "validation": {
+          "accuracy": 1.0,
+          "successes": 100,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.9630065017930143,
+            "upper": 1.0
+          }
+        },
+        "warmup_steps": 20,
+        "zero_shot": {
+          "accuracy": 0.0,
+          "successes": 0,
+          "total": 100,
+          "wilson_interval": {
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.03699349820698565
+          }
+        },
+        "zero_shot_accuracy": 0.0
+      }
+    ],
+    "heldout_split": "test",
+    "learning_rate_selection": {
+      "grid": [
+        {
+          "families": [
+            {
+              "family_id": "T1_modular_arithmetic",
+              "validation": {
+                "accuracy": 0.09,
+                "successes": 9,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.048072540002565146,
+                  "upper": 0.16226212852716307
+                }
+              }
+            },
+            {
+              "family_id": "T2_string_transforms",
+              "validation": {
+                "accuracy": 0.0,
+                "successes": 0,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.0,
+                  "upper": 0.03699349820698565
+                }
+              }
+            },
+            {
+              "family_id": "T3_list_operations",
+              "validation": {
+                "accuracy": 0.14,
+                "successes": 14,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.08526343659939134,
+                  "upper": 0.22137188210963832
+                }
+              }
+            },
+            {
+              "family_id": "T4_syntax_matching",
+              "validation": {
+                "accuracy": 0.77,
+                "successes": 77,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.6784561697712622,
+                  "upper": 0.8415673411969654
+                }
+              }
+            },
+            {
+              "family_id": "T5_boolean_logic",
+              "validation": {
+                "accuracy": 0.77,
+                "successes": 77,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.6784561697712622,
+                  "upper": 0.8415673411969654
+                }
+              }
+            },
+            {
+              "family_id": "T6_sequence_completion",
+              "validation": {
+                "accuracy": 0.52,
+                "successes": 52,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.4231657776522397,
+                  "upper": 0.615354482419481
+                }
+              }
+            },
+            {
+              "family_id": "T7_state_machines",
+              "validation": {
+                "accuracy": 0.43,
+                "successes": 43,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.3373329852411011,
+                  "upper": 0.5278461045078767
+                }
+              }
+            },
+            {
+              "family_id": "T8_python_microsynth",
+              "validation": {
+                "accuracy": 0.42,
+                "successes": 42,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.3279838267435473,
+                  "upper": 0.5179351329695703
+                }
+              }
+            },
+            {
+              "family_id": "T9_algo_synth",
+              "validation": {
+                "accuracy": 1.0,
+                "successes": 100,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.9630065017930143,
+                  "upper": 1.0
+                }
+              }
+            },
+            {
+              "family_id": "T10_docstring_code",
+              "validation": {
+                "accuracy": 1.0,
+                "successes": 100,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.9630065017930143,
+                  "upper": 1.0
+                }
+              }
+            },
+            {
+              "family_id": "T11_bug_fixer",
+              "validation": {
+                "accuracy": 1.0,
+                "successes": 100,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.9630065017930143,
+                  "upper": 1.0
+                }
+              }
+            },
+            {
+              "family_id": "T12_type_inferrer",
+              "validation": {
+                "accuracy": 1.0,
+                "successes": 100,
+                "total": 100,
+                "wilson_interval": {
+                  "confidence_level": 0.95,
+                  "lower": 0.9630065017930143,
+                  "upper": 1.0
+                }
+              }
+            }
+          ],
+          "learning_rate": 3e-05,
+          "mean_validation": {
+            "accuracy": 0.595,
+            "successes": 714,
+            "total": 1200,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.5669652255789651,
+              "upper": 0.6224284843065152
+            }
+          }
+        }
+      ],
+      "selected_learning_rate": 3e-05,
+      "split": "validation",
+      "tie_break": "highest pooled validation accuracy, then lower learning rate"
+    },
+    "mean_accuracy_gain": 0.5941666666666667,
+    "mean_accuracy_gain_interval": {
+      "confidence_level": 0.95,
+      "lower": 0.560608187955904,
+      "method": "Newcombe interval from Wilson component intervals",
+      "upper": 0.6239331729945127
+    },
+    "mean_learned": {
+      "accuracy": 0.5983333333333334,
+      "successes": 718,
+      "total": 1200,
+      "wilson_interval": {
+        "confidence_level": 0.95,
+        "lower": 0.57032490579625,
+        "upper": 0.6257141974185455
+      }
+    },
+    "mean_learned_accuracy": 0.5983333333333334,
+    "mean_zero_shot": {
+      "accuracy": 0.004166666666666667,
+      "successes": 5,
+      "total": 1200,
+      "wilson_interval": {
+        "confidence_level": 0.95,
+        "lower": 0.0017810244240327924,
+        "upper": 0.009716717840346004
+      }
+    },
+    "mean_zero_shot_accuracy": 0.004166666666666667
+  },
+  "tokenizer_fitness": {
+    "eos_token": "<|endoftext|>",
+    "eos_token_id": 0,
+    "eos_usable_as_answer_terminator": true,
+    "exact_utf8_roundtrip": true,
+    "mean_bytes_per_token": 1.963301836962263,
+    "model_eos_token_ids": [
+      0
+    ],
+    "roundtrip_failures": [],
+    "roundtrip_samples": 16423,
+    "task_stream_bytes": 669054,
+    "task_stream_tokens": 340780
+  },
+  "variance_role": "top-candidate seed-to-seed estimate"
+}
