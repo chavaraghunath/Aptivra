@@ -9,6 +9,7 @@ from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -25,6 +26,7 @@ from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
 from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.model.config import ModelConfig
+from aptivra.resources import require_resource
 from aptivra.tasks.identity import ModelIdentityTaskFamily
 
 
@@ -50,8 +52,12 @@ class ByteCausalModel(Protocol):
         """Returns next-byte logits."""
 
 
-DEFAULT_HELDOUT_PROMPTS_PATH = Path(__file__).with_name("model_card_heldout_v1.json")
-DEFAULT_HELDOUT_TEXT_PATH = Path(__file__).with_name("model_card_heldout_text_v1.txt")
+DEFAULT_HELDOUT_PROMPTS_PATH = require_resource(
+    __package__, "model_card_heldout_v1.json"
+)
+DEFAULT_HELDOUT_TEXT_PATH = require_resource(
+    __package__, "model_card_heldout_text_v1.txt"
+)
 DEFAULT_HELDOUT_TEXT = DEFAULT_HELDOUT_TEXT_PATH.read_text(encoding="utf-8")
 
 
@@ -64,10 +70,10 @@ def default_trained_prompt_answers() -> list[PromptAnswer]:
     ]
 
 
-def sha256_file(path: Path) -> str:
+def sha256_file(path: Path | Traversable) -> str:
     """Computes a SHA-256 digest for a checkpoint file."""
     digest = hashlib.sha256()
-    with open(path, "rb") as f:
+    with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
@@ -242,9 +248,9 @@ def evaluate_export_dir(
     *,
     trained_prompts: Sequence[PromptAnswer] | None = None,
     heldout_prompts: Sequence[PromptAnswer] | None = None,
-    heldout_prompts_path: Path | None = None,
+    heldout_prompts_path: Path | Traversable | None = None,
     heldout_text: str | None = None,
-    heldout_text_path: Path | None = None,
+    heldout_text_path: Path | Traversable | None = None,
     hub_revision: str | None = None,
     model_loader: Callable[[Path], ByteCausalModel] | None = None,
 ) -> dict[str, object]:
@@ -399,7 +405,7 @@ def write_evaluation_record(record: dict[str, object], output_path: Path) -> Non
     output_path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def load_prompt_answers(path: Path) -> list[PromptAnswer]:
+def load_prompt_answers(path: Path | Traversable) -> list[PromptAnswer]:
     """Loads prompt-answer pairs from a JSON array."""
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, list):

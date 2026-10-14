@@ -8,6 +8,12 @@ violation and it stops the line (see `AGENTS.md`).
 A row is added in the **same commit** that introduces the setting. Removing a
 row requires the setting to be genuinely gone, not merely undocumented.
 
+The installed defaults for task-stream evaluation, model-card release gating,
+and verifier containment are packaged under `aptivra/resources/configs/`.
+Their same-named files under `configs/` are byte-matched, editable copies used
+by repository commands and explicit path overrides. Backbone and inference
+presets remain repository-only and must be supplied explicitly outside a clone.
+
 | Setting | Scope | Type | Default | Safe limits | RBAC role | Env-specific | Feature flag | API / config-as-code path | Requires restart |
 |---------|-------|------|---------|-------------|-----------|--------------|--------------|---------------------------|------------------|
 | `task_stream.num_train_per_task` | global | integer | `500` | 10–10000 | researcher | yes | — | `configs/task_stream.yaml` | no |

@@ -2,6 +2,7 @@
 
 import random
 from dataclasses import dataclass
+from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,10 @@ import numpy as np
 import torch
 import yaml
 
+from aptivra.resources import aptivra_resource
 from aptivra.tasks.stream import ContinualTaskStream
+
+DEFAULT_TASK_STREAM_CONFIG = aptivra_resource("configs", "task_stream.yaml")
 
 
 @dataclass(frozen=True)
@@ -65,10 +69,12 @@ def _bounded_int(
     return value
 
 
-def load_experiment_settings(path: Path | str) -> ExperimentSettings:
+def load_experiment_settings(
+    path: Path | str | Traversable = DEFAULT_TASK_STREAM_CONFIG,
+) -> ExperimentSettings:
     """Load and validate task-stream and evaluation settings from YAML."""
-    config_path = Path(path)
-    raw: object = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    config_source = Path(path) if isinstance(path, str) else path
+    raw: object = yaml.safe_load(config_source.read_text(encoding="utf-8"))
     root = _require_mapping(raw, "root")
     task_stream = _require_mapping(root.get("task_stream"), "task_stream")
     evaluation = _require_mapping(root.get("evaluation"), "evaluation")

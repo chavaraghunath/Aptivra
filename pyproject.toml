@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=77.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +8,8 @@ version = "0.1.0"
 description = "Aptivra: Continual Learning with Tiered Memory, Growable Expert Modules, and Verifiable Consolidation"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
     "torch>=2.0.0",
     "numpy>=1.24.0",
@@ -38,12 +40,24 @@ dev = [
     "transformers>=4.40.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/chavaraghunath/Aptivra"
+Repository = "https://github.com/chavaraghunath/Aptivra"
+"Model checkpoint" = "https://huggingface.co/raghunath1/aptivra-200m-tiered-memory"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aptivra", "aptivra.*"]
+namespaces = false
+
 [tool.setuptools.package-data]
 "aptivra.eval" = ["*.json", "*.txt"]
+"aptivra.resources" = ["configs/*.yaml", "huggingface_hub/*.py.template"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-include = ["*.py.template"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM"]

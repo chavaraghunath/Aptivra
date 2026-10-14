@@ -1,0 +1,221 @@
+"""Regression tests for distribution discovery and packaged runtime resources."""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+import pytest
+
+from aptivra.eval.config import load_experiment_settings
+from aptivra.eval.model_card_eval import (
+    DEFAULT_HELDOUT_PROMPTS_PATH,
+    DEFAULT_HELDOUT_TEXT_PATH,
+    load_prompt_answers,
+)
+from aptivra.export.model_card import load_release_gate_settings
+from aptivra.resources import aptivra_resource, require_resource
+from aptivra.tasks.code_sandbox import load_sandbox_config
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_HUB_TEMPLATE_DIR = _PROJECT_ROOT / "aptivra" / "resources" / "huggingface_hub"
+
+
+def _stage_hub_templates_for_static_analysis(destination: Path) -> Path:
+    package_dir = destination / "aptivra_hub_remote_code"
+    package_dir.mkdir()
+    (package_dir / "__init__.py").touch()
+    for source in sorted(_HUB_TEMPLATE_DIR.glob("*.py.template")):
+        shutil.copy2(source, package_dir / source.name.removesuffix(".template"))
+    return package_dir
+
+
+def _run_static_analysis(
+    package_dir: Path,
+    cache_dir: Path,
+) -> tuple[subprocess.CompletedProcess[str], subprocess.CompletedProcess[str]]:
+    ruff = subprocess.run(
+        [sys.executable, "-m", "ruff", "check", "--no-cache", str(package_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=_PROJECT_ROOT,
+    )
+    mypy = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--strict",
+            "--config-file",
+            str(_PROJECT_ROOT / "pyproject.toml"),
+            "--cache-dir",
+            str(cache_dir),
+            str(package_dir),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        cwd=_PROJECT_ROOT,
+    )
+    return ruff, mypy
+
+
+def test_hub_remote_code_templates_pass_ruff_and_strict_mypy(tmp_path: Path) -> None:
+    package_dir = _stage_hub_templates_for_static_analysis(tmp_path)
+
+    ruff, mypy = _run_static_analysis(package_dir, tmp_path / "mypy-cache")
+
+    assert ruff.returncode == 0, ruff.stdout + ruff.stderr
+    assert mypy.returncode == 0, mypy.stdout + mypy.stderr
+
+
+def test_hub_remote_code_static_analysis_rejects_lint_and_type_errors(
+    tmp_path: Path,
+) -> None:
+    package_dir = _stage_hub_templates_for_static_analysis(tmp_path)
+    configuration = package_dir / "configuration_aptivra.py"
+    configuration.write_text(
+        configuration.read_text(encoding="utf-8")
+        + '\ninvalid_remote_type: int = "not-an-int"\nundefined_remote_name\n',
+        encoding="utf-8",
+    )
+
+    ruff, mypy = _run_static_analysis(package_dir, tmp_path / "mypy-cache")
+
+    assert ruff.returncode != 0
+    assert "F821" in ruff.stdout
+    assert "undefined_remote_name" in ruff.stdout
+    assert mypy.returncode != 0
+    assert "Incompatible types in assignment" in mypy.stdout
+    assert "[assignment]" in mypy.stdout
+
+
+def test_wheel_contains_only_aptivra_packages_and_required_resources(
+    tmp_path: Path,
+) -> None:
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    for filename in ("pyproject.toml", "README.md", "LICENSE"):
+        shutil.copy2(_PROJECT_ROOT / filename, source_dir / filename)
+    shutil.copytree(_PROJECT_ROOT / "aptivra", source_dir / "aptivra")
+
+    dist_dir = tmp_path / "dist"
+    result = subprocess.run(
+        [
+            "uv",
+            "build",
+            "--wheel",
+            "--offline",
+            "--no-build-isolation",
+            "--no-create-gitignore",
+            "--python",
+            sys.executable,
+            "--out-dir",
+            str(dist_dir),
+            str(source_dir),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    wheels = list(dist_dir.glob("aptivra-*.whl"))
+    assert len(wheels) == 1
+    with zipfile.ZipFile(wheels[0]) as wheel:
+        members = set(wheel.namelist())
+        metadata_name = next(name for name in members if name.endswith(".dist-info/METADATA"))
+        metadata = wheel.read(metadata_name).decode("utf-8")
+
+    expected_python = {
+        path.relative_to(source_dir).as_posix()
+        for path in (source_dir / "aptivra").rglob("*.py")
+        if "__pycache__" not in path.parts
+    }
+    assert expected_python <= members
+    assert {
+        "aptivra/eval/model_card_heldout_v1.json",
+        "aptivra/eval/model_card_heldout_text_v1.txt",
+        "aptivra/resources/configs/model_card_release_gate.yaml",
+        "aptivra/resources/configs/task_stream.yaml",
+        "aptivra/resources/configs/verifier_sandbox.yaml",
+        "aptivra/resources/huggingface_hub/configuration_aptivra.py.template",
+        "aptivra/resources/huggingface_hub/modeling_aptivra.py.template",
+        "aptivra/resources/huggingface_hub/tokenization_aptivra.py.template",
+    } <= members
+    assert any(name.endswith(".dist-info/licenses/LICENSE") for name in members)
+    for forbidden_prefix in ("configs/", "deploy/", "experiments/", "multitier_c/"):
+        assert not any(name.startswith(forbidden_prefix) for name in members)
+
+    assert "License-Expression: Apache-2.0" in metadata
+    assert "License-File: LICENSE" in metadata
+    assert "Requires-Python: >=3.11" in metadata
+    assert "Project-URL: Repository, https://github.com/chavaraghunath/Aptivra" in metadata
+    assert (
+        "Project-URL: Model checkpoint, "
+        "https://huggingface.co/raghunath1/aptivra-200m-tiered-memory"
+    ) in metadata
+
+
+def test_packaged_defaults_load_without_repository_relative_paths() -> None:
+    release_gate = load_release_gate_settings()
+    sandbox = load_sandbox_config()
+    experiment = load_experiment_settings()
+    heldout = load_prompt_answers(DEFAULT_HELDOUT_PROMPTS_PATH)
+
+    assert release_gate.minimum_heldout_prompt_samples == len(heldout)
+    assert sandbox.timeout_seconds == 1.0
+    assert experiment.task_stream.seed == 42
+    assert len(DEFAULT_HELDOUT_TEXT_PATH.read_bytes()) >= 8192
+
+
+@pytest.mark.parametrize(
+    ("repository_path", "resource_parts"),
+    [
+        (
+            "configs/model_card_release_gate.yaml",
+            ("configs", "model_card_release_gate.yaml"),
+        ),
+        ("configs/task_stream.yaml", ("configs", "task_stream.yaml")),
+        ("configs/verifier_sandbox.yaml", ("configs", "verifier_sandbox.yaml")),
+    ],
+)
+def test_repository_config_copy_matches_packaged_default(
+    repository_path: str,
+    resource_parts: tuple[str, ...],
+) -> None:
+    assert (_PROJECT_ROOT / repository_path).read_bytes() == aptivra_resource(
+        *resource_parts
+    ).read_bytes()
+
+
+def test_missing_packaged_resource_names_the_required_file() -> None:
+    with pytest.raises(FileNotFoundError, match="missing-default.yaml"):
+        require_resource("aptivra.resources", "configs", "missing-default.yaml")
+
+
+def test_all_modules_remain_importable_without_optional_gguf_dependency() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "sys.modules['gguf'] = None; "
+                "import aptivra.export.gguf_exporter"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=_PROJECT_ROOT,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

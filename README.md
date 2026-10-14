@@ -44,7 +44,8 @@ aptivra/                  Python package
   experts/                MoE router and expert modules
   inference/              Local inference wrappers
   model/                  Transformer backbone and config
-configs/                  Runtime and release-gate configuration
+  resources/              Installed YAML defaults and Hub remote-code templates
+configs/                  Repository experiment presets and editable config copies
 docs/                     ADRs, run options, results, and configuration register
 experiments/              Recorded experiment outputs
 scripts/                  Training, export, evaluation, and local runtime CLIs
@@ -53,11 +54,31 @@ tests/                    Unit and integration tests
 
 ## Setup
 
+Install the public repository into an isolated environment:
+
+```bash
+git clone https://github.com/chavaraghunath/Aptivra.git
+cd Aptivra
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install .
+```
+
+Install `.[hf]` for the in-package Transformers wrappers. Local GGUF export additionally requires
+the `gguf` package. For development, install the editable development environment instead:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
+
+The wheel embeds the task-stream, model-card release-gate, and verifier-sandbox defaults, the
+versioned model-card evaluation corpora, and the self-contained Hub remote-code templates. Package
+APIs resolve these files with `importlib.resources`, so their defaults work outside a source clone.
+The same-named YAML files under `configs/` are byte-matched editable copies for repository commands
+and explicit overrides. Backbone and inference YAML files are repository-only experiment/operator
+presets; callers using them must pass their paths explicitly.
 
 Use the shared project virtualenv when working in the maintained workspace:
 
@@ -82,8 +103,9 @@ PYTHONPATH=$PWD python -m scripts.evaluate_model_card \
 ```
 
 Render the Hugging Face README from that record through
-`aptivra.export.model_card.generate_model_card_readme`. The release gate threshold is configured
-in `configs/model_card_release_gate.yaml` and registered in `docs/configuration-register.md`.
+`aptivra.export.model_card.generate_model_card_readme`. The installed release-gate default is
+packaged under `aptivra/resources/configs/`; `configs/model_card_release_gate.yaml` is its editable
+repository copy, and the settings are registered in `docs/configuration-register.md`.
 The recorded losses establish byte prediction only on the named, hashed prompt and text sets.
 They do not establish factual accuracy, generated-answer correctness, instruction following,
 safety, or performance on other inputs. Whole-text scoring uses fixed-context chunks and retains

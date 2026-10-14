@@ -1,0 +1,9 @@
+task_stream:
+  num_train_per_task: 500
+  num_val_per_task: 100
+  num_test_per_task: 300
+  seed: 42
+  max_generation_attempts: 100
+
+evaluation:
+  max_new_tokens: 128

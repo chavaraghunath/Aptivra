@@ -17,16 +17,16 @@ import tempfile
 from contextlib import suppress
 from dataclasses import dataclass
 from functools import lru_cache
+from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from aptivra.resources import aptivra_resource
 from aptivra.tasks.base import ExecutionStatus
 
-DEFAULT_SANDBOX_CONFIG = (
-    Path(__file__).resolve().parents[2] / "configs" / "verifier_sandbox.yaml"
-)
+DEFAULT_SANDBOX_CONFIG = aptivra_resource("configs", "verifier_sandbox.yaml")
 _WORKER_PATH = Path(__file__).with_name("sandbox_worker.py")
 _MAX_SOURCE_BYTES = 256 * 1024
 _MAX_RESPONSE_BYTES = 64 * 1024
@@ -53,7 +53,9 @@ class SandboxResult:
 
 
 @lru_cache(maxsize=4)
-def load_sandbox_config(path: Path = DEFAULT_SANDBOX_CONFIG) -> SandboxConfig:
+def load_sandbox_config(
+    path: Path | Traversable = DEFAULT_SANDBOX_CONFIG,
+) -> SandboxConfig:
     """Load verifier resource limits from versioned config."""
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):

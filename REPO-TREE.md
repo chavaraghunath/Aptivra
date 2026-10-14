@@ -163,8 +163,8 @@
 - `LICENSE` — Software license terms.
 - `SUPPORT.md` — Support channels and guidelines.
 - `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, and pytest.
-- `configs/` — YAML configuration files for model architectures, task streams, ablation experiments, inference/chat server defaults (`inference.yaml`), measured-results model-card release gates, and generated-code verifier resource limits.
-- `deploy/` — Deployment bridges for extended run options: self-contained Hugging Face remote-code modules, Docker CUDA/CPU, and Ollama/LM Studio bridge notes.
+- `configs/` — Editable YAML copies for task-stream, release-gate, and sandbox overrides, plus repository-only model, ablation, and inference/chat presets; installed canonical defaults live under `aptivra/resources/configs/`.
+- `deploy/` — Deployment bridges for Docker CUDA/CPU and Ollama/LM Studio run options.
 - `docs/` — Architectural documentation, design specifications, and ADRs.
   - `docs/run-options.md` — G–J run paths, Hub-layout constraints, and measured-results publication workflow for `raghunath1/aptivra-200m-tiered-memory`.
   - `docs/DESIGN.md` — Master Phase 1 architecture and design specification.
@@ -177,7 +177,8 @@
   - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, metrics calculation, model-card measurement records, and the versioned held-out prompt set.
   - `aptivra/export/` — Self-contained Transformers packaging and legacy conversion, Tiered C and local-format export utilities, and measured-results model-card rendering.
   - `aptivra/inference/` — MoE causal LM loader, byte tokenizer, and generation for Hub checkpoints.
-  - `aptivra/huggingface/` — In-repo Transformers config/model wrappers (Hub copies live under `deploy/huggingface_hub/`).
+  - `aptivra/huggingface/` — In-package Transformers config, model, and tokenizer wrappers.
+  - `aptivra/resources/` — Installed YAML defaults and non-importable, self-contained Hugging Face remote-code templates consumed by package APIs through `importlib.resources`.
   - `aptivra/agents/` — Dynamic tool synthesis and sandboxed execution engine (Phase 3).
   - `aptivra/ambient/` — Theory-of-Mind modeling, P2P sync, and lifelong narrative keeper (Phases 2 & 4).
   - `aptivra/benchmarks/` — 4-Phase Developmental Benchmark Suite (AID-Bench).

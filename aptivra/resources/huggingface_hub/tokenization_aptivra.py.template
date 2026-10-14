@@ -19,7 +19,7 @@ class AptivraByteTokenizer(PreTrainedTokenizer):
         kwargs.setdefault("model_max_length", model_max_length)
         kwargs.setdefault("padding_side", "right")
         kwargs.setdefault("truncation_side", "left")
-        super().__init__(**kwargs)
+        super().__init__(**kwargs)  # type: ignore[no-untyped-call]
 
     @property
     def vocab_size(self) -> int:

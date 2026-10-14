@@ -23,6 +23,8 @@ tagged release exists.
 - Subprocess-isolated generated-code verification with configured wall-clock and memory limits.
 
 ### Changed
+- Python distribution builds now discover only `aptivra` packages, embed runtime defaults and Hub
+  export templates, publish Apache-2.0 metadata and project URLs, and work outside a source clone.
 - Replaced unsupported public README/model-card claims with measured-only research prototype
   language and marked invalid historical results in `docs/RESULTS.md`.
 - AID-Bench compatibility properties now return unmeasured values instead of hard-coded

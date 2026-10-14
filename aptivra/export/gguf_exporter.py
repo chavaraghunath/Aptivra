@@ -4,7 +4,6 @@
 from pathlib import Path
 from typing import Literal
 
-import gguf
 import numpy as np
 import torch
 
@@ -25,6 +24,12 @@ def export_model_to_gguf(
     """Exports Aptivra backbone, router, and expert weights as FP32 or FP16 GGUF."""
     if quant_type not in {"fp32", "fp16"}:
         raise ValueError(f"Unsupported GGUF quantization type: {quant_type}")
+    try:
+        import gguf
+    except ImportError as exc:
+        raise RuntimeError(
+            "GGUF export requires the optional 'gguf' package"
+        ) from exc
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
 

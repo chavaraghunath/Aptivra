@@ -1,6 +1,6 @@
 """Self-contained Transformers model for Aptivra safetensors checkpoints."""
 
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -33,7 +33,7 @@ class SwiGLU(nn.Module):
         self.w3 = nn.Linear(d_model, d_ff, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.w2(F.silu(self.w1(x)) * self.w3(x))
+        return cast(torch.Tensor, self.w2(F.silu(self.w1(x)) * self.w3(x)))
 
 
 class CausalAttention(nn.Module):
@@ -74,7 +74,7 @@ class CausalAttention(nn.Module):
             weights = F.dropout(weights, p=self.dropout_p)
         output = torch.matmul(weights, v)
         output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
-        return self.out_proj(output)
+        return cast(torch.Tensor, self.out_proj(output))
 
 
 class TransformerLayer(nn.Module):
@@ -89,7 +89,7 @@ class TransformerLayer(nn.Module):
 
     def forward(self, x: torch.Tensor, attention_mask: torch.Tensor | None) -> torch.Tensor:
         x = x + self.attn(self.norm1(x), attention_mask)
-        return x + self.ffn(self.norm2(x))
+        return cast(torch.Tensor, x + self.ffn(self.norm2(x)))
 
 
 class Backbone(nn.Module):
@@ -113,7 +113,7 @@ class Backbone(nn.Module):
         hidden = self.token_embedding(input_ids) + self.pos_embedding(positions)
         for layer in self.layers:
             hidden = layer(hidden, attention_mask)
-        return self.final_norm(hidden)
+        return cast(torch.Tensor, self.final_norm(hidden))
 
 
 class Router(nn.Module):
@@ -145,10 +145,13 @@ class Expert(nn.Module):
         self.up_proj = nn.Linear(config.d_expert, config.d_model, bias=False)
 
     def forward(self, hidden: torch.Tensor) -> torch.Tensor:
-        return self.up_proj(F.silu(self.down_proj(hidden)))
+        return cast(torch.Tensor, self.up_proj(F.silu(self.down_proj(hidden))))
 
 
-class AptivraForCausalLM(PreTrainedModel, GenerationMixin):
+class AptivraForCausalLM(  # type: ignore[no-untyped-call]
+    PreTrainedModel,
+    GenerationMixin,
+):
     """Aptivra causal LM whose parameters load directly from model.safetensors."""
 
     config_class = AptivraConfig
@@ -159,13 +162,13 @@ class AptivraForCausalLM(PreTrainedModel, GenerationMixin):
         self.backbone = Backbone(config)
         self.router = Router(config)
         self.experts = nn.ModuleList([Expert(config) for _ in range(config.num_experts)])
-        self.post_init()
+        self.post_init()  # type: ignore[no-untyped-call]
 
     def get_input_embeddings(self) -> nn.Module:
         return self.backbone.token_embedding
 
     def set_input_embeddings(self, value: nn.Module) -> None:
-        self.backbone.token_embedding = value
+        self.backbone.token_embedding = cast(nn.Embedding, value)
 
     def get_output_embeddings(self) -> nn.Module:
         return self.backbone.lm_head
@@ -232,4 +235,7 @@ class AptivraForCausalLM(PreTrainedModel, GenerationMixin):
                 shift_labels.view(-1),
                 ignore_index=-100,
             )
-        return CausalLMOutputWithPast(loss=loss, logits=logits)
+        return CausalLMOutputWithPast(
+            loss=loss,  # type: ignore[arg-type]
+            logits=logits,
+        )

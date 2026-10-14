@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
+from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -19,7 +20,7 @@ PositiveInt = Annotated[int, Field(strict=True, gt=0)]
 NonNegativeInt = Annotated[int, Field(strict=True, ge=0)]
 
 
-def _sha256_file(path: Path) -> str:
+def _sha256_file(path: Path | Traversable) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -283,7 +284,7 @@ def validate_evaluation_record(
         raise ValueError("held-out text-set name does not match the bundled set")
     if text_set.sha256 != _sha256_file(DEFAULT_HELDOUT_TEXT_PATH):
         raise ValueError("held-out text-set SHA-256 does not match the bundled set")
-    actual_text_bytes = DEFAULT_HELDOUT_TEXT_PATH.stat().st_size
+    actual_text_bytes = len(DEFAULT_HELDOUT_TEXT_PATH.read_bytes())
     if text_set.bytes != actual_text_bytes:
         raise ValueError("held-out text-set byte count does not match the bundled set")
     if text_set.bytes < minimum_heldout_text_bytes:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import tempfile
 from collections.abc import Iterable
 from importlib.metadata import version
@@ -19,8 +18,7 @@ from aptivra.experts.expert import ExpertModule
 from aptivra.experts.router import GatingRouter
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
-
-_HF_SOURCE_DIR = Path(__file__).resolve().parent.parent.parent / "deploy" / "huggingface_hub"
+from aptivra.resources import aptivra_resource
 
 HUB_LAYOUT_FILES = (
     "config.json",
@@ -136,7 +134,8 @@ def stage_huggingface_hub_artifacts(
         "modeling_aptivra.py",
         "tokenization_aptivra.py",
     ):
-        shutil.copy2(_HF_SOURCE_DIR / source_name, export_path / source_name)
+        source = aptivra_resource("huggingface_hub", f"{source_name}.template")
+        (export_path / source_name).write_bytes(source.read_bytes())
 
     config_payload: dict[str, object] = {
         "model_type": "aptivra",

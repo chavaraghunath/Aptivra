@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from contextlib import suppress
 from dataclasses import dataclass
+from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import Any, cast
 
@@ -12,10 +13,21 @@ import yaml
 
 from aptivra.eval.model_card_schema import EvaluationRecord, validate_evaluation_record
 from aptivra.model.config import ModelConfig
+from aptivra.resources import aptivra_resource
 
-DEFAULT_RELEASE_GATE_CONFIG = (
-    Path(__file__).resolve().parents[2] / "configs" / "model_card_release_gate.yaml"
+DEFAULT_RELEASE_GATE_CONFIG = aptivra_resource(
+    "configs", "model_card_release_gate.yaml"
 )
+
+ConfigSource = Path | str | Traversable
+
+
+def _read_text(source: ConfigSource) -> str:
+    return (
+        Path(source).read_text(encoding="utf-8")
+        if isinstance(source, str)
+        else source.read_text(encoding="utf-8")
+    )
 
 
 def load_results_record(results_path: Path | str) -> dict[str, Any]:
@@ -39,11 +51,10 @@ class ReleaseGateSettings:
 
 
 def load_release_gate_settings(
-    config_path: Path | str = DEFAULT_RELEASE_GATE_CONFIG,
+    config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG,
 ) -> ReleaseGateSettings:
     """Load and validate all model-card release-gate settings."""
-    with open(config_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = yaml.safe_load(_read_text(config_path))
     if not isinstance(data, dict):
         raise ValueError("release gate config must be a YAML mapping")
     section = data.get("model_card_release_gate")
@@ -73,14 +84,14 @@ def load_release_gate_settings(
     )
 
 
-def load_release_gate_config(config_path: Path | str = DEFAULT_RELEASE_GATE_CONFIG) -> float:
+def load_release_gate_config(config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG) -> float:
     """Return the configured held-out BpB margin for backward-compatible callers."""
     return load_release_gate_settings(config_path).heldout_bpb_unigram_margin_bits
 
 
 def release_gate_allows_general_language_model(
     results_record: dict[str, Any],
-    config_path: Path | str = DEFAULT_RELEASE_GATE_CONFIG,
+    config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG,
     *,
     fresh_evaluation: EvaluationRecord | None = None,
 ) -> bool:
@@ -112,7 +123,7 @@ def generate_model_card_readme(
     results_record: dict[str, Any] | None = None,
     results_path: Path | str | None = None,
     fresh_evaluation: EvaluationRecord | None = None,
-    release_gate_config_path: Path | str = DEFAULT_RELEASE_GATE_CONFIG,
+    release_gate_config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG,
 ) -> str:
     """Render a card; only publication's fresh validated evidence may clear its notice."""
     _ = (model_config, num_experts)

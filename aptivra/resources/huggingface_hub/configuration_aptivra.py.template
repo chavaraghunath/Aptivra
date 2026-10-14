@@ -5,7 +5,7 @@ from typing import Any
 from transformers import PretrainedConfig
 
 
-class AptivraConfig(PretrainedConfig):
+class AptivraConfig(PretrainedConfig):  # type: ignore[no-untyped-call]
     """Configuration for Aptivra tiered-memory MoE causal LMs."""
 
     model_type = "aptivra"
