@@ -48,6 +48,9 @@ class ReleaseGateSettings:
     minimum_heldout_prompt_samples: int
     minimum_heldout_text_bytes: int
     supplied_record_metric_tolerance: float
+    status_note: str | None
+    archive_tag_note: str | None
+    forbidden_hub_references: tuple[str, ...]
 
 
 def load_release_gate_settings(
@@ -75,12 +78,20 @@ def load_release_gate_settings(
         raise ValueError(
             "supplied_record_metric_tolerance must be between 0.0 and 0.001"
         )
+    status_note = _optional_config_text(section, "status_note")
+    archive_tag_note = _optional_config_text(section, "archive_tag_note")
+    forbidden_hub_references = _required_config_text_tuple(
+        section, "forbidden_hub_references"
+    )
     return ReleaseGateSettings(
         heldout_bpb_unigram_margin_bits=float(raw_margin),
         minimum_trained_prompt_samples=trained_minimum,
         minimum_heldout_prompt_samples=heldout_minimum,
         minimum_heldout_text_bytes=text_minimum,
         supplied_record_metric_tolerance=float(raw_tolerance),
+        status_note=status_note,
+        archive_tag_note=archive_tag_note,
+        forbidden_hub_references=forbidden_hub_references,
     )
 
 
@@ -230,10 +241,17 @@ def generate_model_card_readme(
     notice = ""
     if not gate_passed:
         notice = (
-            "\n> **Not a usable language model:** held-out answer-span bits per byte "
+            "> **Not a usable language model:** held-out answer-span bits per byte "
             "does not beat the unigram byte baseline, or that comparison was not measured. "
-            "This checkpoint must not be described as a general language model.\n"
+            "This checkpoint must not be described as a general language model."
         )
+    configured_notes = "\n".join(
+        note
+        for note in (settings.status_note, settings.archive_tag_note)
+        if note is not None
+    )
+    top_notes = "\n\n".join(item for item in (notice, configured_notes) if item)
+    top_section = f"\n{top_notes}\n" if top_notes else "\n"
 
     return f"""---
 license: apache-2.0
@@ -248,7 +266,7 @@ tags:
 ---
 
 # Aptivra Research Prototype Model Card
-{notice}
+{top_section}
 ## What This Artefact Is
 
 This repository contains an Aptivra byte-level causal-model research checkpoint and
@@ -358,6 +376,29 @@ def _positive_config_int(section: dict[str, Any], key: str) -> int:
     if value <= 0:
         raise ValueError(f"{key} must be positive")
     return value
+
+
+def _optional_config_text(section: dict[str, Any], key: str) -> str | None:
+    value = section.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be a string")
+    if value.strip() == "":
+        raise ValueError(f"{key} must not be empty")
+    return value
+
+
+def _required_config_text_tuple(section: dict[str, Any], key: str) -> tuple[str, ...]:
+    value = section.get(key)
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"{key} must be a non-empty list")
+    normalized: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str) or item.strip() == "":
+            raise ValueError(f"{key}[{index}] must be a non-empty string")
+        normalized.append(item)
+    return tuple(normalized)
 
 
 def _value_at(record: dict[str, Any], path: tuple[str, ...]) -> Any:

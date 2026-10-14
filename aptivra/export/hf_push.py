@@ -16,6 +16,7 @@ from aptivra.eval.model_card_eval import evaluate_export_dir, sha256_file
 from aptivra.eval.model_card_schema import EvaluationRecord, validate_evaluation_record
 from aptivra.export.hf_hub_artifacts import HUB_LAYOUT_FILES
 from aptivra.export.model_card import (
+    ReleaseGateSettings,
     generate_model_card_readme,
     load_release_gate_settings,
     load_results_record,
@@ -44,10 +45,11 @@ class HfPublicationPlan:
     upload_files: tuple[str, ...]
     delete_patterns: tuple[str, ...]
     file_sha256: dict[str, str]
+    release_gate_settings: ReleaseGateSettings
     _temporary_directory: tempfile.TemporaryDirectory[str] = field(repr=False)
 
     def verify_staged_files(self) -> None:
-        """Refuse if any staged upload byte changed since it was recorded."""
+        """Refuse if any staged upload byte changed or contains forbidden text."""
         for filename in self.upload_files:
             path = self.export_dir / filename
             if not path.is_file():
@@ -58,6 +60,11 @@ class HfPublicationPlan:
                 raise ValueError(
                     f"staged publication file changed after staging: {filename}"
                 )
+        _assert_no_forbidden_hub_references(
+            self.export_dir,
+            self.upload_files,
+            self.release_gate_settings.forbidden_hub_references,
+        )
 
     def cleanup(self) -> None:
         """Remove the private staging copy and all generated publication files."""
@@ -166,6 +173,7 @@ def prepare_hf_publication(
             upload_files=HUB_PUBLICATION_FILES,
             delete_patterns=LEGACY_HUB_DELETE_PATTERNS,
             file_sha256=staged_hashes,
+            release_gate_settings=settings,
             _temporary_directory=temporary_directory,
         )
         plan.verify_staged_files()
@@ -232,6 +240,42 @@ def _compare_record_values(
     elif supplied == fresh:
         return
     raise ValueError(f"supplied results record differs from fresh evaluation at {location}")
+
+
+def _assert_no_forbidden_hub_references(
+    stage_path: Path,
+    upload_files: tuple[str, ...],
+    forbidden_references: tuple[str, ...],
+) -> None:
+    findings: list[str] = []
+    normalized_terms = tuple(term.casefold() for term in forbidden_references)
+    for filename in upload_files:
+        path = stage_path / filename
+        if path.suffix == ".safetensors":
+            continue
+        try:
+            with path.open(encoding="utf-8") as handle:
+                for line_number, line in enumerate(handle, start=1):
+                    folded = line.casefold()
+                    matched = sorted(
+                        term
+                        for term, normalized in zip(
+                            forbidden_references, normalized_terms, strict=True
+                        )
+                        if normalized in folded
+                    )
+                    if matched:
+                        findings.append(
+                            f"{filename}:{line_number}: forbidden reference "
+                            f"{', '.join(matched)}"
+                        )
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                f"staged Hub text file is not valid UTF-8: {filename}"
+            ) from exc
+    if findings:
+        details = "\n".join(findings)
+        raise ValueError(f"Hub publication content contains forbidden references:\n{details}")
 
 
 def push_aptivra_model_to_hf(

@@ -5,3 +5,7 @@ model_card_release_gate:
   minimum_heldout_prompt_samples: 24
   minimum_heldout_text_bytes: 8192
   supplied_record_metric_tolerance: 0.000001
+  status_note: "Status: This model is being rebuilt on a pretrained base. The rebuild will be published to a new Hugging Face repository whose name is not yet decided; this repository will then stay as an archive of the byte-level model."
+  archive_tag_note: "Archive tag: The current revision is preserved under the Hub tag `v0-byte-level`."
+  forbidden_hub_references:
+    - github
