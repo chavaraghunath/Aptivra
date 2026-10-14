@@ -22,3 +22,8 @@ multitier_c/aptivra-cli
 # Local session state
 .remember/
 .DS_Store
+
+# Local secrets and agent session state
+.env
+.env.*
+.claude/scheduled_tasks.lock
