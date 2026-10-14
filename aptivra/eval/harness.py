@@ -226,6 +226,16 @@ class IncrementalEvaluationRun:
     def finalize(self, metadata: dict[str, Any] | None = None) -> ContinualLearningMetrics:
         """Compute metrics, leaving any metric with missing required cells unmeasured."""
         observed_mask = (~np.isnan(self.accuracy_matrix)).tolist()
+        headline_indices = getattr(
+            self.harness.stream,
+            "headline_task_indices",
+            list(range(self.harness.num_tasks)),
+        )
+        family_roles = getattr(
+            self.harness.stream,
+            "family_roles",
+            dict.fromkeys(self.harness.task_names, "skill"),
+        )
         run_metadata: dict[str, Any] = dict(metadata or {})
         run_metadata.update(
             {
@@ -238,6 +248,11 @@ class IncrementalEvaluationRun:
                     "test_per_task": self.harness.stream.num_test_per_task,
                 },
                 "task_count": self.harness.num_tasks,
+                "task_stream_version": getattr(self.harness.stream, "version", "v1"),
+                "family_roles": family_roles,
+                "headline_family_ids": [
+                    self.harness.task_names[index] for index in headline_indices
+                ],
                 "random_baseline_measured": bool(
                     not np.isnan(self.random_baseline_accs).any()
                 ),
@@ -253,13 +268,21 @@ class IncrementalEvaluationRun:
         return ContinualLearningMetrics(
             accuracy_matrix=_optional_matrix(self.accuracy_matrix),
             random_baseline_accs=_optional_vector(self.random_baseline_accs),
-            average_accuracy=compute_average_accuracy(self.accuracy_matrix),
-            backward_transfer=compute_backward_transfer(self.accuracy_matrix),
+            average_accuracy=compute_average_accuracy(
+                self.accuracy_matrix, headline_indices
+            ),
+            backward_transfer=compute_backward_transfer(
+                self.accuracy_matrix, headline_indices
+            ),
             forward_transfer=compute_forward_transfer(
-                self.accuracy_matrix, self.random_baseline_accs
+                self.accuracy_matrix,
+                self.random_baseline_accs,
+                headline_indices,
             ),
             max_forgetting=compute_max_forgetting(
-                self.accuracy_matrix, self.harness.task_names
+                self.accuracy_matrix,
+                self.harness.task_names,
+                headline_indices,
             ),
             metadata=run_metadata,
         )

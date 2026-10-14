@@ -33,6 +33,14 @@ prediction; see `docs/RESULTS.md` for the erratum and historical context.
   resource-limited child process with a wall-clock timeout and process-group termination. This
   contains hangs and accidental failures during evaluation; it is not a security boundary and
   must not be used to execute hostile code.
+- The synthetic continual-learning stream is versioned. Historical `v1` remains the default for
+  record reproducibility; `configs/task_stream_v2.yaml` selects the claim-capable `v2` stream.
+  Checked-in audits report split diversity, exact and normalized-AST overlap, answer-space chance,
+  identity/chat contamination, target lengths, three train-only trivial baselines, and exhaustive
+  per-family prompt-determinacy checks. V2 policy permits zero ambiguous or invalid items.
+- V2 T2 string transforms is a tokenizer-sensitivity diagnostic. It remains in every per-cycle
+  matrix but is excluded from headline aggregate metrics; no v2 model-learning result is claimed
+  by this repository until the stream is used in a separately preregistered training run.
 
 ## Repository Layout
 
@@ -117,7 +125,10 @@ context window.
 
 ```bash
 python scripts/run_aptivra.py --config configs/backbone_50m.yaml
+python scripts/run_aptivra.py --config configs/backbone_50m.yaml \
+  --task-stream-config configs/task_stream_v2.yaml
 python scripts/run_baselines.py --config configs/backbone_50m.yaml
+python -m scripts.audit_task_stream --plan configs/task_stream_audit.yaml --check
 python scripts/run_aid_bench.py
 # Local interoperability artifact only; never uploaded to the Hub:
 python scripts/export_gguf.py --output-dir scratch/hf_export/gguf --quant-type fp16
@@ -129,6 +140,9 @@ python scripts/export_gguf.py --output-dir scratch/hf_export/gguf --quant-type f
   the harness evaluated only the final model.
 - Historical recall@5 and prefetch hit-rate figures in `docs/RESULTS.md` have no executable
   source in this repository.
+- Task stream v1 is retained only for reproducibility. Its recorded audit shows target reuse,
+  high-chance answer spaces, and normalized-AST template overlap, so it cannot support new
+  continual-learning capability claims.
 - The Phase 5 identity/skill training table records chance-level byte loss near `ln(256)`, not a
   demonstrated skill capability.
 - Identity training strings in `aptivra/tasks/identity.py` and

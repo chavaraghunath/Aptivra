@@ -10,12 +10,20 @@ row requires the setting to be genuinely gone, not merely undocumented.
 
 | Setting | Scope | Type | Default | Safe limits | RBAC role | Env-specific | Feature flag | API / config-as-code path | Requires restart |
 |---------|-------|------|---------|-------------|-----------|--------------|--------------|---------------------------|------------------|
+| `task_stream.version` | global | enum | `v1` when omitted | `v1`, `v2` | researcher | yes | `v2` selection | `configs/task_stream.yaml`; `configs/task_stream_v2.yaml` | no |
 | `task_stream.num_train_per_task` | global | integer | `500` | 10–10000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.num_val_per_task` | global | integer | `100` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.num_test_per_task` | global | integer | `300` | 5–2000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.seed` | global | integer | `42` | 0–2^31-1 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `task_stream.max_generation_attempts` | global | integer | `100` | 1–1000 | researcher | yes | — | `configs/task_stream.yaml` | no |
 | `evaluation.max_new_tokens` | global | integer | `128` | 1–512 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `task_stream_audit.baseline_sample_size` | global | integer | `25` | 1 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
+| `task_stream_audit.streams[].policy.max_target_overlap_count` | per stream version | integer | `v1: 107`; `v2: 0` | 0 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
+| `task_stream_audit.streams[].policy.max_structural_overlap_count` | per stream version | integer | `v1: 14`; `v2: 0` | 0 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
+| `task_stream_audit.streams[].policy.max_identity_chat_contamination_count` | per stream version | integer | `0` | 0 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
+| `task_stream_audit.streams[].policy.max_uniform_chance` | per stream version | float | `v1: 0.5`; `v2: 0.05` | 0.0–1.0 (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
+| `task_stream_audit.streams[].policy.max_trivial_baseline_accuracy` | per stream version | float | `v1: 0.64`; `v2: 0.1` | 0.0–1.0 (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
+| `task_stream_audit.streams[].policy.max_ambiguous_item_count` | per stream version | integer | `v1: 900`; `v2: 0` | 0 or greater (validated); enforced per family across all splits | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
 | `model.d_model` | global | integer | `512` | 64–2048 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.n_layers` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
 | `model.n_heads` | global | integer | `8` | 1–32 | researcher | yes | — | `configs/backbone_50m.yaml` | no |
@@ -80,3 +88,4 @@ ADR and link it below.
 | Statistical Test for Promotion Gate | Mathematical decision boundary ($\alpha = 0.05$ paired statistical test) for model promotion | [ADR-0005](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0005-statistical-test-for-promotion-gate.md) |
 | Tiered Memory Runtime & Pure C Engine | Architecture for NVMe expert streaming, usage-heat expert pinning, and pure C runtime export | [ADR-0006](file:///Users/raghunath/code/personal/Aptivra/docs/adr/0006-multitier-nvme-expert-tiering-and-c-engine.md) |
 | Generated-code execution containment | Child-process execution, timeout, and process-group termination semantics; explicitly not a security boundary | [ADR-0007](adr/0007-generated-code-execution-containment.md) |
+| Versioned synthetic continual-learning stream | Version compatibility, v2 family roles, structural split isolation, and headline eligibility are experimental-contract decisions | [ADR-0010](adr/0010-task-stream-v2.md) |

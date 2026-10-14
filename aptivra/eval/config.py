@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import yaml
 
-from aptivra.tasks.stream import ContinualTaskStream
+from aptivra.tasks.stream import ContinualTaskStream, TaskStreamVersion
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,7 @@ class TaskStreamSettings:
     num_test_per_task: int
     seed: int
     max_generation_attempts: int
+    version: TaskStreamVersion
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class ExperimentSettings:
             num_test_per_task=self.task_stream.num_test_per_task,
             seed=self.task_stream.seed if seed is None else seed,
             max_generation_attempts=self.task_stream.max_generation_attempts,
+            version=self.task_stream.version,
         )
 
 
@@ -72,6 +74,9 @@ def load_experiment_settings(path: Path | str) -> ExperimentSettings:
     root = _require_mapping(raw, "root")
     task_stream = _require_mapping(root.get("task_stream"), "task_stream")
     evaluation = _require_mapping(root.get("evaluation"), "evaluation")
+    version = task_stream.get("version", "v1")
+    if version not in ("v1", "v2"):
+        raise ValueError("'version' must be either 'v1' or 'v2'.")
 
     return ExperimentSettings(
         task_stream=TaskStreamSettings(
@@ -88,6 +93,7 @@ def load_experiment_settings(path: Path | str) -> ExperimentSettings:
             max_generation_attempts=_bounded_int(
                 task_stream, "max_generation_attempts", minimum=1, maximum=1_000
             ),
+            version=version,
         ),
         evaluation=EvaluationSettings(
             max_new_tokens=_bounded_int(

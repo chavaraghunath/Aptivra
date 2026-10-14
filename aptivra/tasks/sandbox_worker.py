@@ -56,15 +56,29 @@ def _run_function(payload: dict[str, Any], parsed: ast.Module) -> dict[str, Any]
         return {"passed": False, "error": f"Function '{function_name}' not defined."}
     for case in payload["test_cases"]:
         actual = function(*case["args"])
-        if actual != case["expected"]:
+        expected = _decode_json_value(case["expected"])
+        if actual != expected:
             return {
                 "passed": False,
                 "error": (
                     f"Test failed for {case['display_input']}: got {actual!r}, "
-                    f"want {case['expected']!r}"
+                    f"want {expected!r}"
                 ),
             }
     return {"passed": True, "error": None}
+
+
+def _decode_json_value(value: object) -> object:
+    if isinstance(value, dict) and set(value) == {"__aptivra_tuple__"}:
+        items = value["__aptivra_tuple__"]
+        if not isinstance(items, list):
+            raise ValueError("Invalid encoded tuple.")
+        return tuple(_decode_json_value(item) for item in items)
+    if isinstance(value, list):
+        return [_decode_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _decode_json_value(item) for key, item in value.items()}
+    return value
 
 
 def _run_snippet(payload: dict[str, Any], parsed: ast.Module) -> dict[str, Any]:
@@ -109,20 +123,45 @@ def _execute_function(payload: dict[str, Any], parsed: ast.Module) -> dict[str, 
     return {"passed": True, "value": value, "error": None}
 
 
+def _run_batch(payload: dict[str, Any]) -> dict[str, Any]:
+    results: list[dict[str, Any]] = []
+    for request in payload["requests"]:
+        try:
+            parsed = _validate_ast(request["source"])
+            if request["mode"] == "function":
+                result = _run_function(request, parsed)
+            elif request["mode"] == "snippet":
+                result = _run_snippet(request, parsed)
+            else:
+                raise ValueError("unknown sandbox batch mode")
+        except BaseException as error:
+            result = {
+                "passed": False,
+                "error": f"Execution Error: {type(error).__name__}: {error}",
+            }
+        results.append(result)
+    return {"passed": True, "value": results, "error": None}
+
+
 def main() -> None:
     payload = json.loads(sys.stdin.read())
     os.environ.clear()
     os.environ.update({"LANG": "C.UTF-8", "PATH": os.defpath, "PYTHONHASHSEED": "0"})
     _apply_limits(int(payload["memory_limit_mb"]), float(payload["timeout_seconds"]))
     try:
-        parsed = _validate_ast(payload["source"])
-        if payload["mode"] == "function":
+        if payload["mode"] == "batch":
+            result = _run_batch(payload)
+        elif payload["mode"] == "function":
+            parsed = _validate_ast(payload["source"])
             result = _run_function(payload, parsed)
         elif payload["mode"] == "snippet":
+            parsed = _validate_ast(payload["source"])
             result = _run_snippet(payload, parsed)
         elif payload["mode"] == "validate_function":
+            parsed = _validate_ast(payload["source"])
             result = _validate_function(payload, parsed)
         elif payload["mode"] == "execute_function":
+            parsed = _validate_ast(payload["source"])
             result = _execute_function(payload, parsed)
         else:
             raise ValueError("unknown sandbox mode")

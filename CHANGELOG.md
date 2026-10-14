@@ -21,6 +21,15 @@ tagged release exists.
 - Strict v3 model-card evidence validation, like-for-like metric baselines, and conversion
   provenance uploaded beside consolidated weights.
 - Subprocess-isolated generated-code verification with configured wall-clock and memory limits.
+- Versioned synthetic task stream v2 with unseen-target isolation, normalized-AST program
+  de-duplication, expanded answer/program spaces, and an explicitly non-headline T2
+  tokenizer-sensitivity diagnostic.
+- Deterministic v1/v2 task-stream audit tooling, checked-in evidence records, configured policy
+  gates, exhaustive prompt-determinacy checks, sequence-rule ambiguity detection, and train-only
+  most-frequent/copy/nearest-neighbour difficulty baselines.
+- Prompt-complete v2 tasks: explicit direct-task serialization, T9--T11 visible examples plus
+  held-out execution, T11 repair specifications with two bug-discriminating examples, and T12
+  type evidence with AST-equivalent verification.
 
 ### Changed
 - Replaced unsupported public README/model-card claims with measured-only research prototype
@@ -34,6 +43,8 @@ tagged release exists.
 - Promotion rejection now restores optimizer, T1, replay, EWC, topology, and RNG state while
   retaining FLOPs already spent; package generation now preserves raw stop bytes like
   Transformers generation.
+- Headline continual-learning aggregates honor stream family roles while retaining every family
+  in the unchanged per-cycle measurement matrix; v1 remains the compatibility default.
 
 ## [v0.1.0] - 2026-09-29
 

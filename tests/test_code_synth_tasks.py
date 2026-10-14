@@ -15,9 +15,11 @@ from aptivra.tasks.algo_synth import AlgoSynthTaskFamily, AlgoSynthVerifier
 from aptivra.tasks.base import TaskFamily, TaskInstance
 from aptivra.tasks.bug_fixer import BugFixerTaskFamily, BugFixerVerifier
 from aptivra.tasks.code_sandbox import (
+    SandboxBatchRequest,
     SandboxConfig,
     load_sandbox_config,
     verify_snippet_source,
+    verify_source_batch,
 )
 from aptivra.tasks.docstring_code import DocstringToCodeTaskFamily, DocstringToCodeVerifier
 from aptivra.tasks.python_microsynth import PythonMicroSynthTaskFamily
@@ -395,6 +397,32 @@ def test_verifier_child_gets_sanitized_environment_and_temporary_cwd(
     child_cwd = captured["cwd"]
     assert isinstance(child_cwd, str)
     assert not os.path.exists(child_cwd)
+
+
+def test_sandbox_batch_preserves_tuple_expectations_and_item_failures() -> None:
+    results = verify_source_batch(
+        [
+            SandboxBatchRequest(
+                "function",
+                "def pair(values):\n    return tuple(values)",
+                function_name="pair",
+                test_cases=[(["a", "b"], ("a", "b"))],
+            ),
+            SandboxBatchRequest("snippet", "res = 2", expected="3"),
+        ]
+    )
+
+    assert [result.passed for result in results] == [True, False]
+    assert all(result.ran_in_child_process for result in results)
+
+
+def test_sandbox_batch_rejects_invalid_request_shapes() -> None:
+    with pytest.raises(ValueError, match="between 1 and 128"):
+        verify_source_batch([])
+    with pytest.raises(ValueError, match="requires name and test cases"):
+        verify_source_batch([SandboxBatchRequest("function", "def f(): pass")])
+    with pytest.raises(ValueError, match="requires expected result"):
+        verify_source_batch([SandboxBatchRequest("snippet", "res = 1")])
 
 
 def test_verifier_temp_directory_failure_is_structured_infrastructure_failure(

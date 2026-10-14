@@ -1,0 +1,1343 @@
+{
+  "families": [
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T1_modular_arithmetic_s42001_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T1_modular_arithmetic_s42001_i1"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T1_modular_arithmetic_s42001_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T1_modular_arithmetic_s42001_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T1_modular_arithmetic_s42001_i4"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T1_modular_arithmetic",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 71,
+          "empirical_most_frequent_rate": 0.07,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 2,
+            "mean": 1.6866666666666668,
+            "median": 2.0,
+            "min": 1,
+            "p95": 2.0
+          },
+          "uniform_target_chance": 0.014084507042253521
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 83,
+          "empirical_most_frequent_rate": 0.056,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 2,
+            "mean": 1.69,
+            "median": 2.0,
+            "min": 1,
+            "p95": 2.0
+          },
+          "uniform_target_chance": 0.012048192771084338
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 55,
+          "empirical_most_frequent_rate": 0.09,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 2,
+            "mean": 1.64,
+            "median": 2.0,
+            "min": 1,
+            "p95": 2.0
+          },
+          "uniform_target_chance": 0.01818181818181818
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 67,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.04,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.04,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T2_string_transforms_s42011_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T2_string_transforms_s42011_i1"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T2_string_transforms_s42011_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T2_string_transforms_s42011_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T2_string_transforms_s42011_i4"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T2_string_transforms",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 14,
+            "mean": 9.446666666666667,
+            "median": 9.0,
+            "min": 4,
+            "p95": 14.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 14,
+            "mean": 9.614,
+            "median": 10.0,
+            "min": 4,
+            "p95": 14.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 14,
+            "mean": 9.32,
+            "median": 9.0,
+            "min": 4,
+            "p95": 13.049999999999997
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T3_list_operations_s42021_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T3_list_operations_s42021_i1"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T3_list_operations_s42021_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T3_list_operations_s42021_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T3_list_operations_s42021_i4"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T3_list_operations",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 40,
+            "mean": 19.16,
+            "median": 19.0,
+            "min": 4,
+            "p95": 36.05000000000001
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 499,
+          "empirical_most_frequent_rate": 0.004,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 43,
+            "mean": 20.034,
+            "median": 19.5,
+            "min": 0,
+            "p95": 37.0
+          },
+          "uniform_target_chance": 0.002004008016032064
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 39,
+            "mean": 17.53,
+            "median": 16.0,
+            "min": 5,
+            "p95": 36.05
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 3,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.04,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T4_syntax_matching_s42031_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T4_syntax_matching_s42031_i1"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T4_syntax_matching_s42031_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T4_syntax_matching_s42031_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T4_syntax_matching_s42031_i4"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T4_syntax_matching",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 135,
+          "empirical_most_frequent_rate": 0.33666666666666667,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 8,
+            "mean": 6.276666666666666,
+            "median": 7.0,
+            "min": 3,
+            "p95": 8.0
+          },
+          "uniform_target_chance": 0.007407407407407408
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 235,
+          "empirical_most_frequent_rate": 0.27,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 8,
+            "mean": 5.968,
+            "median": 6.0,
+            "min": 3,
+            "p95": 8.0
+          },
+          "uniform_target_chance": 0.00425531914893617
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 49,
+          "empirical_most_frequent_rate": 0.29,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 8,
+            "mean": 6.04,
+            "median": 6.0,
+            "min": 3,
+            "p95": 8.0
+          },
+          "uniform_target_chance": 0.02040816326530612
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 2,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.2,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.28,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T5_boolean_logic_s42041_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T5_boolean_logic_s42041_i1"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T5_boolean_logic_s42041_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T5_boolean_logic_s42041_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T5_boolean_logic_s42041_i4"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T5_boolean_logic",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 2,
+          "empirical_most_frequent_rate": 0.5266666666666666,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 4.526666666666666,
+            "median": 5.0,
+            "min": 4,
+            "p95": 5.0
+          },
+          "uniform_target_chance": 0.5
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 2,
+          "empirical_most_frequent_rate": 0.51,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 4.51,
+            "median": 5.0,
+            "min": 4,
+            "p95": 5.0
+          },
+          "uniform_target_chance": 0.5
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 2,
+          "empirical_most_frequent_rate": 0.54,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 4.46,
+            "median": 4.0,
+            "min": 4,
+            "p95": 5.0
+          },
+          "uniform_target_chance": 0.5
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 2,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.56,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.64,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T6_sequence_completion_s42051_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T6_sequence_completion_s42051_i1"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T6_sequence_completion_s42051_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T6_sequence_completion_s42051_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T6_sequence_completion_s42051_i4"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T6_sequence_completion",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 117,
+          "empirical_most_frequent_rate": 0.023333333333333334,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 4,
+            "mean": 2.04,
+            "median": 2.0,
+            "min": 1,
+            "p95": 3.0
+          },
+          "uniform_target_chance": 0.008547008547008548
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 181,
+          "empirical_most_frequent_rate": 0.02,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 2.264,
+            "median": 2.0,
+            "min": 1,
+            "p95": 4.0
+          },
+          "uniform_target_chance": 0.0055248618784530384
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 75,
+          "empirical_most_frequent_rate": 0.04,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 2.22,
+            "median": 2.0,
+            "min": 1,
+            "p95": 3.0
+          },
+          "uniform_target_chance": 0.013333333333333334
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 107,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.08,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T7_state_machines_s42061_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T7_state_machines_s42061_i1"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T7_state_machines_s42061_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T7_state_machines_s42061_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T7_state_machines_s42061_i4"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T7_state_machines",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 4,
+          "empirical_most_frequent_rate": 0.31666666666666665,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 2,
+            "mean": 2.0,
+            "median": 2.0,
+            "min": 2,
+            "p95": 2.0
+          },
+          "uniform_target_chance": 0.25
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 4,
+          "empirical_most_frequent_rate": 0.276,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 2,
+            "mean": 2.0,
+            "median": 2.0,
+            "min": 2,
+            "p95": 2.0
+          },
+          "uniform_target_chance": 0.25
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 4,
+          "empirical_most_frequent_rate": 0.32,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 2,
+            "mean": 2.0,
+            "median": 2.0,
+            "min": 2,
+            "p95": 2.0
+          },
+          "uniform_target_chance": 0.25
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 4,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.36,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.32,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T8_python_microsynth_s42071_i0"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T8_python_microsynth_s42071_i2"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T8_python_microsynth_s42071_i3"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T8_python_microsynth_s42071_i4"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "T8_python_microsynth_s42071_i5"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T8_python_microsynth",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 20,
+          "empirical_most_frequent_rate": 0.35,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 16,
+            "mean": 15.053333333333333,
+            "median": 15.0,
+            "min": 15,
+            "p95": 16.0
+          },
+          "uniform_target_chance": 0.05
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 32,
+          "empirical_most_frequent_rate": 0.41,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 19,
+            "mean": 15.068,
+            "median": 15.0,
+            "min": 15,
+            "p95": 15.049999999999955
+          },
+          "uniform_target_chance": 0.03125
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 14,
+          "empirical_most_frequent_rate": 0.38,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 16,
+            "mean": 15.06,
+            "median": 15.0,
+            "min": 15,
+            "p95": 16.0
+          },
+          "uniform_target_chance": 0.07142857142857142
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 20,
+        "distinct_train_structures": 32,
+        "exact_prompts": 0,
+        "exact_targets": 14,
+        "structural_targets": 14
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.28,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.4,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t9_0000"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t9_0001"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t9_0002"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t9_0003"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t9_0004"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T9_algo_synth",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 73,
+            "mean": 58.13,
+            "median": 55.0,
+            "min": 46,
+            "p95": 73.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 73,
+            "mean": 58.32,
+            "median": 55.0,
+            "min": 46,
+            "p95": 73.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 72,
+            "mean": 56.68,
+            "median": 54.0,
+            "min": 46,
+            "p95": 72.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 3,
+        "distinct_train_structures": 3,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 3
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t10_0000"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t10_0001"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t10_0002"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t10_0003"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t10_0004"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T10_docstring_code",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 95,
+            "mean": 87.58333333333333,
+            "median": 94.0,
+            "min": 78,
+            "p95": 95.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 95,
+            "mean": 87.13,
+            "median": 80.0,
+            "min": 78,
+            "p95": 95.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 94,
+            "mean": 87.9,
+            "median": 94.0,
+            "min": 78,
+            "p95": 94.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 2,
+        "distinct_train_structures": 2,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 2
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t11_0000"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t11_0001"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t11_0002"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t11_0003"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t11_0004"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T11_bug_fixer",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 61,
+            "mean": 52.26,
+            "median": 45.0,
+            "min": 43,
+            "p95": 61.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 61,
+            "mean": 53.036,
+            "median": 60.0,
+            "min": 43,
+            "p95": 61.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 60,
+            "mean": 51.26,
+            "median": 44.0,
+            "min": 43,
+            "p95": 60.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 2,
+        "distinct_train_structures": 2,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 2
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 900,
+        "checked_items": 900,
+        "failure_examples": [
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t12_0000"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t12_0001"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t12_0002"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t12_0003"
+          },
+          {
+            "outcome": "ambiguous",
+            "reason": "no machine-checkable prompt determinacy contract",
+            "task_id": "t12_0004"
+          }
+        ],
+        "invalid_items": 0,
+        "valid_items": 0
+      },
+      "family_id": "T12_type_inferrer",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 65,
+            "mean": 63.666666666666664,
+            "median": 63.0,
+            "min": 61,
+            "p95": 65.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 65,
+            "mean": 63.764,
+            "median": 63.0,
+            "min": 61,
+            "p95": 65.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 64,
+            "mean": 62.92,
+            "median": 63.0,
+            "min": 61,
+            "p95": 64.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 2,
+        "distinct_train_structures": 2,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 2
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    }
+  ],
+  "passed": true,
+  "policy": {
+    "max_ambiguous_item_count": 900,
+    "max_identity_chat_contamination_count": 0,
+    "max_structural_overlap_count": 14,
+    "max_target_overlap_count": 107,
+    "max_trivial_baseline_accuracy": 0.64,
+    "max_uniform_chance": 0.5
+  },
+  "schema": "aptivra-task-stream-audit-v2",
+  "seed": 42,
+  "split_sizes": {
+    "test": 300,
+    "train": 500,
+    "val": 100
+  },
+  "stream_config": "configs/task_stream.yaml",
+  "stream_version": "v1",
+  "violations": []
+}
