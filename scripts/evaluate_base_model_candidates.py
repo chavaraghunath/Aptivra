@@ -18,6 +18,7 @@ from aptivra.eval.base_model_evaluation import (
     derive_existing_records_analysis,
     load_base_model_evaluation_settings,
     prepare_run_manifest,
+    rank_amendment_4g_records,
     rank_existing_candidate_records,
     run_amendment_4a_equivalence,
     run_amendment_4b_equivalence,
@@ -383,6 +384,88 @@ def _run_child(
     )
 
 
+def _run_amendment_4g(
+    config: Path,
+    output_dir: Path,
+    amendment_4c_output_dir: Path,
+    amendment_4f_output_dir: Path,
+    settings: BaseModelEvaluationSettings,
+    *,
+    resume: bool,
+) -> dict[str, object]:
+    """Run only the full-rule-derived Amendment 4g top-two seed repeats."""
+    first_pass = rank_amendment_4g_records(
+        config,
+        output_dir,
+        amendment_4c_output_dir,
+        amendment_4f_output_dir,
+    )
+    ranked = first_pass.get("ranked_candidates")
+    if not isinstance(ranked, list) or len(ranked) < 2:
+        raise RuntimeError("Amendment 4g full rule did not produce two eligible leaders")
+    leaders: list[str] = []
+    for row in ranked[: settings.measurement.variance_top_candidates]:
+        if not isinstance(row, dict) or not isinstance(row.get("candidate_id"), str):
+            raise TypeError("Amendment 4g ranking candidate row is malformed")
+        leaders.append(row["candidate_id"])
+    if len(leaders) != 2:
+        raise RuntimeError("Amendment 4g requires exactly two seed-repeat leaders")
+    for candidate_id in leaders:
+        primary_output_dir = (
+            amendment_4f_output_dir
+            if candidate_id == "qwen2.5-0.5b"
+            else amendment_4c_output_dir
+        )
+        for seed in settings.measurement.variance_seeds[1:]:
+            print(
+                json.dumps(
+                    {
+                        "candidate_id": candidate_id,
+                        "event": "seed_repeat_started",
+                        "seed": seed,
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+            _run_child(
+                config,
+                output_dir,
+                candidate_id,
+                resume=resume,
+                timeout_seconds=settings.measurement.candidate_timeout_seconds,
+                maximum_swap_growth_bytes=settings.decision.maximum_swap_growth_bytes,
+                swap_poll_interval_seconds=(
+                    settings.measurement.swap_sample_interval_seconds
+                ),
+                minimum_free_memory_percent=(
+                    settings.measurement.environment_minimum_free_memory_percent
+                ),
+                environment_recovery_timeout_seconds=(
+                    settings.measurement.environment_recovery_timeout_seconds
+                ),
+                environment_max_attempts=settings.measurement.environment_max_attempts,
+                prestart_minimum_free_memory_percent=(
+                    settings.measurement.prestart_minimum_free_memory_percent
+                ),
+                prestart_max_other_process_rss_bytes=(
+                    settings.measurement.prestart_max_other_process_rss_bytes
+                ),
+                prestart_timeout_seconds=settings.measurement.prestart_timeout_seconds,
+                prestart_poll_interval_seconds=(
+                    settings.measurement.prestart_poll_interval_seconds
+                ),
+                variance_seed=seed,
+                variance_primary_output_dir=primary_output_dir,
+            )
+    return rank_amendment_4g_records(
+        config,
+        output_dir,
+        amendment_4c_output_dir,
+        amendment_4f_output_dir,
+    )
+
+
 def main() -> None:
     orchestration_started = time.perf_counter()
     orchestration_started_at = datetime.now(UTC).isoformat()
@@ -420,6 +503,23 @@ def main() -> None:
         default=Path("experiments/base_model_candidates"),
         help=argparse.SUPPRESS,
     )
+    parser.add_argument(
+        "--run-amendment-4g",
+        action="store_true",
+        help="run only Amendment 4g top-two repeats and its full-rule ranking",
+    )
+    parser.add_argument(
+        "--amendment-4c-output-dir",
+        type=Path,
+        default=Path("experiments/base_model_candidates/amendment-4c"),
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--amendment-4f-output-dir",
+        type=Path,
+        default=Path("experiments/base_model_candidates/amendment-4f"),
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
 
     settings = load_base_model_evaluation_settings(args.config)
@@ -427,6 +527,35 @@ def main() -> None:
         raise RuntimeError("base-model evaluation config is missing execution settings")
     output_dir = args.output_dir or settings.execution.output_dir
     resume = settings.execution.resume if args.resume is None else args.resume
+    if args.run_amendment_4g:
+        if args.candidate_id is not None or args.variance_seed is not None:
+            parser.error("Amendment 4g orchestration cannot be a candidate worker")
+        ranking = _run_amendment_4g(
+            args.config,
+            output_dir,
+            args.amendment_4c_output_dir,
+            args.amendment_4f_output_dir,
+            settings,
+            resume=resume,
+        )
+        ranking["orchestration"] = {
+            "started_at": orchestration_started_at,
+            "finished_at": datetime.now(UTC).isoformat(),
+            "actual_wall_time_seconds": time.perf_counter() - orchestration_started,
+            "expected_wall_time_seconds": settings.measurement.expected_wall_time_seconds,
+        }
+        write_json(output_dir / "ranking.json", ranking)
+        print(
+            json.dumps(
+                {
+                    "output_dir": str(output_dir),
+                    "decision_status": ranking["decision_status"],
+                    "selected_candidate": ranking["selected_candidate"],
+                },
+                sort_keys=True,
+            )
+        )
+        return
     if args.derive_existing_analysis:
         if args.candidate_id is not None or args.variance_seed is not None:
             parser.error("derived analysis cannot be combined with candidate worker options")

@@ -1,7 +1,8 @@
 # ADR-0008: Adopt a Pretrained Causal Language Model as the Tier 3 Base
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-14
+- **Accepted:** 2026-10-16
 
 ## Context
 
@@ -722,6 +723,71 @@ The pre-registered Amendment 4f protocol is:
    unchanged. Fresh candidates run Qwen2.5-0.5B, Qwen2.5-1.5B, then SmolLM2-1.7B, and all new
    evidence is written only under `experiments/base_model_candidates/amendment-4f/`.
 
+### Amendment 4g — available-hardware dispositions and rule-decided selection
+
+Amendment 4g was pre-registered at **2026-10-16T00:13:24+05:30**, after all Amendment 4f
+measurements and before any Amendment 4g gate or seed-repeat run. The Amendment 4c and 4f records
+remain unchanged. This amendment records the repository owner's decision and completes only the
+already configured seed repeats needed for the unchanged selection rule.
+
+The orchestrator's earlier premise that Qwen2.5-0.5B belonged in the top two was an error. The
+owner ruled on 2026-10-16 that the **entire** pre-registered decision rule remains unchanged,
+including hard-constraint eligibility. Qwen2.5-0.5B's completed Amendment 4f record reports a
+candidate peak of **37,610,258,432 bytes**, above the unchanged **28,991,029,248-byte** cap. It is
+therefore ineligible under the footprint rule. Its learned accuracy of `0.6508333333` remains
+reported as information; no owner override is involved, and the owner authorised the registered
+rule to decide without further sign-off.
+
+The owner separately classifies Qwen2.5-1.5B and SmolLM2-1.7B as
+`infeasible_available_hardware`. Both began on a quiet machine: their pre-start checks passed at
+88% and 89% free memory respectively, with no foreign process above the configured heavy-process
+threshold. Their own fp32 full-fine-tuning attempts then drove system free memory through the 5%
+critical floor: Qwen2.5-1.5B reached 3% after 3,266.018 seconds and SmolLM2-1.7B reached 4% after
+1,714.632 seconds. The project's only available training host is this 36 GB Mac. Vertex free-trial
+spot CPU quota is one and blocks every GPU-backed machine before GPU capacity is considered, and
+the owner cannot upgrade it. A base that cannot be trained on this host also cannot be used for
+the project's later training.
+
+That disposition is a property of the configured **full fp32 fine-tuning recipe on the available
+hardware**, not a quality judgement about either model. A lighter recipe, such as LoRA or reduced
+precision applied uniformly to every candidate, might admit them. The owner explicitly chose the
+available-hardware disposition over changing the recipe for all candidates.
+
+The pre-registered Amendment 4g protocol is:
+
+1. The selection set is the five measured candidates SmolLM2-360M, Qwen2.5-0.5B,
+   SmolLM2-135M, Pythia-160M, and GPT-2. Their Amendment 4c and 4f records are reused byte-for-byte.
+   The two owner-dispositioned large candidates are reported in the seven-candidate summary but
+   do not enter ranking.
+2. Apply the complete decision rule unchanged: hard constraints first; then mean learned accuracy
+   with the `0.02` numeric margin and paired family-clustered interval tie test; mean accuracy gain
+   with the same tie handling; combined held-out bits per byte; eligible measured throughput; and
+   unique parameters. The sign test remains diagnostic. In particular, the numeric proximity of
+   SmolLM2-360M (`0.6608333333`) and Qwen2.5-0.5B (`0.6508333333`) cannot bypass Qwen's footprint
+   rejection or cause a hand selection.
+3. Derive the first-pass eligible top two by that full rule before launching repeats. They are
+   expected, but not assumed, to be SmolLM2-360M and SmolLM2-135M. Run their configured additional
+   seeds `20261015` and `20261016` under the Amendment 4f rules: quiet-machine pre-start; swap may
+   compromise throughput only; abort at the 5% free-memory floor, six hours, or a foreign heavy
+   process; and use the already selected learning rate.
+4. For each of seeds `20261014`, `20261015`, and `20261016`, apply the **full decision rule** to
+   that seed's two records, including hard constraints, clustered comparisons, sign-test
+   diagnostics, and every later tie-breaker. Report `top_two_seed_repeat_agreement` with each
+   seed's winner and rule evidence. Select only if every configured seed is complete and yields
+   the same winner. Any missing or invalid repeat yields `measurement_incomplete`; any winner
+   disagreement yields `selection_unstable`. Both outcomes fail closed with no selected base.
+5. All new run evidence—manifest, repeat records, ranking, log, and PID—is written only under
+   `experiments/base_model_candidates/amendment-4g/`; the pre-registered configuration remains
+   under `configs/`. Offline Hugging Face mode is mandatory; no cloud operation is part of this
+   amendment.
+6. The detached job does not edit this tracked ADR asynchronously. This is the safer status-update
+   path because a reviewer must inspect the completed, manifest-bound ranking before accepting the
+   architectural decision. If and only if the final ranking reports a stable selected candidate,
+   the reviewer changes this ADR's Status to **Accepted**, names the selected repository, exact
+   revision, and tokenizer from the immutable candidate record, and adds a seven-candidate summary
+   table with verdicts. If the ranking is incomplete or unstable, the Status remains **Proposed**
+   and the blocking reason is recorded.
+
 ## Historical powered results and derived analysis
 
 The sweep completed under manifest hash
@@ -837,31 +903,55 @@ The measured task stream is ASCII. The owner may instead define the contract as 
 on NFC-normalised text. That would make Pythia-160M and Qwen2.5-0.5B eligible, at the cost of an
 explicit normalisation step in the verifier contract and a new powered probe before selection.
 
-## Proposed decision
+## Decision
 
-Amendment 4b produces **no valid selection** because its mandatory outcome gate failed before the
-sweep. The owner authorised the pre-registered rule to choose the base if the gate passed, but that
-authority does not override a failed gate. The earlier evidence gave a cautious historical
-preference for SmolLM2-360M, but it cannot answer the expanded seven-candidate question under the
-corrected memory recipe and is not promoted into the Amendment 4b decision. The ADR stays
-**Proposed**.
+Adopt `HuggingFaceTB/SmolLM2-360M` at immutable revision
+`f8027fd0eaeea54caa13c31d31b9fdc459c38b49` with its `GPT2Tokenizer` as Aptivra's Tier 3 base.
+The repository, revision, and tokenizer are taken from `adr_status_instruction` in
+`experiments/base_model_candidates/amendment-4g/ranking.json`, which is bound to the immutable
+candidate manifests; they are not inferred from display names.
 
-Amendment 4c superseded only the invalid environment-verdict mechanism, not the frozen 4b
-measurements or owner override. Its incomplete result made no selection. Amendment 4d is parked
-without a cloud resource because the free-trial spot-CPU quota blocks every GPU job. Amendment 4e
-now completes the three missing Mac measurements and combines them with reproduced 4c records.
-The ADR remains **Proposed** until the 4e checks, measurements, combined ranking, and owner review
-are complete.
+The Amendment 4g ranking reports `decision_status: selected`, no missing candidates or seed
+records, and `top_two_seed_repeat_agreement.agrees: true`. The complete rule selected
+SmolLM2-360M over SmolLM2-135M at seeds `20261014`, `20261015`, and `20261016`. For the primary
+seed, the paired family-clustered learned-accuracy difference was `+0.0733`, with a two-sided 95%
+interval of `[+0.0055, +0.1412]`.
 
-## Decisions for the owner
+The following decision summary is generated from that ranking, its record provenance, and the
+candidate manifests:
 
-1. Keep the Vertex path parked unless quota becomes available and a separate owner instruction
-   authorises resource creation. Amendment 4e creates no cloud resource.
-2. Do not select a base model from 4b or 4c: neither produced a complete candidate ranking.
+| Candidate | Verdict | Learned accuracy | Evidence source |
+| --- | --- | ---: | --- |
+| HuggingFaceTB/SmolLM2-360M | completed; eligible; rank 1 | 0.6608 | `experiments/base_model_candidates/amendment-4c/candidates/smollm2-360m-3156f262fc.json` |
+| HuggingFaceTB/SmolLM2-135M | completed; eligible; rank 2 | 0.5875 | `experiments/base_model_candidates/amendment-4c/candidates/smollm2-135m-55985fae75.json` |
+| EleutherAI/pythia-160m | completed; eligible; rank 3 | 0.5642 | `experiments/base_model_candidates/amendment-4c/candidates/pythia-160m-c01af38c88.json` |
+| openai-community/gpt2 | completed; eligible; rank 4 | 0.5300 | `experiments/base_model_candidates/amendment-4c/candidates/gpt2-238f51b7c7.json` |
+| Qwen/Qwen2.5-0.5B | completed; ineligible on own footprint (37.6 GB peak) | 0.6508 (information only) | `experiments/base_model_candidates/amendment-4f/candidates/qwen2.5-0.5b-02d40d8e2a.json` |
+| Qwen/Qwen2.5-1.5B | infeasible on available hardware by owner decision | — | `experiments/base_model_candidates/amendment-4f/process_monitors/qwen2.5-1.5b-attempt-1.json` |
+| HuggingFaceTB/SmolLM2-1.7B | infeasible on available hardware by owner decision | — | `experiments/base_model_candidates/amendment-4f/process_monitors/smollm2-1.7b-attempt-1.json` |
+
+Amendments 4b and 4c produced no valid selection; their stopped and incomplete results remain
+immutable history. Amendment 4f completed Qwen2.5-0.5B, but the unchanged footprint rule makes it
+ineligible. The two larger candidates reached the critical memory floor before completing and
+retain the owner's `infeasible_available_hardware` disposition. No lighter-recipe override was
+made.
+
+## Known limitations and open confirmation
+
+- The decision uses the v1 task stream. T9--T12 are saturated: their family difference is zero
+  for every pair, so all selection evidence comes from only eight signal-bearing families.
+- Learning-rate selection is fragile enough that one validation item can change the chosen rate.
+  The pre-registered mitigation is the three-seed repeat; all three repeats are complete and agree
+  on SmolLM2-360M, but three seeds do not eliminate the underlying fragility.
+- This selection is conditional on full fp32 fine-tuning on the project's available 36 GB Mac.
+  It is not a general quality ordering under reduced precision, adapters, or different hardware.
+- The pre-registered original-recipe confirmation on a cloud GPU remains pending. It is blocked
+  by the free-trial spot-CPU quota that prevents every GPU-backed Vertex job and stays open until
+  quota becomes available and the owner separately authorises cloud execution.
 
 ## Tokenizer and stop-rule contract changes
 
-Acceptance would replace the assumption that token ID equals a UTF-8 byte. Aptivra task families
+This decision replaces the assumption that token ID equals a UTF-8 byte. Aptivra task families
 continue to own decoded answer stop strings, while the adapter maps those strings to tokenized
 generation behavior and also stops on model EOS. Existing `stop_token_ids` byte ordinals remain a
 legacy bridge; integration code must not treat them as subword token IDs.
@@ -876,7 +966,9 @@ that cannot retain prompt plus target within context are rejected, not silently 
 powered run checked its cheap compatibility constraints and excluded it before probe work because
 it is reference-only. Its `12.7898` combined bits per byte in this ADR comes only from the
 archived first underpowered sweep; the powered protocol did not measure its likelihood or
-learnability. No Hub repository, tag, model card, or checkpoint was changed.
+learnability. This decision does not overwrite or repurpose that repository. A new Hub repository
+is required for the integrated SmolLM2-based Aptivra model; its name remains an explicit owner
+decision. No Hub repository, tag, model card, or checkpoint was changed while accepting this ADR.
 
 ## Licence and attribution
 
@@ -900,11 +992,25 @@ acceptance remains with the repository owner.
 
 ### Positive
 
-- The eligible probed candidates now have an auditable, family-clustered comparison and an
-  explicit cost trade-off for owner review.
+- Aptivra now has an immutable pretrained Tier 3 base selection rather than an untrained custom
+  byte-level backbone.
+- The eligible probed candidates have an auditable, family-clustered comparison and a unanimous
+  three-seed rule outcome.
 - The ranking exposes pooled and unsaturated aggregates instead of hiding the 400 non-informative
   successes.
 - Bits per byte remains tokenizer-independent, while immutable records make the run auditable.
+
+### Required follow-on work
+
+- Replace byte-level token assumptions with SmolLM2's `GPT2Tokenizer` throughout training,
+  generation, verification, stop handling, persistence, export, and inference configuration.
+- Integrate the selected SmolLM2 architecture with Aptivra's memory, routed-expert, consolidation,
+  and export paths, with end-to-end and migration coverage before changing the runtime default.
+- Create and publish to a new Hub repository only after the owner supplies its name and separately
+  authorises the remote operation; the historical byte-level repository remains immutable.
+- Complete the pending pre-registered original-recipe cloud-GPU confirmation when quota and owner
+  authorisation are available. Until then, preserve the accepted decision's hardware and recipe
+  qualification in user-facing documentation and model metadata.
 
 ### Negative / trade-offs
 
@@ -922,7 +1028,7 @@ acceptance remains with the repository owner.
   other families reuse training targets, and 360M shows more seed variance than 135M.
 - Pythia-160M and Qwen2.5-0.5B have Amendment 3 learnability results, but those measurements use
   the defective full-logit memory recipe and do not form a complete ranking.
-- ADR-0002's byte-backbone assumptions no longer govern Tier 3 if this proposal is accepted.
+- ADR-0002's byte-backbone assumptions no longer govern Tier 3.
 
 ## Retrospective
 

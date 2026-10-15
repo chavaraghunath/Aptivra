@@ -30,6 +30,7 @@ from transformers import (
 import aptivra.eval.base_model_evaluation as base_eval
 import scripts.evaluate_base_model_candidates as evaluator_cli
 import scripts.run_amendment_4e as amendment_4e_cli
+import scripts.run_amendment_4g as amendment_4g_cli
 from aptivra.eval.base_model_evaluation import (
     BaseModelEvaluationSettings,
     CandidateSpec,
@@ -2768,6 +2769,333 @@ def test_top_two_seed_repeat_agreement_reports_order_stability() -> None:
     flipped = base_eval._top_two_seed_repeat_agreement(summaries, (1, 2, 3))
     assert flipped["complete"] is True
     assert flipped["agrees"] is False
+
+
+def test_amendment_4g_full_rule_seed_agreement_is_stable_or_fails_closed() -> None:
+    settings = DecisionSettings(
+        ("mit",), 1_000_000, 0.25, 0.0, 0.0, 0.02, True, 100, True
+    )
+    accuracy_leader = _decision_record("accuracy", learned=0.51, bpb=2.0)
+    bpb_leader = _decision_record("bpb", learned=0.50, bpb=1.0)
+    stable = base_eval._full_rule_seed_repeat_agreement(
+        {
+            1: [accuracy_leader, bpb_leader],
+            2: [copy.deepcopy(accuracy_leader), copy.deepcopy(bpb_leader)],
+            3: [copy.deepcopy(accuracy_leader), copy.deepcopy(bpb_leader)],
+        },
+        (1, 2, 3),
+        settings,
+    )
+    assert stable["complete"] is True
+    assert stable["agrees"] is True
+    assert stable["seed_winners"] == ["bpb", "bpb", "bpb"]
+
+    changed = _decision_record("accuracy", learned=0.8, bpb=2.0)
+    unstable = base_eval._full_rule_seed_repeat_agreement(
+        {
+            1: [accuracy_leader, bpb_leader],
+            2: [changed, copy.deepcopy(bpb_leader)],
+            3: [copy.deepcopy(accuracy_leader), copy.deepcopy(bpb_leader)],
+        },
+        (1, 2, 3),
+        settings,
+    )
+    assert unstable["complete"] is True
+    assert unstable["agrees"] is False
+    assert unstable["selection_stable_across_seeds"] is False
+
+    incomplete = base_eval._full_rule_seed_repeat_agreement(
+        {1: [accuracy_leader, bpb_leader], 2: None, 3: None},
+        (1, 2, 3),
+        settings,
+    )
+    assert incomplete["complete"] is False
+    assert incomplete["agrees"] is None
+    assert incomplete["missing_seeds"] == [2, 3]
+
+    final: dict[str, object] = {}
+    base_eval._finalize_amendment_4g_selection(final, stable)
+    assert final == {"decision_status": "selected", "selected_candidate": "bpb"}
+    base_eval._finalize_amendment_4g_selection(final, unstable)
+    assert final == {
+        "decision_status": "selection_unstable",
+        "selected_candidate": None,
+    }
+    base_eval._finalize_amendment_4g_selection(final, incomplete)
+    assert final == {
+        "decision_status": "measurement_incomplete",
+        "selected_candidate": None,
+    }
+
+
+def test_amendment_4g_orchestration_runs_only_full_rule_top_two_repeats(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = BaseModelEvaluationSettings(
+        candidates=(),
+        measurement=_settings(tmp_path),
+        decision=DecisionSettings(
+            ("mit",), 1_000_000, 0.25, 0.0, 0.0, 0.02, True, 100, True
+        ),
+    )
+    ranking = {
+        "ranked_candidates": [
+            {"candidate_id": "smollm2-360m"},
+            {"candidate_id": "smollm2-135m"},
+        ]
+    }
+    rank_calls: list[tuple[object, ...]] = []
+    child_calls: list[tuple[str, int, Path | None]] = []
+
+    def fake_rank(*args: object) -> dict[str, object]:
+        rank_calls.append(args)
+        return copy.deepcopy(ranking)
+
+    def fake_child(
+        config: Path,
+        output_dir: Path,
+        candidate_id: str,
+        **kwargs: object,
+    ) -> None:
+        del config, output_dir
+        child_calls.append(
+            (
+                candidate_id,
+                cast(int, kwargs["variance_seed"]),
+                cast(Path | None, kwargs["variance_primary_output_dir"]),
+            )
+        )
+
+    monkeypatch.setattr(evaluator_cli, "rank_amendment_4g_records", fake_rank)
+    monkeypatch.setattr(evaluator_cli, "_run_child", fake_child)
+    prior_4c = tmp_path / "4c"
+    prior_4f = tmp_path / "4f"
+    evaluator_cli._run_amendment_4g(
+        tmp_path / "config.yaml",
+        tmp_path / "4g",
+        prior_4c,
+        prior_4f,
+        settings,
+        resume=True,
+    )
+    assert len(rank_calls) == 2
+    assert child_calls == [
+        ("smollm2-360m", 8, prior_4c),
+        ("smollm2-360m", 9, prior_4c),
+        ("smollm2-135m", 8, prior_4c),
+        ("smollm2-135m", 9, prior_4c),
+    ]
+
+
+def test_amendment_4g_config_and_detached_launcher_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = Path("configs/base_model_candidates_amendment_4g.yaml")
+    configured = base_eval.load_base_model_evaluation_settings(config_path)
+    assert {candidate.candidate_id for candidate in configured.candidates} == {
+        "smollm2-360m",
+        "qwen2.5-0.5b",
+        "smollm2-135m",
+        "pythia-160m",
+        "gpt2",
+    }
+    assert configured.measurement.variance_seeds == (20261014, 20261015, 20261016)
+    assert configured.measurement.environment_minimum_free_memory_percent == 5.0
+    assert configured.measurement.candidate_timeout_seconds == 21600.0
+    assert configured.decision.learnability_tie_margin == 0.02
+    assert configured.decision.require_complete_candidate_measurements is True
+
+    output_dir = tmp_path / "amendment-4g"
+    launch_settings = replace(
+        configured,
+        execution=base_eval.ExecutionSettings(output_dir=output_dir, resume=True),
+    )
+    monkeypatch.setattr(
+        amendment_4g_cli,
+        "load_base_model_evaluation_settings",
+        lambda path: launch_settings,
+    )
+    monkeypatch.setattr(amendment_4g_cli.shutil, "which", lambda name: "/usr/bin/caffeinate")
+    popen_calls: list[tuple[list[str], dict[str, object]]] = []
+
+    class FakeProcess:
+        pid = 43210
+
+    def fake_popen(command: list[str], **kwargs: object) -> FakeProcess:
+        popen_calls.append((command, kwargs))
+        return FakeProcess()
+
+    monkeypatch.setattr(amendment_4g_cli.subprocess, "Popen", fake_popen)
+    result = amendment_4g_cli.launch_detached(
+        config_path, tmp_path / "4c", tmp_path / "4f"
+    )
+    assert result["pid"] == 43210
+    command, kwargs = popen_calls[0]
+    assert command[:5] == [
+        "/usr/bin/caffeinate",
+        "-dimsu",
+        amendment_4g_cli.sys.executable,
+        "-m",
+        "scripts.evaluate_base_model_candidates",
+    ]
+    assert "--run-amendment-4g" in command
+    assert kwargs["start_new_session"] is True
+    environment = cast(dict[str, str], kwargs["env"])
+    assert environment["HF_HUB_OFFLINE"] == "1"
+    assert environment["TRANSFORMERS_OFFLINE"] == "1"
+    assert (output_dir / "amendment-4g.pid").read_text(encoding="utf-8") == "43210\n"
+
+    monkeypatch.setattr(amendment_4g_cli.os, "kill", lambda pid, signal: None)
+    with pytest.raises(RuntimeError, match="already running with PID 43210"):
+        amendment_4g_cli.launch_detached(
+            config_path, tmp_path / "4c", tmp_path / "4f"
+        )
+
+
+def test_amendment_4g_ranking_reuses_evidence_and_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = Path("configs/base_model_candidates_amendment_4g.yaml")
+    source_4c = tmp_path / "amendment-4c"
+    source_4f = tmp_path / "amendment-4f"
+    output = tmp_path / "amendment-4g"
+    manifests = {
+        source_4c: {"correlation_id": "4c"},
+        source_4f: {"correlation_id": "4f"},
+    }
+    manifest_hashes: dict[Path, str] = {}
+    for directory, manifest in manifests.items():
+        base_eval.write_json(directory / "run_manifest.json", manifest)
+        manifest_hashes[directory] = base_eval.hashlib.sha256(
+            json.dumps(manifest, sort_keys=True, allow_nan=False).encode("utf-8")
+        ).hexdigest()
+
+    specifications = {
+        "smollm2-360m": (source_4c, 0.66, 0.8, 360),
+        "qwen2.5-0.5b": (source_4f, 0.65, 0.7, 500),
+        "smollm2-135m": (source_4c, 0.59, 0.9, 135),
+        "pythia-160m": (source_4c, 0.56, 1.1, 160),
+        "gpt2": (source_4c, 0.53, 1.3, 124),
+    }
+    primary_records: dict[str, dict[str, object]] = {}
+    for candidate_id, (directory, learned, bpb, parameters) in specifications.items():
+        record = _decision_record(
+            candidate_id,
+            learned=learned,
+            gain=learned,
+            bpb=bpb,
+            parameters=parameters,
+        )
+        identity = cast(dict[str, object], record["identity"])
+        identity.update(
+            {
+                "repo_id_or_path": candidate_id,
+                "resolved_revision": candidate_id + "-revision",
+                "tokenizer_type": candidate_id + "-tokenizer",
+            }
+        )
+        record["manifest_sha256"] = manifest_hashes[directory]
+        if candidate_id == "qwen2.5-0.5b":
+            cast(dict[str, object], cast(dict[str, object], record["cost"])["memory"])[
+                "hard_constraint_peak_bytes"
+            ] = 37_610_258_432
+        base_eval.write_json(
+            base_eval._candidate_record_path(directory, candidate_id), record
+        )
+        primary_records[candidate_id] = record
+
+    for candidate_id, minimum, elapsed in (
+        ("qwen2.5-1.5b", 3.0, 3266.018111542013),
+        ("smollm2-1.7b", 4.0, 1714.6318174999906),
+    ):
+        base_eval.write_json(
+            source_4f / "process_monitors" / f"{candidate_id}-attempt-1.json",
+            {
+                "elapsed_seconds": elapsed,
+                "system_free_memory_minimum_percent": minimum,
+                "environment_invalid_reasons": [
+                    "system free-memory percentage fell below the critical floor"
+                ],
+                "prestart_check": {
+                    "normal": True,
+                    "samples": [
+                        {
+                            "free_memory_percent": 88.0,
+                            "other_processes_above_rss_threshold": [],
+                        }
+                    ],
+                },
+            },
+        )
+
+    monkeypatch.setattr(
+        base_eval,
+        "prepare_run_manifest",
+        lambda *args: ({"correlation_id": "4g"}, "4g-manifest"),
+    )
+
+    def write_repeat(candidate_id: str, seed: int, learned: float, bpb: float) -> None:
+        repeat = _decision_record(
+            candidate_id,
+            learned=learned,
+            gain=learned,
+            bpb=bpb,
+            parameters=360 if candidate_id == "smollm2-360m" else 135,
+        )
+        repeat["manifest_sha256"] = "4g-manifest"
+        base_eval.write_json(
+            base_eval._seed_record_path(output, candidate_id, seed), repeat
+        )
+
+    for seed in (20261015, 20261016):
+        write_repeat("smollm2-360m", seed, 0.66, 0.8)
+        write_repeat("smollm2-135m", seed, 0.59, 0.9)
+    stable = base_eval.rank_amendment_4g_records(
+        config_path, output, source_4c, source_4f
+    )
+    assert stable["decision_status"] == "selected"
+    assert stable["selected_candidate"] == "smollm2-360m"
+    assert stable["selection_stable_across_seeds"] is True
+    rejected = {
+        cast(str, row["candidate_id"]): cast(list[str], row["reasons"])
+        for row in cast(list[dict[str, object]], stable["rejected_candidates"])
+    }
+    assert rejected["qwen2.5-0.5b"] == [
+        "peak memory does not leave the configured minimum target-machine headroom"
+    ]
+    assert len(cast(list[object], stable["candidate_verdicts"])) == 7
+    instruction = cast(dict[str, object], stable["adr_status_instruction"])
+    assert instruction["status"] == "Accepted"
+    assert instruction["review_required"] is True
+
+    write_repeat("smollm2-135m", 20261015, 0.9, 0.9)
+    unstable = base_eval.rank_amendment_4g_records(
+        config_path, output, source_4c, source_4f
+    )
+    assert unstable["decision_status"] == "selection_unstable"
+    assert unstable["selected_candidate"] is None
+
+    base_eval._seed_record_path(
+        output, "smollm2-135m", 20261016
+    ).unlink()
+    incomplete = base_eval.rank_amendment_4g_records(
+        config_path, output, source_4c, source_4f
+    )
+    assert incomplete["decision_status"] == "measurement_incomplete"
+    assert incomplete["selected_candidate"] is None
+    assert incomplete["missing_seed_repeat_records"] == [
+        {"candidate_id": "smollm2-135m", "seed": 20261016, "reason": "missing"}
+    ]
+
+    bad_source = copy.deepcopy(primary_records["qwen2.5-0.5b"])
+    bad_source["manifest_sha256"] = "wrong"
+    base_eval.write_json(
+        base_eval._candidate_record_path(source_4f, "qwen2.5-0.5b"), bad_source
+    )
+    with pytest.raises(ValueError, match="candidate record manifest mismatch"):
+        base_eval.rank_amendment_4g_records(
+            config_path, output, source_4c, source_4f
+        )
 
 
 def test_paired_family_comparison_matches_review_and_fails_closed() -> None:

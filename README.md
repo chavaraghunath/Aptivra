@@ -164,11 +164,12 @@ Future runs keep test untouched until retraining the selected rate. Pooled Wilso
 retained but labelled optimistic; selection uses paired family differences and reports results
 with and without four saturated renamed-template families.
 
-The earlier powered evidence cautiously preferred SmolLM2-360M over SmolLM2-135M, but Amendment 3
-showed that full-sequence logits could make the recipe—not the model—breach the memory cap.
-Amendment 4 therefore supersedes that ranking only after all seven candidates are rerun. The NFC
-verifier contract from Amendment 3 remains unchanged. ADR-0008 remains Proposed until the new
-equivalence evidence, ranking, and owner review are complete.
+Amendment 4g selected `HuggingFaceTB/SmolLM2-360M` at immutable revision
+`f8027fd0eaeea54caa13c31d31b9fdc459c38b49` with its `GPT2Tokenizer`. The complete rule selected
+it over SmolLM2-135M at all three configured seeds, and reviewer acceptance moved ADR-0008 to
+Accepted. The choice is conditional on full fp32 fine-tuning on the available 36 GB Mac; the
+pre-registered original-recipe cloud-GPU confirmation remains open because free-trial quota
+blocks every GPU-backed Vertex job. The NFC verifier contract from Amendment 3 remains unchanged.
 
 ### Amendment 4d Vertex preparation (parked)
 

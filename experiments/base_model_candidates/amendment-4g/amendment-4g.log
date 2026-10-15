@@ -1,0 +1,5 @@
+{"candidate_id": "smollm2-360m", "event": "seed_repeat_started", "seed": 20261015}
+{"candidate_id": "smollm2-360m", "event": "seed_repeat_started", "seed": 20261016}
+{"candidate_id": "smollm2-135m", "event": "seed_repeat_started", "seed": 20261015}
+{"candidate_id": "smollm2-135m", "event": "seed_repeat_started", "seed": 20261016}
+{"decision_status": "selected", "output_dir": "/private/tmp/claude-501/-Users-raghunath-code-personal-Aptivra/3d0ae4d3-db27-4c77-9f8c-f1a1f27a2506/scratchpad/wt/base/experiments/base_model_candidates/amendment-4g", "selected_candidate": "smollm2-360m"}

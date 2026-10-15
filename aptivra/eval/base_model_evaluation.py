@@ -6838,6 +6838,92 @@ def _top_two_seed_repeat_agreement(
     }
 
 
+def _full_rule_seed_repeat_agreement(
+    records_by_seed: Mapping[int, Sequence[Mapping[str, object]] | None],
+    seeds: Sequence[int],
+    settings: DecisionSettings,
+) -> dict[str, object]:
+    """Apply the complete decision rule per seed and fail closed on disagreement."""
+    runs: list[dict[str, object]] = []
+    missing_seeds: list[int] = []
+    winners: list[str] = []
+    candidate_ids: list[str] = []
+    for seed in seeds:
+        records = records_by_seed.get(seed)
+        if records is None or len(records) != 2:
+            missing_seeds.append(seed)
+            runs.append(
+                {
+                    "seed": seed,
+                    "decision_status": "measurement_incomplete",
+                    "selected_candidate": None,
+                    "reason": "both top-two records are required for this seed",
+                }
+            )
+            continue
+        ids = [str(record.get("candidate_id")) for record in records]
+        if len(set(ids)) != 2:
+            raise ValueError("seed repeat records must contain two distinct candidates")
+        if not candidate_ids:
+            candidate_ids = ids
+        elif set(ids) != set(candidate_ids):
+            raise ValueError("seed repeat candidate set differs across seeds")
+        decision = apply_decision_rule(records, settings)
+        winner = decision.get("selected_candidate")
+        if not isinstance(winner, str):
+            missing_seeds.append(seed)
+        else:
+            winners.append(winner)
+        runs.append(
+            {
+                "seed": seed,
+                "decision_status": decision["decision_status"],
+                "selected_candidate": winner,
+                "missing_candidates": decision["missing_candidates"],
+                "ranked_candidates": decision["ranked_candidates"],
+                "rejected_candidates": decision["rejected_candidates"],
+                "pairwise_family_clustered_comparisons": decision[
+                    "pairwise_family_clustered_comparisons"
+                ],
+            }
+        )
+    complete = not missing_seeds and len(winners) == len(seeds)
+    agrees = len(set(winners)) == 1 if complete else None
+    return {
+        "candidate_ids": candidate_ids,
+        "configured_seeds": list(seeds),
+        "comparison": "complete pre-registered decision rule applied independently per seed",
+        "complete": complete,
+        "agrees": agrees,
+        "selection_stable_across_seeds": agrees,
+        "missing_seeds": missing_seeds,
+        "seed_winners": winners,
+        "runs": runs,
+    }
+
+
+def _finalize_amendment_4g_selection(
+    ranking: dict[str, object], agreement: Mapping[str, object]
+) -> None:
+    """Set the 4g verdict, selecting only a complete unanimous seed winner."""
+    ranking["selected_candidate"] = None
+    if agreement.get("complete") is not True:
+        ranking["decision_status"] = "measurement_incomplete"
+        return
+    if agreement.get("agrees") is not True:
+        ranking["decision_status"] = "selection_unstable"
+        return
+    seed_winners = agreement.get("seed_winners")
+    if (
+        not isinstance(seed_winners, list)
+        or not seed_winners
+        or not all(isinstance(item, str) for item in seed_winners)
+    ):
+        raise ValueError("complete seed agreement has no valid winners")
+    ranking["decision_status"] = "selected"
+    ranking["selected_candidate"] = seed_winners[0]
+
+
 def derive_existing_records_analysis(
     config_path: Path | str, output_dir: Path | str
 ) -> tuple[dict[str, object], dict[str, object]]:
@@ -7419,6 +7505,203 @@ def rank_amendment_4e_records(
     ranking["top_two_seed_repeat_agreement"] = _top_two_seed_repeat_agreement(
         seed_variance, settings.measurement.variance_seeds
     )
+    write_json(destination / "ranking.json", ranking)
+    return ranking
+
+
+def rank_amendment_4g_records(
+    config_path: Path | str,
+    output_dir: Path | str,
+    amendment_4c_output_dir: Path | str,
+    amendment_4f_output_dir: Path | str,
+) -> dict[str, object]:
+    """Rank the five measured candidates and decide only on unanimous seed repeats."""
+    settings = load_base_model_evaluation_settings(config_path)
+    destination = Path(output_dir)
+    source_4c = Path(amendment_4c_output_dir)
+    source_4f = Path(amendment_4f_output_dir)
+    expected_candidate_ids = {
+        "gpt2",
+        "smollm2-135m",
+        "pythia-160m",
+        "smollm2-360m",
+        "qwen2.5-0.5b",
+    }
+    configured_candidate_ids = {
+        candidate.candidate_id for candidate in settings.candidates
+    }
+    if configured_candidate_ids != expected_candidate_ids:
+        raise ValueError("Amendment 4g config must contain exactly the five measured candidates")
+    if settings.measurement.variance_top_candidates != 2:
+        raise ValueError("Amendment 4g requires exactly two seed-repeat leaders")
+    if settings.measurement.variance_seeds != (20261014, 20261015, 20261016):
+        raise ValueError("Amendment 4g requires the three pre-registered seeds")
+    manifest, manifest_sha256 = prepare_run_manifest(config_path, destination, settings)
+
+    def manifest_identity(directory: Path) -> str:
+        value = _read_json(directory / "run_manifest.json")
+        return hashlib.sha256(
+            json.dumps(value, sort_keys=True, allow_nan=False).encode("utf-8")
+        ).hexdigest()
+
+    source_manifests = {
+        source_4c: manifest_identity(source_4c),
+        source_4f: manifest_identity(source_4f),
+    }
+    source_by_candidate = {
+        "gpt2": source_4c,
+        "smollm2-135m": source_4c,
+        "pythia-160m": source_4c,
+        "smollm2-360m": source_4c,
+        "qwen2.5-0.5b": source_4f,
+    }
+    records: list[dict[str, object]] = []
+    provenance: list[dict[str, object]] = []
+    record_by_id: dict[str, dict[str, object]] = {}
+    for candidate_id, source_root in source_by_candidate.items():
+        path = _candidate_record_path(source_root, candidate_id)
+        if not path.is_file():
+            raise FileNotFoundError(f"Amendment 4g source record is missing: {path}")
+        record = _read_json(path)
+        if record.get("candidate_id") != candidate_id:
+            raise ValueError(f"candidate record identity mismatch: {path}")
+        expected_manifest = source_manifests[source_root]
+        if record.get("manifest_sha256") != expected_manifest:
+            raise ValueError(f"candidate record manifest mismatch: {path}")
+        records.append(record)
+        record_by_id[candidate_id] = record
+        provenance.append(
+            {
+                "candidate_id": candidate_id,
+                "protocol": source_root.name,
+                "path": str(path),
+                "sha256": sha256_file(path),
+                "manifest_sha256": expected_manifest,
+            }
+        )
+
+    ranking = apply_decision_rule(records, settings.decision)
+    ranking["manifest_sha256"] = manifest_sha256
+    ranking["correlation_id"] = str(manifest["correlation_id"])
+    ranking["record_provenance"] = provenance
+    ranking["candidate_set"] = list(source_by_candidate)
+    owner_dispositions: list[dict[str, object]] = []
+    for candidate_id in ("qwen2.5-1.5b", "smollm2-1.7b"):
+        monitor_path = (
+            source_4f / "process_monitors" / f"{candidate_id}-attempt-1.json"
+        )
+        monitor = _read_json(monitor_path)
+        prestart = monitor.get("prestart_check")
+        reasons = monitor.get("environment_invalid_reasons")
+        prestart_samples = (
+            prestart.get("samples") if isinstance(prestart, dict) else None
+        )
+        if (
+            not isinstance(prestart, dict)
+            or prestart.get("normal") is not True
+            or not isinstance(prestart_samples, list)
+            or not prestart_samples
+            or any(
+                not isinstance(sample, dict)
+                or sample.get("other_processes_above_rss_threshold") != []
+                for sample in prestart_samples
+            )
+            or reasons
+            != ["system free-memory percentage fell below the critical floor"]
+        ):
+            raise ValueError(f"owner disposition evidence is malformed: {monitor_path}")
+        owner_dispositions.append(
+            {
+                "candidate_id": candidate_id,
+                "verdict": "infeasible_available_hardware",
+                "evidence": {
+                    "process_monitor": str(monitor_path),
+                    "sha256": sha256_file(monitor_path),
+                    "elapsed_seconds": monitor["elapsed_seconds"],
+                    "minimum_free_memory_percent": monitor[
+                        "system_free_memory_minimum_percent"
+                    ],
+                    "prestart_check": prestart,
+                },
+            }
+        )
+    ranking["owner_dispositions"] = owner_dispositions
+
+    ranked_rows = cast(list[dict[str, object]], ranking["ranked_candidates"])
+    leaders = [str(row["candidate_id"]) for row in ranked_rows[:2]]
+    records_by_seed: dict[int, Sequence[Mapping[str, object]] | None] = {}
+    missing_repeat_records: list[dict[str, object]] = []
+    for seed in settings.measurement.variance_seeds:
+        seed_records: list[dict[str, object]] = []
+        for candidate_id in leaders:
+            if seed == settings.measurement.seed:
+                seed_records.append(record_by_id[candidate_id])
+                continue
+            path = _seed_record_path(destination, candidate_id, seed)
+            if not path.is_file():
+                missing_repeat_records.append(
+                    {"candidate_id": candidate_id, "seed": seed, "reason": "missing"}
+                )
+                continue
+            record = _read_json(path)
+            if record.get("candidate_id") != candidate_id:
+                raise ValueError(f"seed record identity mismatch: {path}")
+            if record.get("manifest_sha256") != manifest_sha256:
+                raise ValueError(f"seed record manifest mismatch: {path}")
+            seed_records.append(record)
+        records_by_seed[seed] = seed_records if len(seed_records) == 2 else None
+
+    agreement = _full_rule_seed_repeat_agreement(
+        records_by_seed,
+        settings.measurement.variance_seeds,
+        settings.decision,
+    )
+    ranking["top_two_seed_repeat_agreement"] = agreement
+    ranking["selection_stable_across_seeds"] = agreement[
+        "selection_stable_across_seeds"
+    ]
+    ranking["missing_seed_repeat_records"] = missing_repeat_records
+    _finalize_amendment_4g_selection(ranking, agreement)
+
+    rank_by_id = {
+        str(row["candidate_id"]): int(cast(int, row["rank"]))
+        for row in ranked_rows
+    }
+    rejected_by_id = {
+        str(row["candidate_id"]): cast(list[str], row["reasons"])
+        for row in cast(list[dict[str, object]], ranking["rejected_candidates"])
+    }
+    candidate_verdicts: list[dict[str, object]] = []
+    for candidate_id in source_by_candidate:
+        if candidate_id in rank_by_id:
+            verdict = "eligible"
+            detail: object = {"rank": rank_by_id[candidate_id]}
+        else:
+            verdict = "ineligible"
+            detail = {"reasons": rejected_by_id.get(candidate_id, [])}
+        candidate_verdicts.append(
+            {"candidate_id": candidate_id, "verdict": verdict, "detail": detail}
+        )
+    candidate_verdicts.extend(cast(list[dict[str, object]], ranking["owner_dispositions"]))
+    ranking["candidate_verdicts"] = candidate_verdicts
+
+    selected = ranking["selected_candidate"]
+    if isinstance(selected, str):
+        identity = cast(dict[str, object], record_by_id[selected]["identity"])
+        ranking["adr_status_instruction"] = {
+            "status": "Accepted",
+            "candidate_id": selected,
+            "repository": identity["repo_id_or_path"],
+            "revision": identity["resolved_revision"],
+            "tokenizer": identity["tokenizer_type"],
+            "review_required": True,
+        }
+    else:
+        ranking["adr_status_instruction"] = {
+            "status": "Proposed",
+            "reason": ranking["decision_status"],
+            "review_required": True,
+        }
     write_json(destination / "ranking.json", ranking)
     return ranking
 
