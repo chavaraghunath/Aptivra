@@ -1,0 +1,1159 @@
+{
+  "amended_ranking": {
+    "ranked_candidates": [
+      {
+        "candidate_id": "smollm2-360m",
+        "combined_heldout_bits_per_byte": 0.8261824892888987,
+        "family_clustered_mean_accuracy_gain_interval": {
+          "clusters": 12,
+          "confidence_level": 0.95,
+          "critical_value": 2.2009851600916384,
+          "degrees_of_freedom": 11,
+          "lower": 0.4071612756456233,
+          "mean": 0.6533333333333333,
+          "method": "two-sided Student-t interval across task-family values",
+          "sample_standard_deviation": 0.38744696606781104,
+          "standard_error": 0.11184630507797726,
+          "upper": 0.8995053910210433
+        },
+        "family_clustered_mean_learned_accuracy_interval": {
+          "clusters": 12,
+          "confidence_level": 0.95,
+          "critical_value": 2.2009851600916384,
+          "degrees_of_freedom": 11,
+          "lower": 0.4114805161224183,
+          "mean": 0.6566666666666667,
+          "method": "two-sided Student-t interval across task-family values",
+          "sample_standard_deviation": 0.385895259772845,
+          "standard_error": 0.11139836605442632,
+          "upper": 0.9018528172109151
+        },
+        "mean_accuracy_gain": 0.6533333333333333,
+        "mean_accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.6208005291335589,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.6816965634122008
+        },
+        "mean_learned_accuracy": 0.6566666666666666,
+        "mean_learned_accuracy_wilson_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.6293399145575019,
+          "upper": 0.6829935719203076
+        },
+        "pooled_interval_precision_note": "optimistic: treats items clustered within task families as independent Bernoulli trials",
+        "rank": 1,
+        "training_tokens_per_second": 1148.0341457698607,
+        "unique_parameters": 361821120
+      },
+      {
+        "candidate_id": "smollm2-135m",
+        "combined_heldout_bits_per_byte": 0.9283719906497278,
+        "family_clustered_mean_accuracy_gain_interval": {
+          "clusters": 12,
+          "confidence_level": 0.95,
+          "critical_value": 2.2009851600916384,
+          "degrees_of_freedom": 11,
+          "lower": 0.33215460307451083,
+          "mean": 0.5875,
+          "method": "two-sided Student-t interval across task-family values",
+          "sample_standard_deviation": 0.4018847641256927,
+          "standard_error": 0.11601413837558897,
+          "upper": 0.8428453969254892
+        },
+        "family_clustered_mean_learned_accuracy_interval": {
+          "clusters": 12,
+          "confidence_level": 0.95,
+          "critical_value": 2.2009851600916384,
+          "degrees_of_freedom": 11,
+          "lower": 0.33718411580934127,
+          "mean": 0.59,
+          "method": "two-sided Student-t interval across task-family values",
+          "sample_standard_deviation": 0.3979035972786282,
+          "standard_error": 0.11486487450016822,
+          "upper": 0.8428158841906587
+        },
+        "mean_accuracy_gain": 0.5875,
+        "mean_accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.5546037187703438,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.6166468555214426
+        },
+        "mean_learned_accuracy": 0.59,
+        "mean_learned_accuracy_wilson_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.5619281824706762,
+          "upper": 0.6174974374208314
+        },
+        "pooled_interval_precision_note": "optimistic: treats items clustered within task families as independent Bernoulli trials",
+        "rank": 2,
+        "training_tokens_per_second": 2218.016367257935,
+        "unique_parameters": 134515008
+      },
+      {
+        "candidate_id": "gpt2",
+        "combined_heldout_bits_per_byte": 1.3838905581672705,
+        "family_clustered_mean_accuracy_gain_interval": {
+          "clusters": 12,
+          "confidence_level": 0.95,
+          "critical_value": 2.2009851600916384,
+          "degrees_of_freedom": 11,
+          "lower": 0.2621152727160325,
+          "mean": 0.53,
+          "method": "two-sided Student-t interval across task-family values",
+          "sample_standard_deviation": 0.4216202513680247,
+          "standard_error": 0.12171128281156339,
+          "upper": 0.7978847272839675
+        },
+        "family_clustered_mean_learned_accuracy_interval": {
+          "clusters": 12,
+          "confidence_level": 0.95,
+          "critical_value": 2.2009851600916384,
+          "degrees_of_freedom": 11,
+          "lower": 0.2621152727160325,
+          "mean": 0.53,
+          "method": "two-sided Student-t interval across task-family values",
+          "sample_standard_deviation": 0.4216202513680247,
+          "standard_error": 0.12171128281156339,
+          "upper": 0.7978847272839675
+        },
+        "mean_accuracy_gain": 0.53,
+        "mean_accuracy_gain_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.4985195215903978,
+          "method": "Newcombe interval from Wilson component intervals",
+          "upper": 0.5580980177707032
+        },
+        "mean_learned_accuracy": 0.53,
+        "mean_learned_accuracy_wilson_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.5017105221931327,
+          "upper": 0.5580980177707032
+        },
+        "pooled_interval_precision_note": "optimistic: treats items clustered within task families as independent Bernoulli trials",
+        "rank": 3,
+        "training_tokens_per_second": 2766.3797152909215,
+        "unique_parameters": 124439808
+      }
+    ],
+    "ranking_order": [
+      "mean learned task accuracy (descending; ties when absolute difference <= 0.02 or the paired family-clustered difference interval intersects the configured practical tie region)",
+      "mean task accuracy gain (descending; same numeric/interval tie rule)",
+      "combined held-out bits per byte (ascending)",
+      "median family probe training tokens per second (descending)",
+      "unique parameters (ascending)"
+    ],
+    "schema_version": "pretrained-base-ranking-v4",
+    "selected_candidate": "smollm2-360m"
+  },
+  "amendment_2_decision_audit": {
+    "amended_selected_candidate": "smollm2-360m",
+    "pre_amendment_selected_candidate": "smollm2-360m",
+    "rule_timing": "Amendment 2 was introduced after independent review of the powered result",
+    "selected_vs_runner_up": {
+      "accuracy_gain_tied": true,
+      "deciding_criterion": "combined held-out bits per byte",
+      "learned_accuracy_tied": true,
+      "runner_up_candidate": "smollm2-135m"
+    },
+    "selection_changed": false
+  },
+  "archived_byte_reference": {
+    "combined_bits_per_byte": 12.789842345604908,
+    "path": "archive/first_underpowered_sweep/candidates/aptivra-byte-reference-f4ab1151ed.json",
+    "provenance": "archived first underpowered sweep; not measured by the powered protocol",
+    "sha256": "5ae769360aca527e2957b6aad321a05239ad3e66d631d18085b4998e6d62d8cd"
+  },
+  "correlation_id": "b8f8b4a3-f0c5-48d2-82c1-ae78a4f9a03c",
+  "derivation": "analysis-only computation from frozen measurement records; no model was loaded, trained, or evaluated",
+  "manifest_sha256": "c332b3bcf758985d7a89174b151bebb87cab1bc2a5d10834fc2ba70066d8ba41",
+  "paired_family_clustered_comparisons": [
+    {
+      "difference_definition": "first candidate minus second candidate",
+      "family_differences": [
+        0.05,
+        0.0,
+        0.05,
+        0.06000000000000005,
+        0.08999999999999997,
+        0.34,
+        0.030000000000000027,
+        0.18000000000000005,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "family_ids": [
+        "T1_modular_arithmetic",
+        "T2_string_transforms",
+        "T3_list_operations",
+        "T4_syntax_matching",
+        "T5_boolean_logic",
+        "T6_sequence_completion",
+        "T7_state_machines",
+        "T8_python_microsynth",
+        "T9_algo_synth",
+        "T10_docstring_code",
+        "T11_bug_fixer",
+        "T12_type_inferrer"
+      ],
+      "first_candidate_id": "smollm2-360m",
+      "mean_difference_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": 0.0024784126174924037,
+        "mean": 0.06666666666666668,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.10102504939895159,
+        "standard_error": 0.02916341973268997,
+        "upper": 0.13085492071584096
+      },
+      "metric": "learned_accuracy",
+      "second_candidate_id": "smollm2-135m",
+      "sign_test": {
+        "method": "exact two-sided binomial sign test with ties excluded",
+        "negative": 0,
+        "non_tied": 7,
+        "positive": 7,
+        "tied": 5,
+        "two_sided_p_value": 0.015625
+      }
+    },
+    {
+      "difference_definition": "first candidate minus second candidate",
+      "family_differences": [
+        0.08,
+        0.0,
+        0.05,
+        0.06000000000000005,
+        0.08999999999999997,
+        0.34,
+        -0.009999999999999953,
+        0.18000000000000005,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "family_ids": [
+        "T1_modular_arithmetic",
+        "T2_string_transforms",
+        "T3_list_operations",
+        "T4_syntax_matching",
+        "T5_boolean_logic",
+        "T6_sequence_completion",
+        "T7_state_machines",
+        "T8_python_microsynth",
+        "T9_algo_synth",
+        "T10_docstring_code",
+        "T11_bug_fixer",
+        "T12_type_inferrer"
+      ],
+      "first_candidate_id": "smollm2-360m",
+      "mean_difference_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": 0.0003923117831618056,
+        "mean": 0.06583333333333334,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.10299676370320252,
+        "standard_error": 0.029732604624852124,
+        "upper": 0.13127435488350486
+      },
+      "metric": "accuracy_gain",
+      "second_candidate_id": "smollm2-135m",
+      "sign_test": {
+        "method": "exact two-sided binomial sign test with ties excluded",
+        "negative": 1,
+        "non_tied": 7,
+        "positive": 6,
+        "tied": 5,
+        "two_sided_p_value": 0.125
+      }
+    },
+    {
+      "difference_definition": "first candidate minus second candidate",
+      "family_differences": [
+        0.0,
+        0.01,
+        0.13,
+        0.20000000000000007,
+        0.16000000000000003,
+        0.7100000000000001,
+        0.040000000000000036,
+        0.2700000000000001,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "family_ids": [
+        "T1_modular_arithmetic",
+        "T2_string_transforms",
+        "T3_list_operations",
+        "T4_syntax_matching",
+        "T5_boolean_logic",
+        "T6_sequence_completion",
+        "T7_state_machines",
+        "T8_python_microsynth",
+        "T9_algo_synth",
+        "T10_docstring_code",
+        "T11_bug_fixer",
+        "T12_type_inferrer"
+      ],
+      "first_candidate_id": "smollm2-360m",
+      "mean_difference_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": -0.004481487267077672,
+        "mean": 0.12666666666666668,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.20641235574950598,
+        "standard_error": 0.05958611457802104,
+        "upper": 0.25781482060041105
+      },
+      "metric": "learned_accuracy",
+      "second_candidate_id": "gpt2",
+      "sign_test": {
+        "method": "exact two-sided binomial sign test with ties excluded",
+        "negative": 0,
+        "non_tied": 7,
+        "positive": 7,
+        "tied": 5,
+        "two_sided_p_value": 0.015625
+      }
+    },
+    {
+      "difference_definition": "first candidate minus second candidate",
+      "family_differences": [
+        0.0,
+        0.01,
+        0.13,
+        0.20000000000000007,
+        0.16000000000000003,
+        0.7100000000000001,
+        5.551115123125783e-17,
+        0.2700000000000001,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "family_ids": [
+        "T1_modular_arithmetic",
+        "T2_string_transforms",
+        "T3_list_operations",
+        "T4_syntax_matching",
+        "T5_boolean_logic",
+        "T6_sequence_completion",
+        "T7_state_machines",
+        "T8_python_microsynth",
+        "T9_algo_synth",
+        "T10_docstring_code",
+        "T11_bug_fixer",
+        "T12_type_inferrer"
+      ],
+      "first_candidate_id": "smollm2-360m",
+      "mean_difference_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": -0.008984897409132456,
+        "mean": 0.12333333333333336,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.2082539242600172,
+        "standard_error": 0.060117729615658436,
+        "upper": 0.2556515640757992
+      },
+      "metric": "accuracy_gain",
+      "second_candidate_id": "gpt2",
+      "sign_test": {
+        "method": "exact two-sided binomial sign test with ties excluded",
+        "negative": 0,
+        "non_tied": 7,
+        "positive": 7,
+        "tied": 5,
+        "two_sided_p_value": 0.015625
+      }
+    },
+    {
+      "difference_definition": "first candidate minus second candidate",
+      "family_differences": [
+        -0.05,
+        0.01,
+        0.08,
+        0.14,
+        0.07000000000000006,
+        0.37,
+        0.010000000000000009,
+        0.09000000000000002,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "family_ids": [
+        "T1_modular_arithmetic",
+        "T2_string_transforms",
+        "T3_list_operations",
+        "T4_syntax_matching",
+        "T5_boolean_logic",
+        "T6_sequence_completion",
+        "T7_state_machines",
+        "T8_python_microsynth",
+        "T9_algo_synth",
+        "T10_docstring_code",
+        "T11_bug_fixer",
+        "T12_type_inferrer"
+      ],
+      "first_candidate_id": "smollm2-135m",
+      "mean_difference_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": -0.010491942930281759,
+        "mean": 0.06000000000000001,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.11094634247730256,
+        "standard_error": 0.03202745034743752,
+        "upper": 0.13049194293028177
+      },
+      "metric": "learned_accuracy",
+      "second_candidate_id": "gpt2",
+      "sign_test": {
+        "method": "exact two-sided binomial sign test with ties excluded",
+        "negative": 1,
+        "non_tied": 8,
+        "positive": 7,
+        "tied": 4,
+        "two_sided_p_value": 0.0703125
+      }
+    },
+    {
+      "difference_definition": "first candidate minus second candidate",
+      "family_differences": [
+        -0.08,
+        0.01,
+        0.08,
+        0.14,
+        0.07000000000000006,
+        0.37,
+        0.010000000000000009,
+        0.09000000000000002,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "family_ids": [
+        "T1_modular_arithmetic",
+        "T2_string_transforms",
+        "T3_list_operations",
+        "T4_syntax_matching",
+        "T5_boolean_logic",
+        "T6_sequence_completion",
+        "T7_state_machines",
+        "T8_python_microsynth",
+        "T9_algo_synth",
+        "T10_docstring_code",
+        "T11_bug_fixer",
+        "T12_type_inferrer"
+      ],
+      "first_candidate_id": "smollm2-135m",
+      "mean_difference_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": -0.014898949576645656,
+        "mean": 0.05750000000000001,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.11394775517354833,
+        "standard_error": 0.03289388356150085,
+        "upper": 0.12989894957664566
+      },
+      "metric": "accuracy_gain",
+      "second_candidate_id": "gpt2",
+      "sign_test": {
+        "method": "exact two-sided binomial sign test with ties excluded",
+        "negative": 1,
+        "non_tied": 8,
+        "positive": 7,
+        "tied": 4,
+        "two_sided_p_value": 0.0703125
+      }
+    }
+  ],
+  "saturated_family_analysis": {
+    "candidate_aggregates": [
+      {
+        "all_families": {
+          "family_clustered_analysis": {
+            "clusters": 12,
+            "confidence_level": 0.95,
+            "critical_value": 2.2009851600916384,
+            "degrees_of_freedom": 11,
+            "lower": 0.33718411580934127,
+            "mean": 0.59,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.3979035972786282,
+            "standard_error": 0.11486487450016822,
+            "upper": 0.8428158841906587
+          },
+          "pooled_item_analysis": {
+            "accuracy": 0.59,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 708,
+            "total": 1200,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.5619281824706762,
+              "upper": 0.6174974374208314
+            }
+          }
+        },
+        "candidate_id": "smollm2-135m",
+        "excluding_saturated_families": {
+          "excluded_family_ids": [
+            "T10_docstring_code",
+            "T11_bug_fixer",
+            "T12_type_inferrer",
+            "T9_algo_synth"
+          ],
+          "family_clustered_analysis": {
+            "clusters": 8,
+            "confidence_level": 0.95,
+            "critical_value": 2.364624251592784,
+            "degrees_of_freedom": 7,
+            "lower": 0.11446708429258173,
+            "mean": 0.385,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.32359586788815103,
+            "standard_error": 0.11440841627382888,
+            "upper": 0.6555329157074183
+          },
+          "no_signal_bearing_families_remain": false,
+          "pooled_item_analysis": {
+            "accuracy": 0.385,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 308,
+            "total": 800,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.35190703159635445,
+              "upper": 0.4191921099309512
+            }
+          }
+        }
+      },
+      {
+        "all_families": {
+          "family_clustered_analysis": {
+            "clusters": 12,
+            "confidence_level": 0.95,
+            "critical_value": 2.2009851600916384,
+            "degrees_of_freedom": 11,
+            "lower": 0.4114805161224183,
+            "mean": 0.6566666666666667,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.385895259772845,
+            "standard_error": 0.11139836605442632,
+            "upper": 0.9018528172109151
+          },
+          "pooled_item_analysis": {
+            "accuracy": 0.6566666666666666,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 788,
+            "total": 1200,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.6293399145575019,
+              "upper": 0.6829935719203076
+            }
+          }
+        },
+        "candidate_id": "smollm2-360m",
+        "excluding_saturated_families": {
+          "excluded_family_ids": [
+            "T10_docstring_code",
+            "T11_bug_fixer",
+            "T12_type_inferrer",
+            "T9_algo_synth"
+          ],
+          "family_clustered_analysis": {
+            "clusters": 8,
+            "confidence_level": 0.95,
+            "critical_value": 2.364624251592784,
+            "degrees_of_freedom": 7,
+            "lower": 0.18014290057482146,
+            "mean": 0.48500000000000004,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.36465247643671445,
+            "standard_error": 0.12892411943243426,
+            "upper": 0.7898570994251786
+          },
+          "no_signal_bearing_families_remain": false,
+          "pooled_item_analysis": {
+            "accuracy": 0.485,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 388,
+            "total": 800,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.45052245822058173,
+              "upper": 0.5196209080655886
+            }
+          }
+        }
+      },
+      {
+        "all_families": {
+          "family_clustered_analysis": {
+            "clusters": 12,
+            "confidence_level": 0.95,
+            "critical_value": 2.2009851600916384,
+            "degrees_of_freedom": 11,
+            "lower": 0.2621152727160325,
+            "mean": 0.53,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.4216202513680247,
+            "standard_error": 0.12171128281156339,
+            "upper": 0.7978847272839675
+          },
+          "pooled_item_analysis": {
+            "accuracy": 0.53,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 636,
+            "total": 1200,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.5017105221931327,
+              "upper": 0.5580980177707032
+            }
+          }
+        },
+        "candidate_id": "gpt2",
+        "excluding_saturated_families": {
+          "excluded_family_ids": [
+            "T10_docstring_code",
+            "T11_bug_fixer",
+            "T12_type_inferrer",
+            "T9_algo_synth"
+          ],
+          "family_clustered_analysis": {
+            "clusters": 8,
+            "confidence_level": 0.95,
+            "critical_value": 2.364624251592784,
+            "degrees_of_freedom": 7,
+            "lower": 0.044193723511086636,
+            "mean": 0.295,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.3,
+            "standard_error": 0.10606601717798211,
+            "upper": 0.5458062764889133
+          },
+          "no_signal_bearing_families_remain": false,
+          "pooled_item_analysis": {
+            "accuracy": 0.295,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 236,
+            "total": 800,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.2644384817649496,
+              "upper": 0.3275208574793776
+            }
+          }
+        }
+      }
+    ],
+    "criterion": "learned successes equal total for every eligible probed candidate",
+    "family_ids": [
+      "T10_docstring_code",
+      "T11_bug_fixer",
+      "T12_type_inferrer",
+      "T9_algo_synth"
+    ]
+  },
+  "schema_version": "pretrained-base-derived-analysis-v1",
+  "seed_variance": [
+    {
+      "candidate_id": "smollm2-360m",
+      "completed_seed_count": 3,
+      "configured_seeds": [
+        20261014,
+        20261015,
+        20261016
+      ],
+      "mean_accuracy_gain_across_seeds": 0.633888888888889,
+      "mean_learned_accuracy_across_seeds": 0.6380555555555556,
+      "missing_seeds": [],
+      "runs": [
+        {
+          "mean_accuracy_gain": 0.6533333333333333,
+          "mean_learned_accuracy": 0.6566666666666666,
+          "record": "candidates/smollm2-360m-3156f262fc.json",
+          "seed": 20261014
+        },
+        {
+          "mean_accuracy_gain": 0.6166666666666667,
+          "mean_learned_accuracy": 0.6208333333333333,
+          "record": "seed_runs/smollm2-360m-3156f262fc-seed-20261015.json",
+          "seed": 20261015
+        },
+        {
+          "mean_accuracy_gain": 0.6316666666666667,
+          "mean_learned_accuracy": 0.6366666666666667,
+          "record": "seed_runs/smollm2-360m-3156f262fc-seed-20261016.json",
+          "seed": 20261016
+        }
+      ],
+      "sample_standard_deviation_accuracy_gain": 0.018434066692263374,
+      "sample_standard_deviation_learned_accuracy": 0.017956995954326618
+    },
+    {
+      "candidate_id": "smollm2-135m",
+      "completed_seed_count": 3,
+      "configured_seeds": [
+        20261014,
+        20261015,
+        20261016
+      ],
+      "mean_accuracy_gain_across_seeds": 0.5897222222222223,
+      "mean_learned_accuracy_across_seeds": 0.5919444444444445,
+      "missing_seeds": [],
+      "runs": [
+        {
+          "mean_accuracy_gain": 0.5875,
+          "mean_learned_accuracy": 0.59,
+          "record": "candidates/smollm2-135m-55985fae75.json",
+          "seed": 20261014
+        },
+        {
+          "mean_accuracy_gain": 0.5875,
+          "mean_learned_accuracy": 0.5875,
+          "record": "seed_runs/smollm2-135m-55985fae75-seed-20261015.json",
+          "seed": 20261015
+        },
+        {
+          "mean_accuracy_gain": 0.5941666666666667,
+          "mean_learned_accuracy": 0.5983333333333334,
+          "record": "seed_runs/smollm2-135m-55985fae75-seed-20261016.json",
+          "seed": 20261016
+        }
+      ],
+      "sample_standard_deviation_accuracy_gain": 0.00384900179459753,
+      "sample_standard_deviation_learned_accuracy": 0.00567238273796173
+    }
+  ],
+  "source_config": {
+    "path": "powered-sweep-config.yaml",
+    "sha256": "819479ce62ee1fc8a7a916cf84ff190dc39aa9186a78efdcb744f737ae8d69f0"
+  },
+  "source_ranking": {
+    "path": "ranking.json",
+    "schema_version_before_amendment": "pretrained-base-ranking-v3",
+    "sha256_before_amendment": "906f1e9d0cba5e1b47a99d460a8bca09590a53fdaed5ffacb89d7c5168b75f93"
+  },
+  "source_records": [
+    {
+      "candidate_id": "smollm2-135m",
+      "path": "candidates/smollm2-135m-55985fae75.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "d57a6c588a2c035131a6fc851d7a1b0c57dbc602cb9ac6796432ae2a01b0296d"
+    },
+    {
+      "candidate_id": "smollm2-360m",
+      "path": "candidates/smollm2-360m-3156f262fc.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "3254fc06aefd3746daf450f6aa1185490655852b3b3be6a89ea7725c4352689f"
+    },
+    {
+      "candidate_id": "pythia-160m",
+      "path": "candidates/pythia-160m-c01af38c88.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "09f8e473a243e5b2deb2b857feac397ae7fc4fa01ead5aa8b6a652ab95e225c2"
+    },
+    {
+      "candidate_id": "gpt2",
+      "path": "candidates/gpt2-238f51b7c7.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "83cf69e76f97ea33e74588e26b51769ccb999f50c88e6a8de9e113abfefa497a"
+    },
+    {
+      "candidate_id": "qwen2.5-0.5b",
+      "path": "candidates/qwen2.5-0.5b-02d40d8e2a.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "94121847a8426993c7f9bb70dafb416469b29b0c006705d58be8c2a35fa9b38d"
+    },
+    {
+      "candidate_id": "aptivra-byte-reference",
+      "path": "candidates/aptivra-byte-reference-f4ab1151ed.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "6f3fba00fe2dc14425347b0ea8ec3089020a9bebc8eaa4b95b06dd0449b13fef"
+    }
+  ],
+  "source_seed_records": [
+    {
+      "path": "seed_runs/smollm2-135m-55985fae75-seed-20261015.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "7a46b44b9952d82884021f6afd7c1f804928ef6871602a14efc9b05cdb967777"
+    },
+    {
+      "path": "seed_runs/smollm2-135m-55985fae75-seed-20261016.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "6f6dd60b2832ec2b6bc08b856eaed13c7b5ada76b0dbaf650b8db96ddb7e9f1c"
+    },
+    {
+      "path": "seed_runs/smollm2-360m-3156f262fc-seed-20261015.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "da5f2bb9c42efeedd45fcc3950ded50f98856afa210b483963b7cc73fdd58081"
+    },
+    {
+      "path": "seed_runs/smollm2-360m-3156f262fc-seed-20261016.json",
+      "schema_version": "pretrained-base-evaluation-v3",
+      "sha256": "8631127f13d77844c07a4728e5bc209df62dd182408c9180ddcf5906a38b8872"
+    }
+  ],
+  "task_stream_properties": {
+    "all_prompt_and_target_text_ascii": true,
+    "chance_level_definition": "uniform random choice over distinct targets present in the test split; descriptive only and most relevant when the target set is small",
+    "families": [
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 53,
+          "train": 74,
+          "validation": 48
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T1_modular_arithmetic",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.9433962264150944,
+          "distinct_targets": 50,
+          "item_fraction": 0.97,
+          "items": 97
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.018867924528301886
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T2_string_transforms",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.0,
+          "distinct_targets": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.01
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 99,
+          "train": 256,
+          "validation": 100
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T3_list_operations",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.0,
+          "distinct_targets": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.010101010101010102
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 46,
+          "train": 121,
+          "validation": 48
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T4_syntax_matching",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.043478260869565216,
+          "distinct_targets": 2,
+          "item_fraction": 0.56,
+          "items": 56
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.021739130434782608
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 2,
+          "train": 2,
+          "validation": 2
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T5_boolean_logic",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 1.0,
+          "distinct_targets": 2,
+          "item_fraction": 1.0,
+          "items": 100
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.5
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 67,
+          "train": 130,
+          "validation": 67
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T6_sequence_completion",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.6865671641791045,
+          "distinct_targets": 46,
+          "item_fraction": 0.73,
+          "items": 73
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.014925373134328358
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 4,
+          "train": 4,
+          "validation": 4
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T7_state_machines",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 1.0,
+          "distinct_targets": 4,
+          "item_fraction": 1.0,
+          "items": 100
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.25
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 13,
+          "train": 21,
+          "validation": 10
+        },
+        "distinct_template_signatures": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "family_id": "T8_python_microsynth",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.6923076923076923,
+          "distinct_targets": 9,
+          "item_fraction": 0.95,
+          "items": 95
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 0.0,
+          "distinct_templates": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.07692307692307693
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "distinct_template_signatures": {
+          "test": 3,
+          "train": 3,
+          "validation": 3
+        },
+        "family_id": "T9_algo_synth",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.0,
+          "distinct_targets": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 1.0,
+          "distinct_templates": 3,
+          "item_fraction": 1.0,
+          "items": 100
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.01
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "distinct_template_signatures": {
+          "test": 2,
+          "train": 2,
+          "validation": 2
+        },
+        "family_id": "T10_docstring_code",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.0,
+          "distinct_targets": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 1.0,
+          "distinct_templates": 2,
+          "item_fraction": 1.0,
+          "items": 100
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.01
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "distinct_template_signatures": {
+          "test": 2,
+          "train": 2,
+          "validation": 2
+        },
+        "family_id": "T11_bug_fixer",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.0,
+          "distinct_targets": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 1.0,
+          "distinct_templates": 2,
+          "item_fraction": 1.0,
+          "items": 100
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.01
+      },
+      {
+        "all_prompt_and_target_text_ascii": true,
+        "distinct_targets": {
+          "test": 100,
+          "train": 256,
+          "validation": 100
+        },
+        "distinct_template_signatures": {
+          "test": 2,
+          "train": 2,
+          "validation": 2
+        },
+        "family_id": "T12_type_inferrer",
+        "test_target_overlap_with_train": {
+          "distinct_target_fraction": 0.0,
+          "distinct_targets": 0,
+          "item_fraction": 0.0,
+          "items": 0
+        },
+        "test_template_overlap_with_train": {
+          "distinct_template_fraction": 1.0,
+          "distinct_templates": 2,
+          "item_fraction": 1.0,
+          "items": 100
+        },
+        "uniform_over_distinct_test_targets_chance_level": 0.01
+      }
+    ],
+    "template_signature_definition": "exact prompt/target pair after replacing a generated Python function identifier with <function_name> when one is present"
+  }
+}

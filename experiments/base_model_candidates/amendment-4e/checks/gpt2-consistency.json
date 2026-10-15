@@ -1,0 +1,47 @@
+{
+  "candidate_id": "gpt2",
+  "check": "4c_consistency",
+  "comparisons": {
+    "released_vs_amendment_4c_aggregates": {
+      "exact_decision_and_outcome_evidence_match": false,
+      "item_outcomes_compared": false,
+      "loss_absolute_tolerance": 1e-05,
+      "maximum_probe_loss_absolute_difference": 2.384185791015625e-06,
+      "passed": false,
+      "runtime_fields_excluded": [
+        "config_fingerprint",
+        "correlation_id",
+        "elapsed_seconds",
+        "environment_attempts",
+        "equivalence_gate_owner_override",
+        "full_finetuning_memory_feasibility",
+        "generation_benchmark",
+        "load_attempts",
+        "manifest_sha256",
+        "memory",
+        "pristine_model_placement",
+        "schema_version",
+        "seconds",
+        "training_bytes_per_second",
+        "training_memory_recipe",
+        "training_tokens_per_second"
+      ]
+    }
+  },
+  "correlation_id": "dce234f1-24c2-4429-912e-54690b643c0c",
+  "frozen_4c_item_evidence_limitation": "Amendment 4c retained family aggregates but not per-item outcomes; exact per-item comparison is therefore performed between the two current-code placement orders, while the frozen record comparison uses all retained decision metrics and family counts.",
+  "manifest_sha256": "29c7776b0ab2608e5a7d437e2b959184a731212a3861276e3171957abec0a96e",
+  "schema_version": "pretrained-base-amendment-4e-check-v1",
+  "orchestrator_ruling": {
+    "evidence": [
+      "checks/gpt2-consistency.json#comparisons",
+      "checks/gpt2-released.json",
+      "../../amendment-4c/candidates/gpt2-238f51b7c7.json"
+    ],
+    "made_by": "orchestrator",
+    "measurement_quality_finding": "LR selection can flip on a single validation item (selection fragility). The protocol's existing three-seed repeat of the top two candidates is the mitigation. The ranking report must show, for the top two, whether the seed repeats agree.",
+    "strict_comparisons_remain_failed": true,
+    "timestamp": "2026-10-15T16:17:47+05:30"
+  },
+  "status": "passed_documented_nondeterminism"
+}

@@ -1,0 +1,96 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "gpt2",
+      "license": "mit",
+      "license_source": "config_fallback",
+      "reference_only": false,
+      "resolved_revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+      "revision_source": "configured_immutable_revision",
+      "source": "openai-community/gpt2"
+    },
+    {
+      "candidate_id": "smollm2-135m",
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "reference_only": false,
+      "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+      "revision_source": "configured_immutable_revision",
+      "source": "HuggingFaceTB/SmolLM2-135M"
+    },
+    {
+      "candidate_id": "pythia-160m",
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "reference_only": false,
+      "resolved_revision": "50f5173d932e8e61f858120bcb800b97af589f46",
+      "revision_source": "configured_immutable_revision",
+      "source": "EleutherAI/pythia-160m"
+    },
+    {
+      "candidate_id": "smollm2-360m",
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "reference_only": false,
+      "resolved_revision": "f8027fd0eaeea54caa13c31d31b9fdc459c38b49",
+      "revision_source": "configured_immutable_revision",
+      "source": "HuggingFaceTB/SmolLM2-360M"
+    },
+    {
+      "candidate_id": "qwen2.5-0.5b",
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "reference_only": false,
+      "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "revision_source": "configured_immutable_revision",
+      "source": "Qwen/Qwen2.5-0.5B"
+    },
+    {
+      "candidate_id": "qwen2.5-1.5b",
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "reference_only": false,
+      "resolved_revision": "8faed761d45a263340a0528343f099c05c9a4323",
+      "revision_source": "configured_immutable_revision",
+      "source": "Qwen/Qwen2.5-1.5B"
+    },
+    {
+      "candidate_id": "smollm2-1.7b",
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "reference_only": false,
+      "resolved_revision": "effd688a12921b4cc83e3312b6feb579f70f9c71",
+      "revision_source": "configured_immutable_revision",
+      "source": "HuggingFaceTB/SmolLM2-1.7B"
+    },
+    {
+      "candidate_id": "aptivra-byte-reference",
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "reference_only": true,
+      "resolved_revision": "f55718d191e85be18f75c2726f4eb20322cb1ad6",
+      "revision_source": "configured_immutable_revision",
+      "source": "raghunath1/aptivra-200m-tiered-memory"
+    }
+  ],
+  "config_sha256": "d9a58e30e92d4a7212a1d0ed26b5bd9c7bd202b200f3058e9bce8c80547f3467",
+  "correlation_id": "74729fe9-9a75-4194-b085-2f15d6de0ecf",
+  "environment": {
+    "configured_device": "auto",
+    "hostname": "DS-H0C7343PV6",
+    "huggingface_hub": "1.33.0",
+    "machine": "arm64",
+    "mps_available": true,
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "torch": "2.14.0",
+    "transformers": "5.17.0"
+  },
+  "evaluator_sha256": "eef222698f55018bf47295118b876d515a0dd607d557546554827bc459f70a3f",
+  "heldout_prompts_sha256": "0bf112e9be7a5d3ccb0f6f6b3d82a833634a735cda7bbf06cf1d3dec0c6a27a3",
+  "heldout_text_sha256": "bb3329d0ecc4b20d65fefb87f0fd6a4b380da0d6f562805d13a9b8c265921f18",
+  "orchestrator_sha256": "816e7463a6192d46c1b72df11f4cc32351d1ec3c4eef07f667e4ee7a6ca85af5",
+  "schema_version": "pretrained-base-manifest-v2",
+  "seed": 20261014,
+  "task_sources_sha256": "3301242112d637c57cd45282d5ba2a7807b95f14b5e0f4acae70e65f2918ff3b"
+}

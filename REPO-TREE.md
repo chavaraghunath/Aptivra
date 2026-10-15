@@ -155,6 +155,8 @@
 ```
 <!-- AUTO-TREE:END -->
 
+## Purpose
+
 - `AGENTS.md` — Supreme agent operating instructions for this repository.
 - `CLAUDE.md` — Verbatim mirror of `AGENTS.md`.
 - `CHANGELOG.md` — Project version changelog.
@@ -163,8 +165,12 @@
 - `LICENSE` — Software license terms.
 - `SUPPORT.md` — Support channels and guidelines.
 - `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, and pytest.
-- `configs/` — Editable YAML copies for task-stream, release-gate, and sandbox overrides, plus repository-only model, ablation, and inference/chat presets; installed canonical defaults live under `aptivra/resources/configs/`.
+- `.claude/` — Repository-local Claude Code automation.
+  - `.claude/hooks/` — Stop hooks that regenerate the protected `REPO-TREE.md` structure block.
+- `configs/` — Editable YAML copies for task streams, measured-results release gates, and verifier sandbox limits, plus repository-only model architecture, ablation, inference/chat, pretrained base-model candidate, decision-threshold, Vertex spot-execution, and GCS artifact-lifecycle presets; installed canonical runtime defaults live under `aptivra/resources/configs/`.
 - `deploy/` — Deployment bridges for Docker CUDA/CPU and Ollama/LM Studio run options.
+  - `deploy/docker/` — CPU and CUDA container deployment definitions.
+  - `deploy/ollama/` — Ollama and LM Studio bridge configuration and usage notes.
 - `docs/` — Architectural documentation, design specifications, and ADRs.
   - `docs/run-options.md` — G–J run paths, Hub-layout constraints, and measured-results publication workflow for `raghunath1/aptivra-200m-tiered-memory`.
   - `docs/DESIGN.md` — Master Phase 1 architecture and design specification.
@@ -173,8 +179,10 @@
 - `aptivra/` — Core Python package containing models, memory systems, experts, task stream, and eval harness.
   - `aptivra/model/` — Decoder-only backbone transformer architecture, RMSNorm, SwiGLU, and isolated AttentionInterface.
   - `aptivra/baselines/` — Continual learning baseline trainers (Naive Sequential, Replay-Only, EWC-Only, Joint Multitask).
+  - `aptivra/experts/` — Soft Top-2 routing, expert modules, and dynamic expert spawning.
+  - `aptivra/gate/` — Promotion criteria and statistical decision helpers for continual-learning updates.
   - `aptivra/tasks/` — Sequential task family generators, subprocess-isolated mechanical verifiers, and task stream manager.
-  - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, metrics calculation, model-card measurement records, and the versioned held-out prompt set.
+  - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, model-card measurement records, pretrained base-model comparison and selection logic, local/GCS artifact stores, the resumable Vertex worker/spec renderer, and the versioned held-out prompt set.
   - `aptivra/export/` — Self-contained Transformers packaging and legacy conversion, Tiered C and local-format export utilities, and measured-results model-card rendering.
   - `aptivra/inference/` — MoE causal LM loader, byte tokenizer, and generation for Hub checkpoints.
   - `aptivra/huggingface/` — In-package Transformers config, model, and tokenizer wrappers.
@@ -190,8 +198,11 @@
   - `aptivra/memory/` — Hexa-tier memory continuum (working, episodic narrative, semantic hypergraph, procedural skills, somatic valence).
   - `aptivra/planning/` — Active inference planning and counterfactual rollout planner.
   - `aptivra/research/` — Autonomous scientific hypothesis discovery and empirical experimenter (Phase 3).
+  - `aptivra/versioning/` — Checkpoint manifests, history, integrity verification, and restoration.
   - `aptivra/world_model/` — Continuous latent state-space H-JEPA world model predicting transitions in representation space.
   - `aptivra/genesis.py` — Top-level unified cognitive architecture facade orchestrating all 10 engines across all 4 phases.
 - `multitier_c/` — High-throughput C ABI sharding runtime with zero-copy mmap hot-swapping and HDC associative search.
-- `scripts/` — Execution, benchmarking, evaluation, and export scripts.
+- `experiments/` — Version-controlled machine-readable experiment evidence.
+  - `experiments/base_model_candidates/` — Frozen powered and amendment evidence, including immutable candidate/repeat-seed records, family-clustered analysis, the failed Amendment 4 proof, the manifested Amendment 4a interruption and noise-floor failure, the failed Amendment 4b outcome gate, and Amendment 4e foreground checks, detached-run state, candidate measurements, and mixed-provenance ranking.
+- `scripts/` — Execution, benchmarking, base-model evaluation, Vertex dry-run rendering, and export scripts.
 - `tests/` — Pytest unit and integration test suite.

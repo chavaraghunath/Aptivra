@@ -1,0 +1,12 @@
+{
+  "configured_maximum_swap_growth_bytes": 1073741824,
+  "elapsed_seconds": 1548.6103802500002,
+  "forced_termination_reason": null,
+  "poll_interval_seconds": 0.5,
+  "returncode": 0,
+  "system_swap_after_bytes": 6975976898,
+  "system_swap_before_bytes": 8353417789,
+  "system_swap_growth_bytes": 0,
+  "system_swap_peak_bytes": 8353417789,
+  "system_swap_peak_growth_bytes": 0
+}

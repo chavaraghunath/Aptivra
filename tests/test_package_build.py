@@ -163,6 +163,41 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
         "https://huggingface.co/raghunath1/aptivra-200m-tiered-memory"
     ) in metadata
 
+    installed_dir = tmp_path / "installed"
+    outside_dir = tmp_path / "outside-repository"
+    installed_dir.mkdir()
+    outside_dir.mkdir()
+    with zipfile.ZipFile(wheels[0]) as wheel:
+        wheel.extractall(installed_dir)
+    import_sweep = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            (
+                "import importlib, pkgutil, sys; "
+                "from pathlib import Path; "
+                f"installed = Path({str(installed_dir)!r}).resolve(); "
+                "sys.path.insert(0, str(installed)); "
+                "import aptivra; "
+                "package_file = Path(aptivra.__file__).resolve(); "
+                "assert installed in package_file.parents, package_file; "
+                "modules = sorted(info.name for info in "
+                "pkgutil.walk_packages(aptivra.__path__, aptivra.__name__ + '.')); "
+                "[importlib.import_module(name) for name in modules]; "
+                f"assert len(modules) + 1 == {len(expected_python)}; "
+                "print(f'imported {len(modules) + 1} wheel modules')"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=outside_dir,
+    )
+    assert import_sweep.returncode == 0, import_sweep.stdout + import_sweep.stderr
+    assert import_sweep.stdout == f"imported {len(expected_python)} wheel modules\n"
+
 
 def test_packaged_defaults_load_without_repository_relative_paths() -> None:
     release_gate = load_release_gate_settings()
@@ -201,7 +236,7 @@ def test_missing_packaged_resource_names_the_required_file() -> None:
         require_resource("aptivra.resources", "configs", "missing-default.yaml")
 
 
-def test_all_modules_remain_importable_without_optional_gguf_dependency() -> None:
+def test_gguf_export_module_import_is_lazy_when_dependency_is_unavailable() -> None:
     result = subprocess.run(
         [
             sys.executable,

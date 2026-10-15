@@ -1,0 +1,141 @@
+{
+  "correlation_id": "b091275c-4a30-4407-94e9-cd0738b2e625",
+  "decision_status": "ranked_no_adr_decision",
+  "manifest_sha256": "9a7b7538365c9ea7760a4ef6684cb0389d00c8ea74e65ba79d3271318ad9d023",
+  "pairwise_family_clustered_comparisons": [],
+  "ranked_candidates": [
+    {
+      "candidate_id": "smollm2-360m",
+      "combined_heldout_bits_per_byte": 0.8261824892888987,
+      "family_clustered_mean_accuracy_gain_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": 0.40617386347127443,
+        "mean": 0.6516666666666667,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.3863778963500355,
+        "standard_error": 0.11153769123330716,
+        "upper": 0.8971594698620591
+      },
+      "family_clustered_mean_learned_accuracy_interval": {
+        "clusters": 12,
+        "confidence_level": 0.95,
+        "critical_value": 2.2009851600916384,
+        "degrees_of_freedom": 11,
+        "lower": 0.4104858365623869,
+        "mean": 0.655,
+        "method": "two-sided Student-t interval across task-family values",
+        "sample_standard_deviation": 0.38483762809787714,
+        "standard_error": 0.11109305408830324,
+        "upper": 0.8995141634376131
+      },
+      "gradient_checkpointing": false,
+      "mean_accuracy_gain": 0.6516666666666667,
+      "mean_accuracy_gain_interval": {
+        "confidence_level": 0.95,
+        "lower": 0.6191084035691965,
+        "method": "Newcombe interval from Wilson component intervals",
+        "upper": 0.6800659923119058
+      },
+      "mean_learned_accuracy": 0.655,
+      "mean_learned_accuracy_wilson_interval": {
+        "confidence_level": 0.95,
+        "lower": 0.6276477889931396,
+        "upper": 0.6813630008200127
+      },
+      "micro_batch_size": 8.0,
+      "peak_memory_bytes": 15721676800.0,
+      "pooled_interval_precision_note": "optimistic: treats items clustered within task families as independent Bernoulli trials",
+      "rank": 1,
+      "system_swap_after_bytes": 6616713789.0,
+      "system_swap_before_bytes": 6975976898.0,
+      "system_swap_peak_growth_bytes": 0.0,
+      "training_tokens_per_second": 1048.0008135001428,
+      "unique_parameters": 361821120
+    }
+  ],
+  "ranking_order": [
+    "mean learned task accuracy (descending; ties when absolute difference <= 0.02 or the paired family-clustered difference interval intersects the configured practical tie region)",
+    "mean task accuracy gain (descending; same numeric/interval tie rule)",
+    "combined held-out bits per byte (ascending)",
+    "median family probe training tokens per second (descending)",
+    "unique parameters (ascending)"
+  ],
+  "reference_records": [],
+  "rejected_candidates": [],
+  "saturated_family_analysis": {
+    "candidate_aggregates": [
+      {
+        "all_families": {
+          "family_clustered_analysis": {
+            "clusters": 12,
+            "confidence_level": 0.95,
+            "critical_value": 2.2009851600916384,
+            "degrees_of_freedom": 11,
+            "lower": 0.4104858365623869,
+            "mean": 0.655,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.38483762809787714,
+            "standard_error": 0.11109305408830324,
+            "upper": 0.8995141634376131
+          },
+          "pooled_item_analysis": {
+            "accuracy": 0.655,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 786,
+            "total": 1200,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.6276477889931396,
+              "upper": 0.6813630008200127
+            }
+          }
+        },
+        "candidate_id": "smollm2-360m",
+        "excluding_saturated_families": {
+          "excluded_family_ids": [
+            "T10_docstring_code",
+            "T11_bug_fixer",
+            "T12_type_inferrer",
+            "T9_algo_synth"
+          ],
+          "family_clustered_analysis": {
+            "clusters": 8,
+            "confidence_level": 0.95,
+            "critical_value": 2.364624251592784,
+            "degrees_of_freedom": 7,
+            "lower": 0.18024965403912013,
+            "mean": 0.48250000000000004,
+            "method": "two-sided Student-t interval across task-family values",
+            "sample_standard_deviation": 0.36153442831512306,
+            "standard_error": 0.12782172294701263,
+            "upper": 0.78475034596088
+          },
+          "no_signal_bearing_families_remain": false,
+          "pooled_item_analysis": {
+            "accuracy": 0.4825,
+            "precision_note": "optimistic: Wilson interval treats items clustered within task families as independent Bernoulli trials",
+            "successes": 386,
+            "total": 800,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.44803999829216923,
+              "upper": 0.5171272623750295
+            }
+          }
+        }
+      }
+    ],
+    "criterion": "learned successes equal total for every eligible probed candidate",
+    "family_ids": [
+      "T10_docstring_code",
+      "T11_bug_fixer",
+      "T12_type_inferrer",
+      "T9_algo_synth"
+    ]
+  },
+  "schema_version": "pretrained-base-ranking-v4",
+  "selected_candidate": "smollm2-360m"
+}

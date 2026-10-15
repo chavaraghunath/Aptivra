@@ -1,0 +1,44 @@
+{
+  "attempt": 1,
+  "configured_maximum_swap_growth_bytes": 1073741824,
+  "configured_minimum_free_memory_percent": 5.0,
+  "elapsed_seconds": 5896.306520916027,
+  "environment_invalid_reasons": [],
+  "forced_termination_reason": null,
+  "poll_interval_seconds": 0.5,
+  "prestart_check": {
+    "normal": true,
+    "samples": [
+      {
+        "elapsed_seconds": 8.300412446260452e-08,
+        "free_memory_percent": 87.0,
+        "other_processes_above_rss_threshold": [],
+        "swap_used_bytes": 11429478400
+      }
+    ]
+  },
+  "process_started": true,
+  "recovery": {
+    "normal": true,
+    "samples": [
+      {
+        "elapsed_seconds": 8.399365469813347e-08,
+        "free_memory_percent": 88.0,
+        "other_processes_above_rss_threshold": [],
+        "swap_used_bytes": 11429478400
+      }
+    ]
+  },
+  "returncode": 0,
+  "status": "completed",
+  "system_free_memory_after_percent": 88.0,
+  "system_free_memory_before_percent": 87.0,
+  "system_free_memory_minimum_percent": 14.0,
+  "system_swap_after_bytes": 10637604290,
+  "system_swap_before_bytes": 11429478400,
+  "system_swap_growth_bytes": 0,
+  "system_swap_peak_bytes": 23063229890,
+  "system_swap_peak_growth_bytes": 11633751490,
+  "throughput_compromise_reason": "system swap growth exceeded the configured reporting threshold",
+  "throughput_compromised": true
+}

@@ -9,6 +9,17 @@ tagged release exists.
 ## [Unreleased]
 
 ### Added
+- A configurable, deterministic, resumable base-model candidate evaluator with isolated MPS
+  processes, byte-normalized likelihood, 12-family learnability probes, structured failures,
+  tokenizer/expert fitness checks, and a pre-registered ranking rule.
+- Proposed ADR-0008 plus machine-readable per-candidate evidence and an immutable run manifest for
+  the measured pretrained Tier 3 selection.
+- Powered ADR-0008 evidence with 100 test items per family, warmup, batch-8 probes, batched
+  generation, top-two three-seed variance, early hard-constraint exits, and archived first-sweep
+  evidence. Post-result Amendment 2 adds paired family-clustered intervals and sign tests,
+  saturated-family sensitivity, computed stream properties, validation-only future grid probes,
+  and an explicit owner decision. The data give a cautious preference for SmolLM2-360M; clustered
+  accuracy and gain tie before the ranking falls through to bits per byte.
 - A stock-Transformers Hub layout with one `model.safetensors`, self-contained remote code, a
   reversible byte tokenizer, and verified legacy-layout conversion.
 - Extended run options **G–J** (chat OpenAI bridge, stock Transformers with remote code, legacy
@@ -36,6 +47,10 @@ tagged release exists.
 - Promotion rejection now restores optimizer, T1, replay, EWC, topology, and RNG state while
   retaining FLOPs already spent; package generation now preserves raw stop bytes like
   Transformers generation.
+
+### Fixed
+- Constrained setuptools discovery to the `aptivra` package tree so top-level configuration,
+  evidence, deployment, and native-runtime directories cannot break wheel builds.
 
 ## [v0.1.0] - 2026-09-29
 

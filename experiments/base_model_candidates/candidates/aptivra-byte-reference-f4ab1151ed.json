@@ -1,0 +1,80 @@
+{
+  "candidate_id": "aptivra-byte-reference",
+  "config_fingerprint": "dd3117b37b57c43b906a1afe6d0cf4d1af9616ec46d35c8bcea0907cae352879",
+  "correlation_id": "b8f8b4a3-f0c5-48d2-82c1-ae78a4f9a03c",
+  "elapsed_seconds": 8.305402875001164,
+  "identity": {
+    "architecture": "aptivra",
+    "context_length": 512,
+    "license": "apache-2.0",
+    "license_source": "config_fallback",
+    "load_attempts": 1,
+    "model_vocabulary_size": 256,
+    "repo_id_or_path": "raghunath1/aptivra-200m-tiered-memory",
+    "resolved_revision": "f55718d191e85be18f75c2726f4eb20322cb1ad6",
+    "tokenizer_type": "AptivraByteTokenizer",
+    "tokenizer_vocabulary_size": 256,
+    "torch_dtype": "float32",
+    "trust_remote_code": false,
+    "unique_parameters": 271361024,
+    "vocabulary_size_mismatch": false
+  },
+  "manifest_sha256": "c332b3bcf758985d7a89174b151bebb87cab1bc2a5d10834fc2ba70066d8ba41",
+  "memory": {
+    "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+    "hard_constraint_peak_bytes": 3701407744,
+    "mps_driver_baseline_bytes": 475136,
+    "mps_driver_delta_bytes": 1132494848,
+    "mps_driver_peak_bytes": 1132969984,
+    "process_rss_baseline_bytes": 438026240,
+    "process_rss_delta_bytes": 3263381504,
+    "process_rss_peak_bytes": 3701407744,
+    "sample_interval_seconds": 0.02
+  },
+  "probe_skip_reason": "reference-only record is excluded from selection before probe",
+  "probe_skipped": true,
+  "reference_only": true,
+  "schema_version": "pretrained-base-evaluation-v3",
+  "status": "reference_only",
+  "structural_fitness": {
+    "all_blocks_expose_feed_forward": true,
+    "block_container": "backbone.layers",
+    "consistent_feed_forward_path": true,
+    "expected_transformer_blocks": 16,
+    "feed_forward_paths": [
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn",
+      "ffn"
+    ],
+    "hidden_size": 1024,
+    "transformer_blocks": 16
+  },
+  "tokenizer_fitness": {
+    "eos_token": "\u0000",
+    "eos_token_id": 0,
+    "eos_usable_as_answer_terminator": true,
+    "exact_utf8_roundtrip": true,
+    "mean_bytes_per_token": 1.0,
+    "model_eos_token_ids": [
+      0,
+      10
+    ],
+    "roundtrip_failures": [],
+    "roundtrip_samples": 16423,
+    "task_stream_bytes": 667862,
+    "task_stream_tokens": 667862
+  }
+}

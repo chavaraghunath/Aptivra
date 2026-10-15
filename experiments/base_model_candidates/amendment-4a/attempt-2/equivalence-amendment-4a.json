@@ -1,0 +1,493 @@
+{
+  "correlation_id": "98c783a2-9730-405c-9d28-09af5a9d9cc5",
+  "exact_math": {
+    "candidate_results": [
+      {
+        "candidate_id": "smollm2-135m",
+        "instance_ids": [
+          "T1_modular_arithmetic_s20261014001_i0",
+          "T2_string_transforms_s20261014011_i0",
+          "T3_list_operations_s20261014021_i0",
+          "T4_syntax_matching_s20261014031_i0",
+          "T5_boolean_logic_s20261014041_i0",
+          "T6_sequence_completion_s20261014051_i0",
+          "T7_state_machines_s20261014061_i0",
+          "T8_python_microsynth_s20261014071_i0"
+        ],
+        "load_attempts": 1,
+        "memory": {
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+          "hard_constraint_peak_bytes": 6076792832,
+          "mps_driver_baseline_bytes": 475136,
+          "mps_driver_delta_bytes": 4623138816,
+          "mps_driver_peak_bytes": 4623613952,
+          "process_rss_baseline_bytes": 438484992,
+          "process_rss_delta_bytes": 5638307840,
+          "process_rss_peak_bytes": 6076792832,
+          "sample_interval_seconds": 0.02,
+          "swap_sample_interval_seconds": 0.5,
+          "system_swap_after_bytes": 7366508544,
+          "system_swap_before_bytes": 7366508544,
+          "system_swap_growth_bytes": 0,
+          "system_swap_peak_bytes": 7366508544,
+          "system_swap_peak_growth_bytes": 0
+        },
+        "memory_recipe_selection": {
+          "attempts": [
+            {
+              "calibration_instance_ids": [
+                "T3_list_operations_s20261014021_i24",
+                "T3_list_operations_s20261014021_i218",
+                "T3_list_operations_s20261014021_i187",
+                "t10_0251",
+                "t10_0249",
+                "t10_0246",
+                "t10_0244",
+                "t10_0242"
+              ],
+              "calibration_steps": 1,
+              "configured_maximum_peak_bytes": 28991029248,
+              "effective_batch_size": 8,
+              "feasible": true,
+              "gradient_checkpointing": false,
+              "memory": {
+                "configured_maximum_swap_growth_bytes": 1073741824,
+                "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+                "hard_constraint_peak_bytes": 4623613952,
+                "mps_driver_baseline_bytes": 1107787776,
+                "mps_driver_delta_bytes": 3515826176,
+                "mps_driver_peak_bytes": 4623613952,
+                "process_rss_baseline_bytes": 1284964352,
+                "process_rss_delta_bytes": 0,
+                "process_rss_peak_bytes": 1284964352,
+                "sample_interval_seconds": 0.02,
+                "swap_sample_interval_seconds": 0.5,
+                "system_swap_after_bytes": 7366508544,
+                "system_swap_before_bytes": 7366508544,
+                "system_swap_growth_bytes": 0,
+                "system_swap_peak_bytes": 7366508544,
+                "system_swap_peak_growth_bytes": 0
+              },
+              "micro_batch_size": 8
+            }
+          ],
+          "candidate_micro_batch_sizes": [
+            8,
+            4,
+            2,
+            1
+          ],
+          "configured_maximum_peak_bytes": 28991029248,
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "effective_batch_size": 8,
+          "gradient_checkpointing_fallback": true,
+          "selected_gradient_checkpointing": false,
+          "selected_micro_batch_size": 8,
+          "target_only_training_loss": true
+        },
+        "passed": true,
+        "proof": {
+          "comparisons": [
+            {
+              "absolute_loss_difference": 0.0,
+              "gradient_difference": {
+                "difference_l2": 0.0,
+                "maximum_absolute": 0.0,
+                "reference_l2": 14.47726584983636,
+                "relative_l2": 0.0
+              },
+              "gradient_relative_l2_difference": 0.0,
+              "legacy_loss": 3.5998656481582416,
+              "micro_batch_size": 8,
+              "passed": true,
+              "target_only_loss": 3.5998656481582416
+            },
+            {
+              "absolute_loss_difference": 1.3322676295501878e-15,
+              "gradient_difference": {
+                "difference_l2": 6.037222125702033e-15,
+                "maximum_absolute": 1.7763568394002505e-15,
+                "reference_l2": 14.47726584983636,
+                "relative_l2": 4.1701397130662436e-16
+              },
+              "gradient_relative_l2_difference": 4.1701397130662436e-16,
+              "legacy_loss": 3.5998656481582416,
+              "micro_batch_size": 1,
+              "passed": true,
+              "target_only_loss": 3.599865648158243
+            }
+          ],
+          "device": "cpu",
+          "dropout_disabled": true,
+          "dropout_modules_disabled": 0,
+          "dtype": "float64",
+          "effective_batch_size": 8,
+          "passed": true
+        },
+        "recipe": {
+          "gradient_checkpointing": false,
+          "micro_batch_size": 8
+        },
+        "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2"
+      },
+      {
+        "candidate_id": "gpt2",
+        "instance_ids": [
+          "T1_modular_arithmetic_s20261014001_i0",
+          "T2_string_transforms_s20261014011_i0",
+          "T3_list_operations_s20261014021_i0",
+          "T4_syntax_matching_s20261014031_i0",
+          "T5_boolean_logic_s20261014041_i0",
+          "T6_sequence_completion_s20261014051_i0",
+          "T7_state_machines_s20261014061_i0",
+          "T8_python_microsynth_s20261014071_i0"
+        ],
+        "load_attempts": 1,
+        "memory": {
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+          "hard_constraint_peak_bytes": 6090522624,
+          "mps_driver_baseline_bytes": 1108033536,
+          "mps_driver_delta_bytes": 3161325568,
+          "mps_driver_peak_bytes": 4269359104,
+          "process_rss_baseline_bytes": 6076792832,
+          "process_rss_delta_bytes": 13729792,
+          "process_rss_peak_bytes": 6090522624,
+          "sample_interval_seconds": 0.02,
+          "swap_sample_interval_seconds": 0.5,
+          "system_swap_after_bytes": 7366508544,
+          "system_swap_before_bytes": 7366508544,
+          "system_swap_growth_bytes": 0,
+          "system_swap_peak_bytes": 7366508544,
+          "system_swap_peak_growth_bytes": 0
+        },
+        "memory_recipe_selection": {
+          "attempts": [
+            {
+              "calibration_instance_ids": [
+                "t10_0251",
+                "t10_0249",
+                "t10_0246",
+                "t10_0244",
+                "t10_0242",
+                "t10_0241",
+                "t10_0240",
+                "t10_0239"
+              ],
+              "calibration_steps": 1,
+              "configured_maximum_peak_bytes": 28991029248,
+              "effective_batch_size": 8,
+              "feasible": true,
+              "gradient_checkpointing": false,
+              "memory": {
+                "configured_maximum_swap_growth_bytes": 1073741824,
+                "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+                "hard_constraint_peak_bytes": 6076792832,
+                "mps_driver_baseline_bytes": 1108033536,
+                "mps_driver_delta_bytes": 3161325568,
+                "mps_driver_peak_bytes": 4269359104,
+                "process_rss_baseline_bytes": 6076792832,
+                "process_rss_delta_bytes": 0,
+                "process_rss_peak_bytes": 6076792832,
+                "sample_interval_seconds": 0.02,
+                "swap_sample_interval_seconds": 0.5,
+                "system_swap_after_bytes": 7366508544,
+                "system_swap_before_bytes": 7366508544,
+                "system_swap_growth_bytes": 0,
+                "system_swap_peak_bytes": 7366508544,
+                "system_swap_peak_growth_bytes": 0
+              },
+              "micro_batch_size": 8
+            }
+          ],
+          "candidate_micro_batch_sizes": [
+            8,
+            4,
+            2,
+            1
+          ],
+          "configured_maximum_peak_bytes": 28991029248,
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "effective_batch_size": 8,
+          "gradient_checkpointing_fallback": true,
+          "selected_gradient_checkpointing": false,
+          "selected_micro_batch_size": 8,
+          "target_only_training_loss": true
+        },
+        "passed": true,
+        "proof": {
+          "comparisons": [
+            {
+              "absolute_loss_difference": 0.0,
+              "gradient_difference": {
+                "difference_l2": 0.0,
+                "maximum_absolute": 0.0,
+                "reference_l2": 71.91612939612936,
+                "relative_l2": 0.0
+              },
+              "gradient_relative_l2_difference": 0.0,
+              "legacy_loss": 6.126414052428333,
+              "micro_batch_size": 8,
+              "passed": true,
+              "target_only_loss": 6.126414052428333
+            },
+            {
+              "absolute_loss_difference": 0.0,
+              "gradient_difference": {
+                "difference_l2": 1.768165064143577e-14,
+                "maximum_absolute": 1.0658141036401503e-14,
+                "reference_l2": 71.91612939612936,
+                "relative_l2": 2.4586488163234523e-16
+              },
+              "gradient_relative_l2_difference": 2.4586488163234523e-16,
+              "legacy_loss": 6.126414052428333,
+              "micro_batch_size": 1,
+              "passed": true,
+              "target_only_loss": 6.126414052428333
+            }
+          ],
+          "device": "cpu",
+          "dropout_disabled": true,
+          "dropout_modules_disabled": 37,
+          "dtype": "float64",
+          "effective_batch_size": 8,
+          "passed": true
+        },
+        "recipe": {
+          "gradient_checkpointing": false,
+          "micro_batch_size": 8
+        },
+        "resolved_revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e"
+      }
+    ],
+    "status": "passed"
+  },
+  "failed_stage": "noise_floor",
+  "manifest_sha256": "74eb5e51d7ec04187f59e4a6d9e321f31fd7eddda8a5b69361043f664db9771a",
+  "noise_floor": {
+    "candidate_results": [
+      {
+        "candidate_id": "smollm2-135m",
+        "load_attempts": 1,
+        "memory": {
+          "configured_maximum_swap_growth_bytes": 1073741824,
+          "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+          "hard_constraint_peak_bytes": 6090522624,
+          "mps_driver_baseline_bytes": 1209745408,
+          "mps_driver_delta_bytes": 3785342976,
+          "mps_driver_peak_bytes": 4995088384,
+          "process_rss_baseline_bytes": 6090522624,
+          "process_rss_delta_bytes": 0,
+          "process_rss_peak_bytes": 6090522624,
+          "sample_interval_seconds": 0.02,
+          "swap_sample_interval_seconds": 0.5,
+          "system_swap_after_bytes": 7366508544,
+          "system_swap_before_bytes": 7366508544,
+          "system_swap_growth_bytes": 0,
+          "system_swap_peak_bytes": 7366508544,
+          "system_swap_peak_growth_bytes": 0
+        },
+        "passed": false,
+        "proof": {
+          "batches": [
+            {
+              "batch": 1,
+              "control_gradient_difference": {
+                "difference_l2": 3.7794450602573483e-06,
+                "maximum_absolute": 4.76837158203125e-07,
+                "reference_l2": 14.477282798071931,
+                "relative_l2": 2.6106038771037134e-07
+              },
+              "control_instance_ids": [
+                "T8_python_microsynth_s20261014071_i0",
+                "T7_state_machines_s20261014061_i0",
+                "T6_sequence_completion_s20261014051_i0",
+                "T5_boolean_logic_s20261014041_i0",
+                "T4_syntax_matching_s20261014031_i0",
+                "T3_list_operations_s20261014021_i0",
+                "T2_string_transforms_s20261014011_i0",
+                "T1_modular_arithmetic_s20261014001_i0"
+              ],
+              "control_loss": 3.5998661518096924,
+              "control_update_difference": {
+                "difference_l2": 2.2752588001248794e-06,
+                "maximum_absolute": 7.37607479095459e-07,
+                "reference_l2": 0.11114912654730395,
+                "relative_l2": 2.0470325505945852e-05
+              },
+              "gradient_limit": 5.221207754207427e-07,
+              "gradient_passed": false,
+              "instance_ids": [
+                "T1_modular_arithmetic_s20261014001_i0",
+                "T2_string_transforms_s20261014011_i0",
+                "T3_list_operations_s20261014021_i0",
+                "T4_syntax_matching_s20261014031_i0",
+                "T5_boolean_logic_s20261014041_i0",
+                "T6_sequence_completion_s20261014051_i0",
+                "T7_state_machines_s20261014061_i0",
+                "T8_python_microsynth_s20261014071_i0"
+              ],
+              "legacy_loss": 3.5998661518096924,
+              "passed": false,
+              "target_gradient_difference": {
+                "difference_l2": 0.00014246049022256766,
+                "maximum_absolute": 7.545948028564453e-05,
+                "reference_l2": 14.477282798071931,
+                "relative_l2": 9.84027819374644e-06
+              },
+              "target_only_loss": 3.599865940638951,
+              "target_update_difference": {
+                "difference_l2": 8.074591677100106e-05,
+                "maximum_absolute": 1.078099012374878e-05,
+                "reference_l2": 0.11114912654730395,
+                "relative_l2": 0.000726464699087279
+              },
+              "update_limit": 4.0940651011891704e-05,
+              "update_passed": false
+            },
+            {
+              "batch": 2,
+              "control_gradient_difference": {
+                "difference_l2": 2.1717243280522882e-06,
+                "maximum_absolute": 4.76837158203125e-07,
+                "reference_l2": 6.681637207435505,
+                "relative_l2": 3.2502877073833573e-07
+              },
+              "control_instance_ids": [
+                "T4_syntax_matching_s20261014031_i1",
+                "T3_list_operations_s20261014021_i1",
+                "T2_string_transforms_s20261014011_i1",
+                "T1_modular_arithmetic_s20261014001_i1",
+                "t12_0000",
+                "t11_0000",
+                "t10_0000",
+                "t9_0000"
+              ],
+              "control_loss": 1.820460557937622,
+              "control_update_difference": {
+                "difference_l2": 1.932258760482351e-06,
+                "maximum_absolute": 1.7881393432617188e-07,
+                "reference_l2": 0.10990262010522989,
+                "relative_l2": 1.7581553184375823e-05
+              },
+              "gradient_limit": 6.500575414766715e-07,
+              "gradient_passed": true,
+              "instance_ids": [
+                "t9_0000",
+                "t10_0000",
+                "t11_0000",
+                "t12_0000",
+                "T1_modular_arithmetic_s20261014001_i1",
+                "T2_string_transforms_s20261014011_i1",
+                "T3_list_operations_s20261014021_i1",
+                "T4_syntax_matching_s20261014031_i1"
+              ],
+              "legacy_loss": 1.820460557937622,
+              "passed": true,
+              "target_gradient_difference": {
+                "difference_l2": 2.040601658631449e-08,
+                "maximum_absolute": 7.450580596923828e-09,
+                "reference_l2": 6.681637207435505,
+                "relative_l2": 3.054044383554098e-09
+              },
+              "target_only_loss": 1.8204605605576065,
+              "target_update_difference": {
+                "difference_l2": 9.313225746154785e-10,
+                "maximum_absolute": 9.313225746154785e-10,
+                "reference_l2": 0.10990262010522989,
+                "relative_l2": 8.474070715727732e-09
+              },
+              "update_limit": 3.5163106368751645e-05,
+              "update_passed": true
+            },
+            {
+              "batch": 3,
+              "control_gradient_difference": {
+                "difference_l2": 2.483576672136194e-06,
+                "maximum_absolute": 7.152557373046875e-07,
+                "reference_l2": 6.9361118980168115,
+                "relative_l2": 3.5806467782711284e-07
+              },
+              "control_instance_ids": [
+                "t12_0001",
+                "t11_0001",
+                "t10_0001",
+                "t9_0001",
+                "T8_python_microsynth_s20261014071_i1",
+                "T7_state_machines_s20261014061_i1",
+                "T6_sequence_completion_s20261014051_i1",
+                "T5_boolean_logic_s20261014041_i1"
+              ],
+              "control_loss": 1.8863486051559448,
+              "control_update_difference": {
+                "difference_l2": 1.9557153892700214e-06,
+                "maximum_absolute": 1.5459954738616943e-07,
+                "reference_l2": 0.10979858165363449,
+                "relative_l2": 1.781184565242774e-05
+              },
+              "gradient_limit": 7.161293556542257e-07,
+              "gradient_passed": true,
+              "instance_ids": [
+                "T5_boolean_logic_s20261014041_i1",
+                "T6_sequence_completion_s20261014051_i1",
+                "T7_state_machines_s20261014061_i1",
+                "T8_python_microsynth_s20261014071_i1",
+                "t9_0001",
+                "t10_0001",
+                "t11_0001",
+                "t12_0001"
+              ],
+              "legacy_loss": 1.8863486051559448,
+              "passed": true,
+              "target_gradient_difference": {
+                "difference_l2": 2.9554881054170878e-08,
+                "maximum_absolute": 7.450580596923828e-09,
+                "reference_l2": 6.9361118980168115,
+                "relative_l2": 4.261015607695325e-09
+              },
+              "target_only_loss": 1.8863485897288603,
+              "target_update_difference": {
+                "difference_l2": 2.328608397620532e-10,
+                "maximum_absolute": 2.3283064365386963e-10,
+                "reference_l2": 0.10979858165363449,
+                "relative_l2": 2.12080007095743e-09
+              },
+              "update_limit": 3.562369130485548e-05,
+              "update_passed": true
+            }
+          ],
+          "device": "mps",
+          "dropout_disabled": true,
+          "dtype": "float32",
+          "effective_batch_size": 8,
+          "multiplier": 2.0,
+          "passed": false,
+          "target_only_micro_batch_size": 8
+        },
+        "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2"
+      }
+    ],
+    "status": "failed"
+  },
+  "protocol": {
+    "accuracy_tie_margin": 0.02,
+    "batch_order": "training item index outer, configured family order inner",
+    "control_permutation": "reverse within each effective batch",
+    "dropout_disabled": true,
+    "exact_gradient_relative_l2_tolerance": 1e-10,
+    "exact_loss_absolute_tolerance": 1e-12,
+    "learning_rate": 1e-05,
+    "noise_floor_batches": 3,
+    "noise_floor_multiplier": 2.0,
+    "seed": 20261014,
+    "trajectory_steps": 50,
+    "warmup_steps": 20,
+    "weight_decay": 0.0
+  },
+  "schema_version": "pretrained-base-amendment-4a-equivalence-v1",
+  "status": "failed",
+  "training_trajectory": {
+    "status": "pending"
+  }
+}

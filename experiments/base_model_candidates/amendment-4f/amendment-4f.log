@@ -1,0 +1,4 @@
+{"candidate_id": "qwen2.5-0.5b", "event": "candidate_started"}
+{"candidate_id": "qwen2.5-1.5b", "event": "candidate_started"}
+{"candidate_id": "smollm2-1.7b", "event": "candidate_started"}
+{"decision_status": "measurement_incomplete", "output_dir": "/private/tmp/claude-501/-Users-raghunath-code-personal-Aptivra/3d0ae4d3-db27-4c77-9f8c-f1a1f27a2506/scratchpad/wt/base/experiments/base_model_candidates/amendment-4f", "selected_candidate": null}

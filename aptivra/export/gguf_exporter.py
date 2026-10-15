@@ -27,9 +27,7 @@ def export_model_to_gguf(
     try:
         import gguf
     except ImportError as exc:
-        raise RuntimeError(
-            "GGUF export requires the optional 'gguf' package"
-        ) from exc
+        raise RuntimeError("GGUF export requires the 'gguf' runtime dependency") from exc
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
 

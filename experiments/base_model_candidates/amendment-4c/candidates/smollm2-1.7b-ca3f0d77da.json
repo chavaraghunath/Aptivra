@@ -1,0 +1,88 @@
+{
+  "candidate_id": "smollm2-1.7b",
+  "config_fingerprint": "9fdf3e1d56260a16354e3a3fa252e1e48fa140b1ed88d03df5ab4f14b71f86ab",
+  "correlation_id": "a5f982ce-5563-4f54-99b9-dbe440703fcd",
+  "environment_attempts": [
+    {
+      "attempt": 1,
+      "configured_maximum_swap_growth_bytes": 1073741824,
+      "configured_minimum_free_memory_percent": 10.0,
+      "elapsed_seconds": 2494.615294832998,
+      "environment_invalid_reasons": [
+        "system swap growth exceeded the configured environment limit",
+        "system free-memory percentage fell below the normal threshold"
+      ],
+      "forced_termination_reason": null,
+      "poll_interval_seconds": 0.5,
+      "process_started": true,
+      "recovery": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.298957254737616e-08,
+            "free_memory_percent": 64.0,
+            "swap_used_bytes": 14039709122
+          }
+        ]
+      },
+      "returncode": -15,
+      "status": "environment_invalid",
+      "system_free_memory_after_percent": 12.0,
+      "system_free_memory_before_percent": 65.0,
+      "system_free_memory_minimum_percent": 8.0,
+      "system_swap_after_bytes": 15810229698,
+      "system_swap_before_bytes": 14039709122,
+      "system_swap_growth_bytes": 1770520576,
+      "system_swap_peak_bytes": 15810229698,
+      "system_swap_peak_growth_bytes": 1770520576
+    },
+    {
+      "attempt": 2,
+      "configured_maximum_swap_growth_bytes": 1073741824,
+      "configured_minimum_free_memory_percent": 10.0,
+      "elapsed_seconds": 2397.7215865000035,
+      "environment_invalid_reasons": [
+        "system free-memory percentage fell below the normal threshold"
+      ],
+      "forced_termination_reason": null,
+      "poll_interval_seconds": 0.5,
+      "process_started": true,
+      "recovery": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.300412446260452e-08,
+            "free_memory_percent": 20.0,
+            "swap_used_bytes": 16106127360
+          }
+        ]
+      },
+      "returncode": -15,
+      "status": "environment_invalid",
+      "system_free_memory_after_percent": 11.0,
+      "system_free_memory_before_percent": 21.0,
+      "system_free_memory_minimum_percent": 8.0,
+      "system_swap_after_bytes": 15518526341,
+      "system_swap_before_bytes": 16106127360,
+      "system_swap_growth_bytes": 0,
+      "system_swap_peak_bytes": 16140667453,
+      "system_swap_peak_growth_bytes": 34540093
+    }
+  ],
+  "equivalence_gate_owner_override": {
+    "adr_section": "Owner override of Amendment 4b (2026-10-14)",
+    "by": "raghunath",
+    "date": "2026-10-14"
+  },
+  "failure": {
+    "message": "all configured attempts were environment-invalid",
+    "out_of_memory": false,
+    "phase": "environment_health",
+    "type": "EnvironmentInvalid"
+  },
+  "manifest_sha256": "ef01ee46045f13d657ab7bf821799c56bc8a287ca9d0cc1ccb9a47ef27fc2bf1",
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v5",
+  "status": "not_measured_environment",
+  "variance_seed": null
+}
