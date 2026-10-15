@@ -1,0 +1,198 @@
+{
+  "base": {
+    "attention_parameters_per_layer": 2457600,
+    "bf16_weight_bytes": 723642240,
+    "embedding_parameters": 47185920,
+    "final_norm_parameters": 960,
+    "fp32_weight_bytes": 1447284480,
+    "full_fp32_adamw_tensor_state_bytes": 5789137920,
+    "mlp_parameters_per_layer": 7372800,
+    "norm_parameters_per_layer": 1920,
+    "total_parameters": 361821120
+  },
+  "cap_bytes": 28991029248,
+  "config": {
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "bos_token_id": 0,
+    "eos_token_id": 0,
+    "head_dim": 64,
+    "hidden_size": 960,
+    "intermediate_size": 2560,
+    "kv_hidden_size": 320,
+    "max_position_embeddings": 8192,
+    "model_type": "llama",
+    "num_attention_heads": 15,
+    "num_hidden_layers": 32,
+    "num_key_value_heads": 5,
+    "tie_word_embeddings": true,
+    "vocab_size": 49152
+  },
+  "ewc": {
+    "base_fisher_plus_anchor_fp32_bytes": 2894568960,
+    "rank16_lora_fisher_plus_anchor_fp32_bytes": 69468160
+  },
+  "lora": {
+    "formula": "rank * sum(in_features + out_features) over q/k/v/o/gate/up/down",
+    "parameters_per_rank_all_seven_projections": 542720,
+    "parameters_per_rank_attention": 204800,
+    "parameters_per_rank_mlp": 337920,
+    "ranks": {
+      "16": {
+        "bf16_weight_bytes": 17367040,
+        "fp32_weight_bytes": 34734080,
+        "fraction_of_base": 0.023999483501681716,
+        "full_fp32_adamw_tensor_state_bytes": 138936320,
+        "parameters_per_expert": 8683520
+      },
+      "32": {
+        "bf16_weight_bytes": 34734080,
+        "fp32_weight_bytes": 69468160,
+        "fraction_of_base": 0.04799896700336343,
+        "full_fp32_adamw_tensor_state_bytes": 277872640,
+        "parameters_per_expert": 17367040
+      },
+      "8": {
+        "bf16_weight_bytes": 8683520,
+        "fp32_weight_bytes": 17367040,
+        "fraction_of_base": 0.011999741750840858,
+        "full_fp32_adamw_tensor_state_bytes": 69468160,
+        "parameters_per_expert": 4341760
+      }
+    }
+  },
+  "parallel_swiglu_adapter": {
+    "bottlenecks": {
+      "128": {
+        "bf16_weight_bytes": 23592960,
+        "fp32_weight_bytes": 47185920,
+        "fraction_of_base": 0.032603071926812895,
+        "full_fp32_adamw_tensor_state_bytes": 188743680,
+        "parameters_per_expert": 11796480
+      },
+      "256": {
+        "bf16_weight_bytes": 47185920,
+        "fp32_weight_bytes": 94371840,
+        "fraction_of_base": 0.06520614385362579,
+        "full_fp32_adamw_tensor_state_bytes": 377487360,
+        "parameters_per_expert": 23592960
+      },
+      "2560": {
+        "bf16_weight_bytes": 471859200,
+        "fp32_weight_bytes": 943718400,
+        "fraction_of_base": 0.6520614385362579,
+        "full_fp32_adamw_tensor_state_bytes": 3774873600,
+        "parameters_per_expert": 235929600
+      },
+      "64": {
+        "bf16_weight_bytes": 11796480,
+        "fp32_weight_bytes": 23592960,
+        "fraction_of_base": 0.016301535963406447,
+        "full_fp32_adamw_tensor_state_bytes": 94371840,
+        "parameters_per_expert": 5898240
+      },
+      "640": {
+        "bf16_weight_bytes": 117964800,
+        "fp32_weight_bytes": 235929600,
+        "fraction_of_base": 0.16301535963406447,
+        "full_fp32_adamw_tensor_state_bytes": 943718400,
+        "parameters_per_expert": 58982400
+      }
+    },
+    "formula": "layers * 3 * hidden_size * bottleneck for projection weights only; excludes router, branch norms, and biases"
+  },
+  "replay": {
+    "cached_upper_bound_bytes": 32768000,
+    "example_cached_upper_bound": "500 examples * 8192 positions * (input_ids + labels) * 4-byte int32"
+  },
+  "schema_version": "adr-0011-smollm2-arithmetic-v1",
+  "selected_static_scenario": {
+    "bytes": 1968295680,
+    "description": "fp32 frozen base, 12 resident rank-16 LoRA experts, one expert with fp32 gradients and two AdamW moments; excludes activations and runtime",
+    "headroom_to_cap_bytes": 27022733568
+  },
+  "source": {
+    "config_sha256": "34f7801487078de7e434e19162c497e5cc6ff397080e40e8586627cb68a5168a",
+    "lm_head_weight_present": false,
+    "parameters_by_dtype": {
+      "BF16": 361821120
+    },
+    "repository": "HuggingFaceTB/SmolLM2-360M",
+    "revision": "f8027fd0eaeea54caa13c31d31b9fdc459c38b49",
+    "tensor_count": 290,
+    "tokenizer_assets": {
+      "merges.txt": {
+        "bytes": 466391,
+        "sha256": "0b54e8aa4e53d5383e2e4bc635a56b43f9647f7b13832d5d9ecd8f82dac4f510"
+      },
+      "special_tokens_map.json": {
+        "bytes": 831,
+        "sha256": "e786b595b9a23148bf1630df78d9037a048ea671e48bfd3549a1e3c233742bb3"
+      },
+      "tokenizer.json": {
+        "bytes": 2104556,
+        "sha256": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c"
+      },
+      "tokenizer_config.json": {
+        "bytes": 3658,
+        "sha256": "4bb9af56a342753d39374f4016a16574cab299fe088e896f425ce3c433f61424"
+      },
+      "vocab.json": {
+        "bytes": 800662,
+        "sha256": "82b84012e3add4d01d12ba14442026e49b8cbbaead1f79ecf3d919784f82dc79"
+      }
+    },
+    "weights_file_bytes": 723674912,
+    "weights_sha256": "7aaff6661428bed033abba9522bec81938678642cca3181fe752b6ca9e1e540f"
+  },
+  "tokenizer": {
+    "bos_token": "<|endoftext|>",
+    "chat_template": null,
+    "chat_template_file_present": false,
+    "eos_token": "<|endoftext|>",
+    "pad_token": null,
+    "required_added_tokens": {
+      "0": "<|endoftext|>",
+      "1": "<|im_start|>",
+      "2": "<|im_end|>"
+    },
+    "tokenizer_class": "GPT2Tokenizer",
+    "unk_token": "<|endoftext|>"
+  },
+  "upcycled_ffn": {
+    "expert_counts": {
+      "12": {
+        "bf16_weight_bytes": 5914831488,
+        "fp32_weight_bytes": 11829662976,
+        "full_adamw_state_exceeds_cap": true,
+        "full_fp32_adamw_tensor_state_bytes": 47318651904,
+        "total_parameters": 2957415744
+      },
+      "2": {
+        "bf16_weight_bytes": 1195624448,
+        "fp32_weight_bytes": 2391248896,
+        "full_adamw_state_exceeds_cap": false,
+        "full_fp32_adamw_tensor_state_bytes": 9564995584,
+        "total_parameters": 597812224
+      },
+      "4": {
+        "bf16_weight_bytes": 2139465856,
+        "fp32_weight_bytes": 4278931712,
+        "full_adamw_state_exceeds_cap": false,
+        "full_fp32_adamw_tensor_state_bytes": 17115726848,
+        "total_parameters": 1069732928
+      },
+      "8": {
+        "bf16_weight_bytes": 4027148672,
+        "fp32_weight_bytes": 8054297344,
+        "full_adamw_state_exceeds_cap": true,
+        "full_fp32_adamw_tensor_state_bytes": 32217189376,
+        "total_parameters": 2013574336
+      }
+    },
+    "formula": "base + (expert_count - 1) * full_ffn_copy + expert_count * per_layer_router",
+    "full_ffn_copy_parameters": 235929600,
+    "per_layer_router_parameters_per_expert": 30752
+  }
+}
