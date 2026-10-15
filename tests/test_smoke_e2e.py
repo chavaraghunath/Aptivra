@@ -54,7 +54,7 @@ def test_aptivra_pipeline_end_to_end_smoke(tmp_path: Path) -> None:
     assert log_file.stat().st_size > 0
     record = json.loads(log_file.read_text(encoding="utf-8").strip())
     metadata = record["metadata"]
-    assert metadata["harness_version"] == "continual-eval-v3"
+    assert metadata["harness_version"] == "continual-eval-v4"
     assert metadata["rows_evaluated_per_cycle"] is True
     assert metadata["split_sizes"] == {
         "train_per_task": 5,

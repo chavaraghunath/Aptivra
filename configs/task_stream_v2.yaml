@@ -1,0 +1,29 @@
+task_stream:
+  version: v2
+  num_train_per_task: 500
+  num_val_per_task: 100
+  num_test_per_task: 300
+  num_template_ood_test_per_code_family: 300
+  seed: 42
+  max_generation_attempts: 100
+  roles:
+    - skill
+    - tokenizer_sensitivity_diagnostic
+  family_roles:
+    T1_modular_arithmetic: skill
+    T2_string_transforms: tokenizer_sensitivity_diagnostic
+    T3_list_operations: skill
+    T4_syntax_matching: skill
+    T5_boolean_logic: skill
+    T6_sequence_completion: skill
+    T7_state_machines: skill
+    T8_python_microsynth: skill
+    T9_algo_synth: skill
+    T10_docstring_code: skill
+    T11_bug_fixer: skill
+    T12_type_inferrer: skill
+  headline_roles:
+    - skill
+
+evaluation:
+  max_new_tokens: 128

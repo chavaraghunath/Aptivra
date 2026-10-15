@@ -159,15 +159,18 @@
 
 - `AGENTS.md` — Supreme agent operating instructions for this repository.
 - `CLAUDE.md` — Verbatim mirror of `AGENTS.md`.
+- `.github/workflows/` — Change-driven CI definitions for pre-commit, coverage, and partitioned Cosmic Ray mutation gates.
+- `.pre-commit-config.yaml` — Pinned commit-time lint, type, whitespace, conflict, size, and model-artifact checks.
 - `CHANGELOG.md` — Project version changelog.
 - `CODE_OF_CONDUCT.md` — Contributor code of conduct.
 - `CONTRIBUTING.md` — Guidelines for contributing to Aptivra.
 - `LICENSE` — Software license terms.
 - `SUPPORT.md` — Support channels and guidelines.
-- `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, and pytest.
+- `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, pytest, and mutmut.
 - `.claude/` — Repository-local Claude Code automation.
   - `.claude/hooks/` — Stop hooks that regenerate the protected `REPO-TREE.md` structure block.
-- `configs/` — Editable YAML copies for task streams, measured-results release gates, and verifier sandbox limits, plus repository-only model architecture, ablation, inference/chat, pretrained base-model candidate, decision-threshold, Vertex spot-execution, and GCS artifact-lifecycle presets; installed canonical runtime defaults live under `aptivra/resources/configs/`.
+- `configs/` — Editable YAML copies for versioned task streams, task-stream audit policy, GitHub issues stream building, measured-results release gates, and verifier sandbox limits, plus repository-only model architecture, ablation, inference/chat, pretrained base-model candidate, decision-threshold, Vertex spot-execution, and GCS artifact-lifecycle presets; installed canonical runtime defaults live under `aptivra/resources/configs/`.
+- `mutation/` — Repo-wide Cosmic Ray configurations partitioned into focused, parallelizable source sessions.
 - `deploy/` — Deployment bridges for Docker CUDA/CPU and Ollama/LM Studio run options.
   - `deploy/docker/` — CPU and CUDA container deployment definitions.
   - `deploy/ollama/` — Ollama and LM Studio bridge configuration and usage notes.
@@ -176,13 +179,14 @@
   - `docs/DESIGN.md` — Master Phase 1 architecture and design specification.
   - `docs/configuration-register.md` — Register of all runtime-tunable configurations.
   - `docs/adr/` — Architecture Decision Records capturing foundational technical decisions.
+  - `docs/github-issues-stream/` — Committed manifest index, bounded hash-verified record shards, and aggregate audit for the local-only public GitHub issues continual-learning stream; raw issue text stays under git-ignored `scratch/`.
 - `aptivra/` — Core Python package containing models, memory systems, experts, task stream, and eval harness.
   - `aptivra/model/` — Decoder-only backbone transformer architecture, RMSNorm, SwiGLU, and isolated AttentionInterface.
   - `aptivra/baselines/` — Continual learning baseline trainers (Naive Sequential, Replay-Only, EWC-Only, Joint Multitask).
   - `aptivra/experts/` — Soft Top-2 routing, expert modules, and dynamic expert spawning.
   - `aptivra/gate/` — Promotion criteria and statistical decision helpers for continual-learning updates.
-  - `aptivra/tasks/` — Sequential task family generators, subprocess-isolated mechanical verifiers, and task stream manager.
-  - `aptivra/eval/` — Continual learning evaluation harness, accuracy matrix logger, model-card measurement records, pretrained base-model comparison and selection logic, local/GCS artifact stores, the resumable Vertex worker/spec renderer, and the versioned held-out prompt set.
+  - `aptivra/tasks/` — V1/v2 sequential task family generators, normalized-AST fingerprinting, subprocess-isolated mechanical verifiers, and versioned task stream manager.
+  - `aptivra/eval/` — Continual learning evaluation harness, role-aware headline aggregates, deterministic task-stream audit gates, accuracy matrix logger, model-card measurement records, pretrained base-model comparison and selection logic, local/GCS artifact stores, the resumable Vertex worker/spec renderer, and the versioned held-out prompt set.
   - `aptivra/export/` — Self-contained Transformers packaging and legacy conversion, Tiered C and local-format export utilities, and measured-results model-card rendering.
   - `aptivra/inference/` — MoE causal LM loader, byte tokenizer, and generation for Hub checkpoints.
   - `aptivra/huggingface/` — In-package Transformers config, model, and tokenizer wrappers.
@@ -202,7 +206,8 @@
   - `aptivra/world_model/` — Continuous latent state-space H-JEPA world model predicting transitions in representation space.
   - `aptivra/genesis.py` — Top-level unified cognitive architecture facade orchestrating all 10 engines across all 4 phases.
 - `multitier_c/` — High-throughput C ABI sharding runtime with zero-copy mmap hot-swapping and HDC associative search.
-- `experiments/` — Version-controlled machine-readable experiment evidence.
+- `experiments/` — Immutable and append-only measured experiment outputs, including recorded v1/v2 task-stream audit evidence.
   - `experiments/base_model_candidates/` — Frozen powered and amendment evidence, including immutable candidate/repeat-seed records, family-clustered analysis, the failed Amendment 4 proof, the manifested Amendment 4a interruption and noise-floor failure, the failed Amendment 4b outcome gate, and Amendment 4e foreground checks, detached-run state, candidate measurements, and mixed-provenance ranking.
-- `scripts/` — Execution, benchmarking, base-model evaluation, Vertex dry-run rendering, and export scripts.
-- `tests/` — Pytest unit and integration test suite.
+- `scripts/` — Execution, benchmarking, evaluation, task-stream audit, base-model evaluation, Vertex dry-run rendering, and export scripts.
+  - `scripts/run-project-tool` — Portable `uv` launcher for locked development tools in primary checkouts, linked worktrees, and CI.
+- `tests/` — Pytest unit and integration suite; its task-stream audit check is the repository's CI-time policy gate.

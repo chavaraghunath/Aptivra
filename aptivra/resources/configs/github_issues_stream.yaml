@@ -1,0 +1,73 @@
+github_issues_stream:
+  enabled: true
+  source: gh_archive_clickhouse
+  output_dir: scratch/github_issues_stream
+  raw_dataset_path: scratch/github_issues_stream/issues.jsonl
+  manifest_path: docs/github-issues-stream/manifest.json
+  audit_path: docs/github-issues-stream/audit.json
+  clickhouse_endpoint: https://play.clickhouse.com/
+  clickhouse_user: play
+  user_agent: aptivra-gharchive-issue-stream-builder
+  query_timeout_seconds: 120.0
+  max_records_per_window: 2000
+  min_body_chars: 40
+  max_body_chars: 1000
+  near_duplicate_jaccard: 0.92
+  drift_resampling_seed: 17
+  canonical_label_aliases:
+    integrated-terminal: terminal
+  sampling:
+    method: month_stratified_hash
+    seed: 23
+  coverage:
+    min_months_represented: 10
+  rename_detection:
+    min_label_records: 20
+    max_handoff_days: 455
+    min_centroid_similarity: 0.25
+  split:
+    train_fraction: 0.7
+    val_fraction: 0.1
+  windows:
+    - id: "2019"
+      start: "2019-05-01"
+      end: "2020-01-01"
+    - id: "2020"
+      start: "2020-01-01"
+      end: "2021-01-01"
+    - id: "2021"
+      start: "2021-01-01"
+      end: "2022-01-01"
+    - id: "2022"
+      start: "2022-01-01"
+      end: "2023-01-01"
+    - id: "2023"
+      start: "2023-01-01"
+      end: "2024-01-01"
+    - id: "2024"
+      start: "2024-01-01"
+      end: "2025-01-01"
+  repositories:
+    - name: microsoft/vscode
+      license_spdx: MIT
+      target_labels:
+        - accessibility
+        - api
+        - debug
+        - electron
+        - extensions
+        - file-explorer
+        - git
+        - integrated-terminal
+        - javascript
+        - notebook
+        - remote
+        - scm
+        - search
+        - settings-sync
+        - tasks
+        - terminal
+        - terminal-shell-integration
+        - testing
+        - typescript
+        - workspace-trust

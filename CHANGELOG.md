@@ -20,6 +20,8 @@ tagged release exists.
   saturated-family sensitivity, computed stream properties, validation-only future grid probes,
   and an explicit owner decision. The data give a cautious preference for SmolLM2-360M; clustered
   accuracy and gain tie before the ranking falls through to bits per byte.
+- Mandatory pre-commit, coverage, strict typing, and change-driven Cosmic Ray mutation gates,
+  including dependency-aware mutmut configuration for local iteration.
 - A stock-Transformers Hub layout with one `model.safetensors`, self-contained remote code, a
   reversible byte tokenizer, and verified legacy-layout conversion.
 - Extended run options **G–J** (chat OpenAI bridge, stock Transformers with remote code, legacy
@@ -32,6 +34,15 @@ tagged release exists.
 - Strict v3 model-card evidence validation, like-for-like metric baselines, and conversion
   provenance uploaded beside consolidated weights.
 - Subprocess-isolated generated-code verification with configured wall-clock and memory limits.
+- Versioned synthetic task stream v2 with unseen-target isolation, normalized-AST program
+  de-duplication, expanded answer/program spaces, and an explicitly non-headline T2
+  tokenizer-sensitivity diagnostic.
+- Deterministic v1/v2 task-stream audit tooling, checked-in evidence records, configured policy
+  gates, exhaustive prompt-determinacy checks, sequence-rule ambiguity detection, and train-only
+  most-frequent/copy/nearest-neighbour difficulty baselines.
+- Prompt-complete v2 tasks: explicit direct-task serialization, T9--T11 visible examples plus
+  held-out execution, T11 repair specifications with two bug-discriminating examples, and T12
+  type evidence with AST-equivalent verification.
 
 ### Changed
 - Python distribution builds now discover only `aptivra` packages, embed runtime defaults and Hub
@@ -47,6 +58,8 @@ tagged release exists.
 - Promotion rejection now restores optimizer, T1, replay, EWC, topology, and RNG state while
   retaining FLOPs already spent; package generation now preserves raw stop bytes like
   Transformers generation.
+- Headline continual-learning aggregates honor stream family roles while retaining every family
+  in the unchanged per-cycle measurement matrix; v1 remains the compatibility default.
 
 ### Fixed
 - Constrained setuptools discovery to the `aptivra` package tree so top-level configuration,

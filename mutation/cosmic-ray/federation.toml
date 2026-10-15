@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/federation"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_all_phases_e2e.py"
+
+[cosmic-ray.distributor]
+name = "local"

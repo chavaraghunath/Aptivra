@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib.resources.abc import Traversable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 
@@ -50,6 +50,17 @@ class SandboxResult:
     value: object | None = None
     ran_in_child_process: bool = False
     execution_status: ExecutionStatus = "completed"
+
+
+@dataclass(frozen=True)
+class SandboxBatchRequest:
+    """One function or snippet check within a bounded child-process batch."""
+
+    mode: Literal["function", "snippet"]
+    source: str
+    function_name: str | None = None
+    test_cases: list[tuple[Any, Any]] | None = None
+    expected: str | None = None
 
 
 @lru_cache(maxsize=4)
@@ -84,16 +95,7 @@ def verify_function_source(
     config: SandboxConfig | None = None,
 ) -> SandboxResult:
     """Compile one generated function and run all of its cases in one child."""
-    cases: list[dict[str, object]] = []
-    for test_input, expected in test_cases:
-        arguments = list(test_input) if isinstance(test_input, tuple) else [test_input]
-        cases.append(
-            {
-                "args": arguments,
-                "expected": expected,
-                "display_input": repr(test_input),
-            }
-        )
+    cases = _serialize_function_cases(test_cases)
     return _run_worker(
         {
             "mode": "function",
@@ -103,6 +105,104 @@ def verify_function_source(
         },
         config or load_sandbox_config(),
     )
+
+
+def _serialize_function_cases(
+    test_cases: list[tuple[Any, Any]],
+) -> list[dict[str, object]]:
+    cases: list[dict[str, object]] = []
+    for test_input, expected in test_cases:
+        arguments = list(test_input) if isinstance(test_input, tuple) else [test_input]
+        cases.append(
+            {
+                "args": arguments,
+                "expected": _encode_json_value(expected),
+                "display_input": repr(test_input),
+            }
+        )
+    return cases
+
+
+def _encode_json_value(value: object) -> object:
+    if isinstance(value, tuple):
+        return {"__aptivra_tuple__": [_encode_json_value(item) for item in value]}
+    if isinstance(value, list):
+        return [_encode_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _encode_json_value(item) for key, item in value.items()}
+    return value
+
+
+def verify_source_batch(
+    requests: list[SandboxBatchRequest],
+    *,
+    config: SandboxConfig | None = None,
+) -> list[SandboxResult]:
+    """Execute up to 128 independent checks in one contained child process."""
+    if not requests or len(requests) > 128:
+        raise ValueError("sandbox batch size must be between 1 and 128")
+    serialized_requests: list[dict[str, object]] = []
+    for request in requests:
+        if request.mode == "function":
+            if request.function_name is None or request.test_cases is None:
+                raise ValueError("function batch request requires name and test cases")
+            serialized_requests.append(
+                {
+                    "mode": "function",
+                    "source": request.source,
+                    "function_name": request.function_name,
+                    "test_cases": _serialize_function_cases(request.test_cases),
+                }
+            )
+        else:
+            if request.expected is None:
+                raise ValueError("snippet batch request requires expected result")
+            serialized_requests.append(
+                {
+                    "mode": "snippet",
+                    "source": request.source,
+                    "expected": request.expected,
+                }
+            )
+    batch_result = _run_worker(
+        {"mode": "batch", "source": "", "requests": serialized_requests},
+        config or load_sandbox_config(),
+    )
+    if batch_result.execution_status == "infrastructure_error":
+        return [batch_result] * len(requests)
+    raw_results = batch_result.value
+    if not isinstance(raw_results, list) or len(raw_results) != len(requests):
+        return [
+            SandboxResult(
+                False,
+                error_message="Execution batch returned invalid output.",
+                ran_in_child_process=True,
+            )
+        ] * len(requests)
+    results: list[SandboxResult] = []
+    for raw_result in raw_results:
+        if not isinstance(raw_result, dict) or not isinstance(
+            raw_result.get("passed"), bool
+        ):
+            results.append(
+                SandboxResult(
+                    False,
+                    error_message="Execution batch item returned invalid output.",
+                    ran_in_child_process=True,
+                )
+            )
+            continue
+        error = raw_result.get("error")
+        actual = raw_result.get("actual")
+        results.append(
+            SandboxResult(
+                bool(raw_result["passed"]),
+                actual=actual if isinstance(actual, str) else None,
+                error_message=error if isinstance(error, str) else None,
+                ran_in_child_process=True,
+            )
+        )
+    return results
 
 
 def verify_snippet_source(

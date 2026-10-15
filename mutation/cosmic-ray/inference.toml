@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/inference"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_chat_prompt.py tests/test_chat_quality.py tests/test_chat_sanitize.py tests/test_inference_causal_lm.py tests/test_hf_packaging.py tests/test_model_card_eval.py"
+
+[cosmic-ray.distributor]
+name = "local"

@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/memory"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_memory.py tests/test_contrastive_memory.py tests/test_hybrid_store.py tests/test_genesis_memory.py tests/test_genesis_phases_deep.py tests/test_all_phases_e2e.py"
+
+[cosmic-ray.distributor]
+name = "local"

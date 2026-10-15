@@ -33,6 +33,14 @@ prediction; see `docs/RESULTS.md` for the erratum and historical context.
   resource-limited child process with a wall-clock timeout and process-group termination. This
   contains hangs and accidental failures during evaluation; it is not a security boundary and
   must not be used to execute hostile code.
+- The synthetic continual-learning stream is versioned. Historical `v1` remains the default for
+  record reproducibility; `configs/task_stream_v2.yaml` selects the claim-capable `v2` stream.
+  Checked-in audits report split diversity, exact and normalized-AST overlap, answer-space chance,
+  identity/chat contamination, target lengths, three train-only trivial baselines, and exhaustive
+  per-family prompt-determinacy checks. V2 policy permits zero ambiguous or invalid items.
+- V2 T2 string transforms is a tokenizer-sensitivity diagnostic. It remains in every per-cycle
+  matrix but is excluded from headline aggregate metrics; no v2 model-learning result is claimed
+  by this repository until the stream is used in a separately preregistered training run.
 
 ## Repository Layout
 
@@ -73,20 +81,40 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-The wheel embeds the task-stream, model-card release-gate, and verifier-sandbox defaults, the
-versioned model-card evaluation corpora, and the self-contained Hub remote-code templates. Package
-APIs resolve these files with `importlib.resources`, so their defaults work outside a source clone.
-The same-named YAML files under `configs/` are byte-matched editable copies for repository commands
-and explicit overrides. Backbone and inference YAML files are repository-only experiment/operator
-presets; callers using them must pass their paths explicitly.
+The wheel embeds the versioned task-stream, task-stream audit, GitHub issues stream builder,
+model-card release-gate, and verifier-sandbox defaults, the versioned model-card evaluation
+corpora, and the self-contained Hub remote-code templates. Package APIs resolve these files with
+`importlib.resources`, so their defaults work outside a source clone. The same-named YAML files
+under `configs/` are byte-matched editable copies for repository commands and explicit overrides.
+Backbone and inference YAML files are repository-only experiment/operator presets; callers using
+them must pass their paths explicitly.
 
-Use the shared project virtualenv when working in the maintained workspace:
+Use the locked project environment. The launcher also resolves the primary checkout's `.venv`
+when called from a linked Git worktree, so activation is not required:
 
 ```bash
-PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python -m pytest -q -p no:cacheprovider
-PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python -m ruff check .
-PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python -m mypy --strict aptivra
+scripts/run-project-tool pre-commit run --all-files
+scripts/run-project-tool pytest -q -p no:cacheprovider
+scripts/run-project-tool ruff check .
+scripts/run-project-tool mypy --strict aptivra
 ```
+
+The coverage gate adds `--cov-fail-under=90` to the pytest command. Ruff formatting is not a
+pre-commit gate because the existing repository is not yet format-clean; linting remains mandatory.
+
+## Mutation Testing
+
+Use mutmut for dependency-aware local iteration across the complete `aptivra/` package:
+
+```bash
+scripts/run-project-tool mutmut run
+```
+
+Cosmic Ray is the CI enforcement gate. Configuration is partitioned by source area under
+`mutation/cosmic-ray/`; each session uses a focused test set, a 180-second per-mutant timeout, and
+all installed mutation operators. The GitHub Actions matrix runs four sessions concurrently and
+enforces at most 10% surviving mutants with `cr-rate --estimate --fail-over 10`. There are no
+source or operator exclusions. See `AGENTS.md` for the exact repo-wide local command loop.
 
 ## Model-Card Evaluation
 
@@ -367,7 +395,10 @@ context window.
 
 ```bash
 python scripts/run_aptivra.py --config configs/backbone_50m.yaml
+python scripts/run_aptivra.py --config configs/backbone_50m.yaml \
+  --task-stream-config configs/task_stream_v2.yaml
 python scripts/run_baselines.py --config configs/backbone_50m.yaml
+python -m scripts.audit_task_stream --plan configs/task_stream_audit.yaml --check
 python scripts/run_aid_bench.py
 # Local interoperability artifact only; never uploaded to the Hub:
 python scripts/export_gguf.py --output-dir scratch/hf_export/gguf --quant-type fp16
@@ -379,6 +410,9 @@ python scripts/export_gguf.py --output-dir scratch/hf_export/gguf --quant-type f
   the harness evaluated only the final model.
 - Historical recall@5 and prefetch hit-rate figures in `docs/RESULTS.md` have no executable
   source in this repository.
+- Task stream v1 is retained only for reproducibility. Its recorded audit shows target reuse,
+  high-chance answer spaces, and normalized-AST template overlap, so it cannot support new
+  continual-learning capability claims.
 - The Phase 5 identity/skill training table records chance-level byte loss near `ln(256)`, not a
   demonstrated skill capability.
 - Identity training strings in `aptivra/tasks/identity.py` and

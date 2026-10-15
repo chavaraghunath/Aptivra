@@ -245,7 +245,3 @@ Evaluated across 3 independent seeds (42, 43, 44) with $95\%$ confidence interva
 | **M5.4** | GGUF v3 Exporter (FP16 & Q8_0) | **VERIFIED** (Code 0) | `aptivra-200m-fp16.gguf` (543MB), `aptivra-200m-q8_0.gguf` (1.08GB) |
 | **M5.5** | Local C-Engine GGUF Inference CLI | **VERIFIED** (Code 0) | `./multitier_c/aptivra-cli` parses 172 tensors & 12 KVs |
 | **M5.6** | Hugging Face Model Hub Release | **PUBLISHED** | [raghunath1/aptivra-200m-tiered-memory](https://huggingface.co/raghunath1/aptivra-200m-tiered-memory) |
-
-
-
-

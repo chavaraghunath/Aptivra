@@ -16,9 +16,11 @@ from aptivra.eval.model_card_eval import (
     DEFAULT_HELDOUT_TEXT_PATH,
     load_prompt_answers,
 )
+from aptivra.eval.task_stream_audit import load_audit_plan
 from aptivra.export.model_card import load_release_gate_settings
 from aptivra.resources import aptivra_resource, require_resource
 from aptivra.tasks.code_sandbox import load_sandbox_config
+from aptivra.tasks.github_issues import load_github_issue_builder_config
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _HUB_TEMPLATE_DIR = _PROJECT_ROOT / "aptivra" / "resources" / "huggingface_hub"
@@ -144,7 +146,10 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
         "aptivra/eval/model_card_heldout_v1.json",
         "aptivra/eval/model_card_heldout_text_v1.txt",
         "aptivra/resources/configs/model_card_release_gate.yaml",
+        "aptivra/resources/configs/github_issues_stream.yaml",
         "aptivra/resources/configs/task_stream.yaml",
+        "aptivra/resources/configs/task_stream_audit.yaml",
+        "aptivra/resources/configs/task_stream_v2.yaml",
         "aptivra/resources/configs/verifier_sandbox.yaml",
         "aptivra/resources/huggingface_hub/configuration_aptivra.py.template",
         "aptivra/resources/huggingface_hub/modeling_aptivra.py.template",
@@ -185,6 +190,17 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
                 "modules = sorted(info.name for info in "
                 "pkgutil.walk_packages(aptivra.__path__, aptivra.__name__ + '.')); "
                 "[importlib.import_module(name) for name in modules]; "
+                "from aptivra.resources import aptivra_resource; "
+                "from aptivra.eval.config import load_experiment_settings; "
+                "from aptivra.eval.task_stream_audit import load_audit_plan; "
+                "from aptivra.tasks.github_issues import "
+                "load_github_issue_builder_config; "
+                "assert load_experiment_settings(aptivra_resource('configs', "
+                "'task_stream_v2.yaml')).task_stream.version == 'v2'; "
+                "assert len(load_audit_plan(aptivra_resource('configs', "
+                "'task_stream_audit.yaml')).streams) == 2; "
+                "assert load_github_issue_builder_config().source == "
+                "'gh_archive_clickhouse'; "
                 f"assert len(modules) + 1 == {len(expected_python)}; "
                 "print(f'imported {len(modules) + 1} wheel modules')"
             ),
@@ -203,11 +219,21 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
     release_gate = load_release_gate_settings()
     sandbox = load_sandbox_config()
     experiment = load_experiment_settings()
+    v2_experiment = load_experiment_settings(
+        aptivra_resource("configs", "task_stream_v2.yaml")
+    )
+    audit_plan = load_audit_plan(
+        aptivra_resource("configs", "task_stream_audit.yaml")
+    )
+    github_issues = load_github_issue_builder_config()
     heldout = load_prompt_answers(DEFAULT_HELDOUT_PROMPTS_PATH)
 
     assert release_gate.minimum_heldout_prompt_samples == len(heldout)
     assert sandbox.timeout_seconds == 1.0
     assert experiment.task_stream.seed == 42
+    assert v2_experiment.task_stream.version == "v2"
+    assert len(audit_plan.streams) == 2
+    assert github_issues.source == "gh_archive_clickhouse"
     assert len(DEFAULT_HELDOUT_TEXT_PATH.read_bytes()) >= 8192
 
 
@@ -215,10 +241,22 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
     ("repository_path", "resource_parts"),
     [
         (
+            "configs/github_issues_stream.yaml",
+            ("configs", "github_issues_stream.yaml"),
+        ),
+        (
             "configs/model_card_release_gate.yaml",
             ("configs", "model_card_release_gate.yaml"),
         ),
         ("configs/task_stream.yaml", ("configs", "task_stream.yaml")),
+        (
+            "configs/task_stream_audit.yaml",
+            ("configs", "task_stream_audit.yaml"),
+        ),
+        (
+            "configs/task_stream_v2.yaml",
+            ("configs", "task_stream_v2.yaml"),
+        ),
         ("configs/verifier_sandbox.yaml", ("configs", "verifier_sandbox.yaml")),
     ],
 )

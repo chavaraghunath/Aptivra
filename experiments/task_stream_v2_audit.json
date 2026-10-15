@@ -1,0 +1,1558 @@
+{
+  "families": [
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T1_modular_arithmetic",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 4.71,
+            "median": 5.0,
+            "min": 2,
+            "p95": 5.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 4.75,
+            "median": 5.0,
+            "min": 3,
+            "p95": 5.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 5,
+            "mean": 4.68,
+            "median": 5.0,
+            "min": 3,
+            "p95": 5.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 0,
+          "top_template_share": null
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 0,
+        "test": {
+          "template_count": 4,
+          "top_template_share": 0.2633333333333333
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 4,
+          "top_template_share": 0.266
+        },
+        "val": {
+          "template_count": 4,
+          "top_template_share": 0.3
+        }
+      },
+      "template_ood_determinacy": null,
+      "template_ood_trivial_baselines": null,
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T2_string_transforms",
+      "headline_eligible": false,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "tokenizer_sensitivity_diagnostic",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 14,
+            "mean": 9.446666666666667,
+            "median": 9.0,
+            "min": 4,
+            "p95": 14.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 14,
+            "mean": 9.614,
+            "median": 10.0,
+            "min": 4,
+            "p95": 14.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 14,
+            "mean": 9.32,
+            "median": 9.0,
+            "min": 4,
+            "p95": 13.049999999999997
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 0,
+          "top_template_share": null
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 0,
+        "test": {
+          "template_count": 3,
+          "top_template_share": 0.37
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 3,
+          "top_template_share": 0.376
+        },
+        "val": {
+          "template_count": 3,
+          "top_template_share": 0.38
+        }
+      },
+      "template_ood_determinacy": null,
+      "template_ood_trivial_baselines": null,
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T3_list_operations",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 41,
+            "mean": 19.403333333333332,
+            "median": 19.0,
+            "min": 4,
+            "p95": 37.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 43,
+            "mean": 20.07,
+            "median": 20.0,
+            "min": 0,
+            "p95": 37.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 39,
+            "mean": 17.67,
+            "median": 16.5,
+            "min": 5,
+            "p95": 36.05
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 0,
+          "top_template_share": null
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 0,
+        "test": {
+          "template_count": 28,
+          "top_template_share": 0.056666666666666664
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 28,
+          "top_template_share": 0.054
+        },
+        "val": {
+          "template_count": 27,
+          "top_template_share": 0.09
+        }
+      },
+      "template_ood_determinacy": null,
+      "template_ood_trivial_baselines": null,
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T4_syntax_matching",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 16,
+            "mean": 12.18,
+            "median": 12.0,
+            "min": 8,
+            "p95": 16.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 16,
+            "mean": 11.946,
+            "median": 12.0,
+            "min": 8,
+            "p95": 16.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 16,
+            "mean": 12.09,
+            "median": 13.0,
+            "min": 8,
+            "p95": 16.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 0,
+          "top_template_share": null
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 0,
+        "test": {
+          "template_count": 1,
+          "top_template_share": 1.0
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 1,
+          "top_template_share": 1.0
+        },
+        "val": {
+          "template_count": 1,
+          "top_template_share": 1.0
+        }
+      },
+      "template_ood_determinacy": null,
+      "template_ood_trivial_baselines": null,
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T5_boolean_logic",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 32,
+            "mean": 32.0,
+            "median": 32.0,
+            "min": 32,
+            "p95": 32.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 32,
+            "mean": 32.0,
+            "median": 32.0,
+            "min": 32,
+            "p95": 32.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 32,
+            "mean": 32.0,
+            "median": 32.0,
+            "min": 32,
+            "p95": 32.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 0,
+          "top_template_share": null
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 0,
+        "test": {
+          "template_count": 300,
+          "top_template_share": 0.0033333333333333335
+        },
+        "test_only_templates": 300,
+        "train": {
+          "template_count": 500,
+          "top_template_share": 0.002
+        },
+        "val": {
+          "template_count": 100,
+          "top_template_share": 0.01
+        }
+      },
+      "template_ood_determinacy": null,
+      "template_ood_trivial_baselines": null,
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T6_sequence_completion",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 19,
+            "mean": 14.636666666666667,
+            "median": 14.0,
+            "min": 9,
+            "p95": 18.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 23,
+            "mean": 14.71,
+            "median": 14.0,
+            "min": 9,
+            "p95": 18.049999999999955
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 19,
+            "mean": 14.77,
+            "median": 15.0,
+            "min": 10,
+            "p95": 18.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 0,
+          "top_template_share": null
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 0,
+        "test": {
+          "template_count": 1,
+          "top_template_share": 1.0
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 1,
+          "top_template_share": 1.0
+        },
+        "val": {
+          "template_count": 1,
+          "top_template_share": 1.0
+        }
+      },
+      "template_ood_determinacy": null,
+      "template_ood_trivial_baselines": null,
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T7_state_machines",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 46,
+            "mean": 37.666666666666664,
+            "median": 38.0,
+            "min": 30,
+            "p95": 46.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 46,
+            "mean": 37.576,
+            "median": 38.0,
+            "min": 30,
+            "p95": 46.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 46,
+            "mean": 38.68,
+            "median": 38.0,
+            "min": 30,
+            "p95": 46.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 0,
+          "top_template_share": null
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 0,
+        "test": {
+          "template_count": 300,
+          "top_template_share": 0.0033333333333333335
+        },
+        "test_only_templates": 300,
+        "train": {
+          "template_count": 500,
+          "top_template_share": 0.002
+        },
+        "val": {
+          "template_count": 100,
+          "top_template_share": 0.01
+        }
+      },
+      "template_ood_determinacy": null,
+      "template_ood_trivial_baselines": null,
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": null,
+        "distinct_train_structures": null,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": null
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T8_python_microsynth",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "template-OOD": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 73,
+            "mean": 67.27666666666667,
+            "median": 67.0,
+            "min": 63,
+            "p95": 70.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 72.49,
+            "median": 79.0,
+            "min": 56,
+            "p95": 85.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 72.318,
+            "median": 78.0,
+            "min": 56,
+            "p95": 85.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 89,
+            "mean": 71.06,
+            "median": 77.5,
+            "min": 56,
+            "p95": 85.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 2,
+          "top_template_share": 0.5
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 2,
+        "test": {
+          "template_count": 5,
+          "top_template_share": 0.24
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 5,
+          "top_template_share": 0.208
+        },
+        "val": {
+          "template_count": 5,
+          "top_template_share": 0.27
+        }
+      },
+      "template_ood_determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 300,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 300
+      },
+      "template_ood_trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      },
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": 300,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 300,
+        "distinct_train_structures": 500,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T9_algo_synth",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "template-OOD": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 80,
+            "mean": 74.22666666666667,
+            "median": 71.0,
+            "min": 68,
+            "p95": 80.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 71.59,
+            "median": 69.0,
+            "min": 62,
+            "p95": 85.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 73.254,
+            "median": 71.0,
+            "min": 62,
+            "p95": 86.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 86,
+            "mean": 72.03,
+            "median": 70.0,
+            "min": 62,
+            "p95": 85.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 2,
+          "top_template_share": 0.5233333333333333
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 2,
+        "test": {
+          "template_count": 12,
+          "top_template_share": 0.17333333333333334
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 13,
+          "top_template_share": 0.148
+        },
+        "val": {
+          "template_count": 13,
+          "top_template_share": 0.2
+        }
+      },
+      "template_ood_determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 300,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 300
+      },
+      "template_ood_trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      },
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": 300,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 300,
+        "distinct_train_structures": 500,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T10_docstring_code",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "template-OOD": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 58,
+            "mean": 54.52,
+            "median": 54.0,
+            "min": 50,
+            "p95": 58.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 96,
+            "mean": 68.24,
+            "median": 70.0,
+            "min": 42,
+            "p95": 95.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 96,
+            "mean": 68.0,
+            "median": 62.0,
+            "min": 42,
+            "p95": 95.04999999999995
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 95,
+            "mean": 66.45,
+            "median": 61.0,
+            "min": 43,
+            "p95": 95.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 2,
+          "top_template_share": 0.5
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 2,
+        "test": {
+          "template_count": 8,
+          "top_template_share": 0.17
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 8,
+          "top_template_share": 0.158
+        },
+        "val": {
+          "template_count": 8,
+          "top_template_share": 0.21
+        }
+      },
+      "template_ood_determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 300,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 300
+      },
+      "template_ood_trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      },
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": 300,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 300,
+        "distinct_train_structures": 500,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T11_bug_fixer",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "template-OOD": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 80,
+            "mean": 74.19333333333333,
+            "median": 71.0,
+            "min": 68,
+            "p95": 80.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 72.86666666666666,
+            "median": 70.0,
+            "min": 62,
+            "p95": 86.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 72.156,
+            "median": 70.0,
+            "min": 62,
+            "p95": 86.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 86,
+            "mean": 72.51,
+            "median": 70.0,
+            "min": 62,
+            "p95": 85.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 2,
+          "top_template_share": 0.52
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 2,
+        "test": {
+          "template_count": 10,
+          "top_template_share": 0.15666666666666668
+        },
+        "test_only_templates": 1,
+        "train": {
+          "template_count": 9,
+          "top_template_share": 0.14
+        },
+        "val": {
+          "template_count": 9,
+          "top_template_share": 0.17
+        }
+      },
+      "template_ood_determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 300,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 300
+      },
+      "template_ood_trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      },
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": 300,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 300,
+        "distinct_train_structures": 500,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    },
+    {
+      "determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 900,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 900
+      },
+      "family_id": "T12_type_inferrer",
+      "headline_eligible": true,
+      "identity_chat_contamination": {
+        "template-OOD": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "test": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "train": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        },
+        "val": {
+          "prompt_matches": 0,
+          "target_matches": 0
+        }
+      },
+      "role": "skill",
+      "splits": {
+        "template-OOD": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 86,
+            "mean": 80.89,
+            "median": 78.0,
+            "min": 76,
+            "p95": 86.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "test": {
+          "distinct_prompts": 300,
+          "distinct_targets": 300,
+          "empirical_most_frequent_rate": 0.0033333333333333335,
+          "instances": 300,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 70.13,
+            "median": 69.0,
+            "min": 55,
+            "p95": 86.0
+          },
+          "uniform_target_chance": 0.0033333333333333335
+        },
+        "train": {
+          "distinct_prompts": 500,
+          "distinct_targets": 500,
+          "empirical_most_frequent_rate": 0.002,
+          "instances": 500,
+          "target_length_bytes": {
+            "max": 87,
+            "mean": 68.99,
+            "median": 63.0,
+            "min": 55,
+            "p95": 86.0
+          },
+          "uniform_target_chance": 0.002
+        },
+        "val": {
+          "distinct_prompts": 100,
+          "distinct_targets": 100,
+          "empirical_most_frequent_rate": 0.01,
+          "instances": 100,
+          "target_length_bytes": {
+            "max": 86,
+            "mean": 69.19,
+            "median": 69.0,
+            "min": 55,
+            "p95": 86.0
+          },
+          "uniform_target_chance": 0.01
+        }
+      },
+      "template_diversity": {
+        "template-OOD": {
+          "template_count": 2,
+          "top_template_share": 0.5166666666666667
+        },
+        "template_ood_in_template_overlap": 0,
+        "template_ood_only_templates": 2,
+        "test": {
+          "template_count": 10,
+          "top_template_share": 0.14666666666666667
+        },
+        "test_only_templates": 0,
+        "train": {
+          "template_count": 10,
+          "top_template_share": 0.154
+        },
+        "val": {
+          "template_count": 9,
+          "top_template_share": 0.21
+        }
+      },
+      "template_ood_determinacy": {
+        "ambiguous_items": 0,
+        "checked_items": 300,
+        "failure_examples": [],
+        "invalid_items": 0,
+        "valid_items": 300
+      },
+      "template_ood_trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      },
+      "train_template_ood_overlap": {
+        "distinct_template_ood_structures": 300,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "train_test_overlap": {
+        "distinct_test_structures": 300,
+        "distinct_train_structures": 500,
+        "exact_prompts": 0,
+        "exact_targets": 0,
+        "structural_targets": 0
+      },
+      "trivial_baselines": {
+        "copy_prompt": 0.0,
+        "most_frequent_answer": 0.0,
+        "nearest_similarity": "character_trigram_jaccard",
+        "nearest_training_prompt": 0.0,
+        "sample_size": 25
+      }
+    }
+  ],
+  "passed": true,
+  "policy": {
+    "max_ambiguous_item_count": 0,
+    "max_identity_chat_contamination_count": 0,
+    "max_structural_overlap_count": 0,
+    "max_target_overlap_count": 0,
+    "max_trivial_baseline_accuracy": 0.1,
+    "max_uniform_chance": 0.05
+  },
+  "schema": "aptivra-task-stream-audit-v3",
+  "seed": 42,
+  "split_sizes": {
+    "template-OOD": 300,
+    "test": 300,
+    "train": 500,
+    "val": 100
+  },
+  "stream_config": "configs/task_stream_v2.yaml",
+  "stream_version": "v2",
+  "violations": []
+}

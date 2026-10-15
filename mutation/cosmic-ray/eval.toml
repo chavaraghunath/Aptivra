@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/eval"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_eval.py tests/test_eval_config.py tests/test_generated_answer.py tests/test_model_card.py tests/test_model_card_eval.py tests/test_hf_packaging.py tests/test_smoke_e2e.py tests/test_consolidation.py"
+
+[cosmic-ray.distributor]
+name = "local"

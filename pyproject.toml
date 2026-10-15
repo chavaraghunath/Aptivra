@@ -33,6 +33,9 @@ chat = [
     "transformers>=4.40.0",
 ]
 dev = [
+    "cosmic-ray>=8.4.3",
+    "mutmut>=3.3.1",
+    "pre-commit>=4.3.0",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "mypy>=1.8.0",
@@ -94,3 +97,15 @@ minversion = "8.0"
 addopts = "-ra -q --cov=aptivra --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[tool.mutmut]
+# Mutate the complete Python package. There are intentionally no source or operator exclusions.
+source_paths = ["aptivra"]
+also_copy = ["configs", "deploy", "experiments", "scripts"]
+pytest_add_cli_args = ["-q", "-p", "no:cacheprovider", "--no-cov"]
+pytest_add_cli_args_test_selection = ["tests"]
+mutate_only_covered_lines = false
+timeout_multiplier = 3.0
+timeout_constant = 10.0
+# Torch/MPS state is not safe to inherit from mutmut's test-collection process.
+process_isolation = "forkserver"
