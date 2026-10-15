@@ -777,6 +777,110 @@ def test_mps_sampler_records_driver_peak_and_degrades_on_driver_error(
     assert unavailable.record()["mps_driver_peak_bytes"] is None
 
 
+def test_cuda_sampler_uses_allocated_and_reserved_peaks_for_fairness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CUDA feasibility excludes host RSS and uses PyTorch's device peak counters."""
+    resets: list[torch.device] = []
+    monkeypatch.setattr(base_eval, "system_swap_used_bytes", lambda: 0)
+    monkeypatch.setattr(base_eval, "_rss_high_water_bytes", lambda: 10_000)
+    monkeypatch.setattr(base_eval.torch.cuda, "synchronize", lambda device: None)
+    monkeypatch.setattr(
+        base_eval.torch.cuda,
+        "reset_peak_memory_stats",
+        lambda device: resets.append(device),
+    )
+    monkeypatch.setattr(base_eval.torch.cuda, "memory_allocated", lambda device: 100)
+    monkeypatch.setattr(base_eval.torch.cuda, "memory_reserved", lambda device: 200)
+    monkeypatch.setattr(
+        base_eval.torch.cuda, "max_memory_allocated", lambda device: 300
+    )
+    monkeypatch.setattr(
+        base_eval.torch.cuda, "max_memory_reserved", lambda device: 400
+    )
+    device = torch.device("cuda")
+    with base_eval.MemoryPeakSampler(device, 10.0) as sampler:
+        sampler.raise_if_swap_limit_exceeded()
+    record = sampler.record()
+    assert resets == [device]
+    assert record["cuda_max_memory_allocated_bytes"] == 300
+    assert record["cuda_max_memory_reserved_bytes"] == 400
+    assert record["hard_constraint_peak_bytes"] == 400
+    assert record["hard_constraint_metric"] == (
+        "max(CUDA max_memory_allocated, CUDA max_memory_reserved)"
+    )
+
+
+def test_cuda_sampler_degrades_to_rss_when_driver_metrics_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(base_eval, "system_swap_used_bytes", lambda: 0)
+    monkeypatch.setattr(base_eval, "_rss_high_water_bytes", lambda: 123)
+    monkeypatch.setattr(base_eval.torch.cuda, "synchronize", lambda device: None)
+    monkeypatch.setattr(base_eval.torch.cuda, "reset_peak_memory_stats", lambda device: None)
+
+    def unavailable(device: torch.device) -> int:
+        del device
+        raise RuntimeError("CUDA unavailable")
+
+    monkeypatch.setattr(base_eval.torch.cuda, "memory_allocated", unavailable)
+    monkeypatch.setattr(base_eval.torch.cuda, "memory_reserved", unavailable)
+    monkeypatch.setattr(base_eval.torch.cuda, "max_memory_allocated", unavailable)
+    monkeypatch.setattr(base_eval.torch.cuda, "max_memory_reserved", unavailable)
+    with base_eval.MemoryPeakSampler(torch.device("cuda"), 10.0) as sampler:
+        pass
+    assert sampler.record()["hard_constraint_peak_bytes"] == 123
+
+
+def test_device_resolution_prefers_real_accelerators_and_fails_explicitly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(base_eval.torch.backends.mps, "is_available", lambda: False)
+    monkeypatch.setattr(base_eval.torch.cuda, "is_available", lambda: True)
+    assert base_eval.resolve_device("auto").type == "cuda"
+    assert base_eval.resolve_device("cuda").type == "cuda"
+    monkeypatch.setattr(base_eval.torch.cuda, "is_available", lambda: False)
+    assert base_eval.resolve_device("auto").type == "cpu"
+    with pytest.raises(RuntimeError, match="CUDA was requested"):
+        base_eval.resolve_device("cuda")
+
+
+def test_host_pristine_placement_changes_memory_only_not_training_math(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = replace(
+        _settings(tmp_path),
+        pristine_model_device="host",
+        target_only_training_loss=False,
+        probe_steps=1,
+        probe_warmup_steps=0,
+    )
+    model = _ToyLearnableLM()
+    digest_before = base_eval.model_state_digest(cast(Any, model))
+    monkeypatch.setattr(
+        base_eval,
+        "evaluate_batched_accuracy",
+        lambda *args, **kwargs: _accuracy_record_for_test(),
+    )
+    run_learnability_probe(
+        cast(Any, model),
+        cast(Any, _ToyTokenizer()),
+        cast(Any, _ToyStream()),
+        0,
+        settings,
+        16,
+        torch.device("cpu"),
+    )
+    assert base_eval.model_state_digest(cast(Any, model)) == digest_before
+    memory = base_eval.full_finetuning_memory_feasibility(
+        10, settings, DecisionSettings(("mit",), 10_000, 0.25, 0.0, 0.0, 0.02, True)
+    )
+    assert cast(dict[str, int], memory["components_bytes"])[
+        "pristine_base_weights_on_candidate_device"
+    ] == 0
+    assert memory["bytes_per_parameter"] == 16
+
+
 def test_environment_status_records_are_durable_and_distinct(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1170,7 +1274,7 @@ def test_amendment_4a_measurement_validates_inputs_and_accuracy_evidence(
         equivalence_noise_floor_batches=3,
     )
     instance = TaskInstance("item", "toy", "P", "A")
-    with pytest.raises(ValueError, match="requires MPS"):
+    with pytest.raises(ValueError, match="requires an accelerator"):
         base_eval.measure_noise_floor(
             cast(Any, _ToyLearnableLM()),
             cast(Any, _ToyTokenizer()),
@@ -1190,7 +1294,7 @@ def test_amendment_4a_measurement_validates_inputs_and_accuracy_evidence(
             torch.device("mps"),
             base_eval.TrainingRecipe(1, False),
         )
-    with pytest.raises(ValueError, match="trajectory measurement requires MPS"):
+    with pytest.raises(ValueError, match="trajectory measurement requires an accelerator"):
         base_eval.measure_training_trajectory(
             cast(Any, _ToyLearnableLM()),
             cast(Any, _ToyTokenizer()),
@@ -1569,7 +1673,7 @@ def test_amendment_4b_rejects_invalid_measurement_inputs(tmp_path: Path) -> None
         equivalence_trajectory_steps=1,
     )
     instance = TaskInstance("item", "toy", "P", "A")
-    with pytest.raises(ValueError, match="shape-changing control requires MPS"):
+    with pytest.raises(ValueError, match="shape-changing control requires an accelerator"):
         base_eval.measure_shape_changing_control(
             cast(Any, _ToyLearnableLM()),
             cast(Any, _ToyTokenizer()),
@@ -1589,7 +1693,7 @@ def test_amendment_4b_rejects_invalid_measurement_inputs(tmp_path: Path) -> None
             torch.device("mps"),
             base_eval.TrainingRecipe(1, False),
         )
-    with pytest.raises(ValueError, match="outcome gate requires MPS"):
+    with pytest.raises(ValueError, match="outcome gate requires an accelerator"):
         base_eval.measure_outcome_gate(
             cast(Any, _ToyLearnableLM()),
             cast(Any, _ToyTokenizer()),

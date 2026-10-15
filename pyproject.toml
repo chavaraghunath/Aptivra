@@ -9,6 +9,7 @@ description = "Aptivra: Continual Learning with Tiered Memory, Growable Expert M
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "gguf>=0.19.0",
     "torch>=2.0.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
@@ -16,11 +17,11 @@ dependencies = [
     "pyyaml>=6.0",
     "huggingface_hub>=0.23.0",
     "safetensors>=0.4.0",
+    "transformers>=4.40.0",
 ]
 
 [project.optional-dependencies]
 hf = [
-    "transformers>=4.40.0",
 ]
 mlx = [
     "mlx>=0.18.0",

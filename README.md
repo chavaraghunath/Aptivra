@@ -154,6 +154,151 @@ Amendment 4 therefore supersedes that ranking only after all seven candidates ar
 verifier contract from Amendment 3 remains unchanged. ADR-0008 remains Proposed until the new
 equivalence evidence, ranking, and owner review are complete.
 
+### Amendment 4d Vertex preparation
+
+Amendment 4c completed GPT-2, SmolLM2-135M, Pythia-160M, and SmolLM2-360M on the Mac but
+correctly returned no selection: Qwen2.5-0.5B, Qwen2.5-1.5B, and SmolLM2-1.7B were
+`not_measured_environment`. Amendment 4d therefore reruns all seven candidates and the complete
+top-two repeat/confirmation protocol on one Vertex spot A100 40 GB. The cloud ranking reads only
+4d records. Its immutable model revisions and CUDA measurement settings are in
+`configs/base_model_candidates_amendment_4d.yaml`; the T4 smoke workload is in
+`configs/base_model_candidates_vertex_smoke.yaml`.
+
+The render-only runner cannot submit a job. It emits a `CustomJobSpec` with `strategy: SPOT`,
+restart on worker restart, bounded retries, a 3-hour full-job timeout (20 minutes for smoke), and
+one worker. The full worker is exactly `a2-highgpu-1g` plus one `NVIDIA_TESLA_A100`; smoke uses
+one spot T4. Records and captured child logs are uploaded after every candidate workload, and a
+new job resumes manifest-compatible artifacts from GCS. Linux host health comes from
+`/proc/meminfo`; CUDA feasibility uses the larger of PyTorch's maximum allocated and reserved
+bytes, independent of host RSS and swap.
+
+The pinned executor is the official public PyTorch 2.14.1/Python 3.12/CUDA 12.6.3 image:
+
+```text
+docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
+```
+
+Docker Registry manifest and config-blob inspection verified a direct Linux/amd64 manifest,
+Python 3.12, `PYTORCH_VERSION=2.14.1`, and the `CUDA_VERSION=12.6.3` image build argument; the
+runtime preflight expects `torch.version.cuda == "12.6"`. The
+[Docker Hub tag record](https://hub.docker.com/v2/repositories/pytorch/pytorch/tags/2.14.1-cuda12.6-cudnn9-runtime)
+is the public metadata source. PyTorch's
+[2.14 support matrix](https://github.com/pytorch/pytorch/blob/main/RELEASE.md) includes CUDA 12.6.3
+for Turing 7.5 and Ampere 8.0/8.6, covering the T4 and A100. Google documents Docker Hub as an
+accepted `containerSpec.imageUri` source for
+[Vertex custom training containers](https://cloud.google.com/vertex-ai/docs/training/configure-container-settings).
+
+The generated custom-container command uses the image's observed `/usr/bin/python3`, runs a bootstrap preflight
+before downloading the package, installs the exact non-Torch Python 3.12 dependency closure from
+`uv.lock` into an isolated `/tmp/aptivra-site` target with `--no-deps`, installs the Aptivra sdist
+there with `--no-deps --no-build-isolation`, verifies every target-scoped distribution against
+its exact pin (including the GGUF export runtime), and then executes the installed worker. The
+worker repeats the Python, Torch, Torch
+CUDA ABI, and CUDA-availability checks before any artifact or model download. The smoke test
+remains a mandatory stop gate: do not submit the full job unless the exact pinned image starts and
+passes it.
+
+#### Cost envelope as of 15 October 2026
+
+The current public `us-central1` [A2 spot price](https://cloud.google.com/spot-vms/pricing) is
+USD 2.12081/hour for the complete `a2-highgpu-1g` machine. The
+[Vertex pricing page](https://cloud.google.com/vertex-ai/pricing) states that management fees
+apply in addition to resources; the public A2 table yields USD 0.734677/hour (20% of the
+USD 3.673385 on-demand A2 rate). A 100 GiB `pd-standard` boot disk adds approximately
+USD 0.0063014/hour. The planning total is therefore USD 2.8617884/hour. INR figures use a
+conservative **₹97/USD**, rounded above the latest verifiable 7 October 2026
+[FBIL reference rate](https://www.fbil.org.in/) of ₹96.7655/USD: **₹277.59/hour** and at most
+**₹832.77 per three-hour job**. Network, retained GCS bytes, tax, and price movement are not
+included. The 20-minute T4 smoke is expected to remain below ₹12 including its management fee.
+
+These are planning estimates, not A100 measurements. Completed Amendment 4c Mac wall times are
+divided by a deliberately conservative 4× assumed A100 speedup. The three incomplete candidates
+instead scale the completed SmolLM2-360M estimate linearly by unique parameter count. This avoids
+presenting their short, aborted Mac attempts as full runtimes.
+
+| Candidate workload | Estimated A100 minutes | Estimated INR |
+| --- | ---: | ---: |
+| GPT-2 | 7.95 | ₹36.78 |
+| SmolLM2-135M | 12.63 | ₹58.43 |
+| Pythia-160M | 9.11 | ₹42.15 |
+| SmolLM2-360M | 28.84 | ₹133.43 |
+| Qwen2.5-0.5B | 39.38 | ₹182.19 |
+| Qwen2.5-1.5B | 123.04 | ₹569.25 |
+| SmolLM2-1.7B | 136.40 | ₹631.06 |
+
+The seven primary candidates total an estimated 5.96 A100-hours or ₹1,653.30. For the requested
+seven-plus-two subtotal, conservatively treating the two largest candidates as the confirmation
+pair gives 10.28 hours or **₹2,853.61**. The unchanged seed rule also requires four top-two repeat
+workloads. With the same worst-case pair, the complete 13-workload protocol is 18.93 hours or
+**₹5,254.24**, before preemption overhead. That complete figure—not the nine-workload subtotal—is
+the approval envelope. The 3-hour job timeout means the reviewer should expect multiple resumable
+CustomJobs, each capped at ₹832.77 of runtime.
+
+#### Reviewer commands after cost approval
+
+Preparation and dry-run rendering are local and non-mutating:
+
+```bash
+uv build --sdist --out-dir /tmp/aptivra-dist
+
+docker pull --platform=linux/amd64 \
+  docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
+
+PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
+  -m scripts.vertex_base_sweep --dry-run --mode smoke \
+  --vertex-config configs/vertex_base_sweep.yaml \
+  --evaluation-config configs/base_model_candidates_vertex_smoke.yaml \
+  --spec-output /tmp/aptivra-smoke-job.json
+
+PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
+  -m scripts.vertex_base_sweep --dry-run --mode full \
+  --vertex-config configs/vertex_base_sweep.yaml \
+  --evaluation-config configs/base_model_candidates_amendment_4d.yaml \
+  --spec-output /tmp/aptivra-full-job.json
+```
+
+The commands below mutate Google Cloud and are for the reviewer only, after explicit owner cost
+approval. The bucket is regional, uniform-access, has soft delete disabled to avoid an unpriced
+seven-day retention tail, and deletes objects after 30 days:
+
+```bash
+gcloud storage buckets create gs://aptivra-training-base-sweep-4d-20261015 \
+  --project=aptivra-training --location=us-central1 \
+  --uniform-bucket-level-access --soft-delete-duration=0
+gcloud storage buckets update gs://aptivra-training-base-sweep-4d-20261015 \
+  --lifecycle-file=configs/gcs_lifecycle_30d.json
+gcloud storage cp /tmp/aptivra-dist/aptivra-0.1.0.tar.gz \
+  gs://aptivra-training-base-sweep-4d-20261015/packages/aptivra-0.1.0.tar.gz
+
+gcloud ai custom-jobs create --project=aptivra-training --region=us-central1 \
+  --display-name=aptivra-base-sweep-4d-smoke \
+  --labels=cost-center=aptivra-research,protocol=amendment-4d,workload=base-sweep \
+  --config=/tmp/aptivra-smoke-job.json --async
+
+gcloud ai custom-jobs stream-logs SMOKE_JOB_ID \
+  --project=aptivra-training --region=us-central1
+
+gcloud ai custom-jobs create --project=aptivra-training --region=us-central1 \
+  --display-name=aptivra-base-sweep-4d-full \
+  --labels=cost-center=aptivra-research,protocol=amendment-4d,workload=base-sweep \
+  --config=/tmp/aptivra-full-job.json --async
+
+gcloud ai custom-jobs stream-logs FULL_JOB_ID \
+  --project=aptivra-training --region=us-central1
+```
+
+Cancel is the immediate rollback for spend. Resubmitting the same full spec resumes completed GCS
+records. Bucket deletion is the final rollback and is irreversible because soft delete is off;
+inspect it first:
+
+```bash
+gcloud ai custom-jobs cancel JOB_ID \
+  --project=aptivra-training --region=us-central1
+gcloud storage ls --recursive gs://aptivra-training-base-sweep-4d-20261015
+gcloud storage rm --recursive 'gs://aptivra-training-base-sweep-4d-20261015/**'
+gcloud storage buckets delete gs://aptivra-training-base-sweep-4d-20261015
+```
+
 ## Load the Hub Layout
 
 The remote-code files are self-contained; installing Aptivra is not required to load a published

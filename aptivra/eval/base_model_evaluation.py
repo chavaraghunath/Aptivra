@@ -162,6 +162,7 @@ class MeasurementSettings:
     utf8_roundtrip_samples: tuple[str, ...]
     heldout_text_path: Path
     heldout_prompts_path: Path
+    pristine_model_device: str = "candidate_device"
     probe_micro_batch_sizes: tuple[int, ...] = (8, 4, 2, 1)
     target_only_training_loss: bool = True
     gradient_checkpointing_fallback: bool = True
@@ -205,6 +206,7 @@ class ExecutionSettings:
 
     output_dir: Path
     resume: bool
+    allow_host_restart: bool = False
 
 
 @dataclass(frozen=True)
@@ -280,6 +282,7 @@ CANDIDATE_KEYS = {
 }
 MEASUREMENT_KEYS = {
     "device",
+    "pristine_model_device",
     "local_files_only",
     "torch_dtype",
     "deterministic_algorithms",
@@ -344,7 +347,7 @@ DECISION_KEYS = {
     "maximum_swap_growth_bytes",
     "require_complete_candidate_measurements",
 }
-EXECUTION_KEYS = {"output_dir", "resume"}
+EXECUTION_KEYS = {"output_dir", "resume", "allow_host_restart"}
 OWNER_OVERRIDE_KEYS = {"by", "date", "adr_section"}
 
 
@@ -578,6 +581,13 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
     dtype_name = measurement.get("torch_dtype")
     if dtype_name not in {"float32", "float16", "bfloat16"}:
         raise ValueError("measurement.torch_dtype must be float32, float16, or bfloat16")
+    pristine_model_device = measurement.get(
+        "pristine_model_device", "candidate_device"
+    )
+    if pristine_model_device not in {"host", "candidate_device"}:
+        raise ValueError(
+            "measurement.pristine_model_device must be host or candidate_device"
+        )
     licenses = tuple(
         cast(str, _string(item, "decision.permissive_licenses[]"))
         for item in _sequence(decision.get("permissive_licenses"), "permissive_licenses")
@@ -629,6 +639,7 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
         candidates=tuple(candidates),
         measurement=MeasurementSettings(
             device=cast(str, _string(measurement.get("device"), "measurement.device")),
+            pristine_model_device=cast(str, pristine_model_device),
             local_files_only=_boolean(
                 measurement.get("local_files_only"), "measurement.local_files_only"
             ),
@@ -648,7 +659,7 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
             variance_top_candidates=_integer(
                 measurement.get("variance_top_candidates"),
                 "measurement.variance_top_candidates",
-                2,
+                1,
                 len([item for item in candidates if not item.reference_only]),
             ),
             train_items_per_family=_integer(
@@ -936,6 +947,10 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
                 )
             ).resolve(),
             resume=_boolean(execution.get("resume"), "execution.resume"),
+            allow_host_restart=_boolean(
+                execution.get("allow_host_restart", False),
+                "execution.allow_host_restart",
+            ),
         ),
         equivalence_gate_owner_override=owner_override,
     )
@@ -1044,15 +1059,22 @@ def prepare_run_manifest(
                     "reference_only": candidate.reference_only,
                 }
             )
+    repository_orchestrator = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "evaluate_base_model_candidates.py"
+    )
+    installed_orchestrator = Path(__file__).resolve().with_name("vertex_base_sweep.py")
+    orchestrator = (
+        repository_orchestrator
+        if repository_orchestrator.is_file()
+        else installed_orchestrator
+    )
     static: dict[str, object] = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "config_sha256": sha256_file(config_file),
         "evaluator_sha256": sha256_file(Path(__file__).resolve()),
-        "orchestrator_sha256": sha256_file(
-            Path(__file__).resolve().parents[2]
-            / "scripts"
-            / "evaluate_base_model_candidates.py"
-        ),
+        "orchestrator_sha256": sha256_file(orchestrator),
         "task_sources_sha256": sha256_source_tree(
             Path(__file__).resolve().parents[1] / "tasks"
         ),
@@ -1065,12 +1087,29 @@ def prepare_run_manifest(
             "python": platform.python_version(),
             "platform": platform.platform(),
             "machine": platform.machine(),
-            "hostname": socket.gethostname(),
+            "hostname": (
+                "ephemeral-worker"
+                if settings.execution is not None
+                and settings.execution.allow_host_restart
+                else socket.gethostname()
+            ),
             "torch": torch.__version__,
             "transformers": _package_version("transformers"),
             "huggingface_hub": _package_version("huggingface-hub"),
             "mps_available": torch.backends.mps.is_available(),
+            "cuda_available": torch.cuda.is_available(),
+            "cuda_device": (
+                {
+                    "name": torch.cuda.get_device_name(0),
+                    "total_memory_bytes": torch.cuda.get_device_properties(0).total_memory,
+                    "capability": list(torch.cuda.get_device_capability(0)),
+                    "runtime_version": torch.version.cuda,
+                }
+                if torch.cuda.is_available()
+                else None
+            ),
             "configured_device": settings.measurement.device,
+            "pristine_model_device": settings.measurement.pristine_model_device,
         },
     }
     manifest_path = destination / "run_manifest.json"
@@ -1190,7 +1229,10 @@ def load_candidate(
         candidate.source, config=config, dtype=dtype, **common
     )
     typed_model = cast(CausalLM, model)
-    typed_model.to(resolve_device(settings.device))
+    if settings.pristine_model_device == "candidate_device":
+        typed_model.to(resolve_device(settings.device))
+    else:
+        typed_model.to(torch.device("cpu"))
     typed_model.eval()
     commit_hash = getattr(config, "_commit_hash", None)
     source_path = Path(candidate.source)
@@ -2424,6 +2466,54 @@ def _optimizer_step_legacy(
     return loss
 
 
+def _optimizer_step_for_measurement(
+    model: CausalLM,
+    tokenizer: PreTrainedTokenizerBase,
+    instances: Sequence[TaskInstance],
+    context_length: int,
+    device: torch.device,
+    optimizer: torch.optim.Optimizer,
+    settings: MeasurementSettings,
+    recipe: TrainingRecipe,
+    *,
+    resource_guard: MemoryPeakSampler | None,
+) -> dict[str, float | int]:
+    """Run either the Amendment 4 recipe or frozen Amendment 1 confirmation recipe."""
+    if settings.target_only_training_loss:
+        return _optimizer_step_target_only(
+            model,
+            tokenizer,
+            instances,
+            context_length,
+            device,
+            optimizer,
+            recipe,
+            resource_guard=resource_guard,
+        )
+    if recipe != TrainingRecipe(settings.probe_batch_size, False):
+        raise ValueError("Amendment 1 confirmation requires full batch without checkpointing")
+    processed_tokens = 0
+    supervised_tokens = 0
+    trained_bytes = 0
+    for instance in instances:
+        ids, labels, byte_count = _training_example(tokenizer, instance, context_length)
+        processed_tokens += len(ids)
+        supervised_tokens += sum(label != -100 for label in labels[1:])
+        trained_bytes += byte_count
+    loss = _optimizer_step_legacy(
+        model, tokenizer, instances, context_length, device, optimizer
+    )
+    if resource_guard is not None:
+        resource_guard.raise_if_swap_limit_exceeded()
+    return {
+        "loss": loss,
+        "processed_tokens": processed_tokens,
+        "supervised_tokens": supervised_tokens,
+        "trained_bytes": trained_bytes,
+        "accumulation_steps": 1,
+    }
+
+
 def synchronize_device(device: torch.device) -> None:
     """Synchronize accelerator work before or after a timed interval."""
     if device.type == "mps" and hasattr(torch, "mps"):
@@ -2478,8 +2568,6 @@ def run_learnability_probe(
     selected_recipe = recipe or TrainingRecipe(settings.probe_batch_size, False)
     if settings.probe_batch_size % selected_recipe.micro_batch_size != 0:
         raise ValueError("micro-batch size must divide the effective probe batch")
-    if not settings.target_only_training_loss:
-        raise ValueError("Amendment 4 requires target_only_training_loss=true")
     before: dict[str, object] | None = None
     if evaluate_test:
         base_predictor = TransformersPredictor(
@@ -2526,13 +2614,14 @@ def run_learnability_probe(
             split.train[(offset + index) % len(split.train)]
             for index in range(settings.probe_batch_size)
         ]
-        step_result = _optimizer_step_target_only(
+        step_result = _optimizer_step_for_measurement(
             probe,
             tokenizer,
             batch,
             context_length,
             device,
             optimizer,
+            settings,
             selected_recipe,
             resource_guard=resource_guard,
         )
@@ -2806,16 +2895,21 @@ def full_finetuning_memory_feasibility(
 ) -> dict[str, object]:
     """Return a conservative parameter-state lower bound for the frozen probe.
 
-    The probe retains the pristine base model and deep-copies a trainable model. AdamW
-    additionally allocates gradients and two optimizer moments. Activations, allocator
-    overhead, tokenizer state, and the Python process are deliberately excluded, making
-    this a lower bound rather than a capacity estimate.
+    The probe deep-copies a trainable model and AdamW additionally allocates gradients
+    and two optimizer moments. The pristine copy counts only when configured on the
+    candidate device. Activations and allocator overhead are deliberately excluded,
+    making this a lower bound rather than a capacity estimate.
     """
     element_bytes = {"float32": 4, "float16": 2, "bfloat16": 2}[settings.torch_dtype]
     optimizer_state_bytes = 8
-    bytes_per_parameter = 3 * element_bytes + optimizer_state_bytes
+    pristine_device_bytes = (
+        0 if settings.pristine_model_device == "host" else element_bytes
+    )
+    bytes_per_parameter = 2 * element_bytes + optimizer_state_bytes + pristine_device_bytes
     components = {
-        "pristine_base_weights": unique_parameters * element_bytes,
+        "pristine_base_weights_on_candidate_device": (
+            unique_parameters * pristine_device_bytes
+        ),
         "trainable_copy_weights": unique_parameters * element_bytes,
         "gradients": unique_parameters * element_bytes,
         "adamw_first_and_second_moments": unique_parameters * optimizer_state_bytes,
@@ -2828,6 +2922,7 @@ def full_finetuning_memory_feasibility(
         "fits_parameter_state_lower_bound": lower_bound <= maximum,
         "unique_parameters": unique_parameters,
         "torch_dtype": settings.torch_dtype,
+        "pristine_model_device": settings.pristine_model_device,
         "bytes_per_parameter": bytes_per_parameter,
         "parameter_state_lower_bound_bytes": lower_bound,
         "configured_maximum_peak_bytes": maximum,
@@ -2840,8 +2935,9 @@ def full_finetuning_memory_feasibility(
             "tokenizer and Python process state",
         ],
         "method": (
-            "pristine weights + trainable copied weights + gradients + two float32 "
-            "AdamW moments; failure is definitive because omitted allocations are non-negative"
+            "candidate-device parameter state: optional pristine weights + trainable "
+            "copied weights + gradients + two float32 AdamW moments; failure is "
+            "definitive because omitted allocations are non-negative"
         ),
     }
 
@@ -2916,6 +3012,9 @@ def system_free_memory_percentage() -> float:
 class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
     """Sample per-process RSS and accelerator allocation high-water values."""
 
+    _cuda_active: list[MemoryPeakSampler] = []
+    _cuda_lock = threading.Lock()
+
     def __init__(
         self,
         device: torch.device,
@@ -2933,6 +3032,10 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
         self.rss_peak = self.rss_baseline
         self.mps_baseline: int | None = self._mps_bytes()
         self.mps_peak: int | None = self.mps_baseline
+        self.cuda_allocated_baseline: int | None = self._cuda_allocated_bytes()
+        self.cuda_reserved_baseline: int | None = self._cuda_reserved_bytes()
+        self.cuda_allocated_peak: int | None = self.cuda_allocated_baseline
+        self.cuda_reserved_peak: int | None = self.cuda_reserved_baseline
         self.maximum_swap_growth_bytes = maximum_swap_growth_bytes
         self.swap_sample_interval_seconds = swap_sample_interval_seconds
         self.swap_baseline = (
@@ -2952,11 +3055,47 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
         except RuntimeError:
             return None
 
+    def _cuda_allocated_bytes(self) -> int | None:
+        if self.device.type != "cuda":
+            return None
+        try:
+            return int(torch.cuda.memory_allocated(self.device))
+        except RuntimeError:
+            return None
+
+    def _cuda_reserved_bytes(self) -> int | None:
+        if self.device.type != "cuda":
+            return None
+        try:
+            return int(torch.cuda.memory_reserved(self.device))
+        except RuntimeError:
+            return None
+
+    @classmethod
+    def _capture_cuda_peaks(cls, device: torch.device) -> None:
+        """Propagate process-global CUDA peaks to nested active samplers."""
+        try:
+            allocated = int(torch.cuda.max_memory_allocated(device))
+            reserved = int(torch.cuda.max_memory_reserved(device))
+        except RuntimeError:
+            return
+        for sampler in cls._cuda_active:
+            if sampler.device == device:
+                sampler.cuda_allocated_peak = max(
+                    sampler.cuda_allocated_peak or 0, allocated
+                )
+                sampler.cuda_reserved_peak = max(
+                    sampler.cuda_reserved_peak or 0, reserved
+                )
+
     def _sample(self, *, force_swap: bool = False) -> None:
         self.rss_peak = max(self.rss_peak, _rss_high_water_bytes())
         mps_value = self._mps_bytes()
         if mps_value is not None:
             self.mps_peak = max(self.mps_peak or 0, mps_value)
+        if self.device.type == "cuda":
+            with self._cuda_lock:
+                self._capture_cuda_peaks(self.device)
         now = time.monotonic()
         if force_swap or now - self._last_swap_sample >= self.swap_sample_interval_seconds:
             self.swap_after = system_swap_used_bytes()
@@ -2972,6 +3111,12 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
             self._sample()
 
     def __enter__(self) -> MemoryPeakSampler:
+        if self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+            with self._cuda_lock:
+                self._capture_cuda_peaks(self.device)
+                torch.cuda.reset_peak_memory_stats(self.device)
+                self._cuda_active.append(self)
         self._sample(force_swap=True)
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -2981,13 +3126,28 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=max(1.0, self.interval_seconds * 5))
+        if self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
         self._sample(force_swap=True)
+        if self.device.type == "cuda":
+            with self._cuda_lock:
+                if self in self._cuda_active:
+                    self._cuda_active.remove(self)
 
     def record(self) -> dict[str, object]:
         """Return raw and derived values without double-counting unified memory."""
-        candidates = [self.rss_peak]
-        if self.mps_peak is not None:
-            candidates.append(self.mps_peak)
+        if self.device.type == "cuda":
+            candidates = [
+                value
+                for value in (self.cuda_allocated_peak, self.cuda_reserved_peak)
+                if value is not None
+            ]
+            if not candidates:
+                candidates = [self.rss_peak]
+        else:
+            candidates = [self.rss_peak]
+            if self.mps_peak is not None:
+                candidates.append(self.mps_peak)
         return {
             "process_rss_baseline_bytes": self.rss_baseline,
             "process_rss_peak_bytes": self.rss_peak,
@@ -2999,11 +3159,19 @@ class MemoryPeakSampler(AbstractContextManager["MemoryPeakSampler"]):
                 if self.mps_baseline is None or self.mps_peak is None
                 else max(0, self.mps_peak - self.mps_baseline)
             ),
+            "cuda_allocated_baseline_bytes": self.cuda_allocated_baseline,
+            "cuda_max_memory_allocated_bytes": self.cuda_allocated_peak,
+            "cuda_reserved_baseline_bytes": self.cuda_reserved_baseline,
+            "cuda_max_memory_reserved_bytes": self.cuda_reserved_peak,
             "hard_constraint_peak_bytes": max(candidates),
             "hard_constraint_metric": (
-                "max(absolute process RSS peak, absolute MPS driver allocation peak)"
-                if self.mps_peak is not None
-                else "absolute process RSS peak"
+                "max(CUDA max_memory_allocated, CUDA max_memory_reserved)"
+                if self.device.type == "cuda" and self.cuda_reserved_peak is not None
+                else (
+                    "max(absolute process RSS peak, absolute MPS driver allocation peak)"
+                    if self.mps_peak is not None
+                    else "absolute process RSS peak"
+                )
             ),
             "sample_interval_seconds": self.interval_seconds,
             "system_swap_before_bytes": self.swap_baseline,
@@ -3064,8 +3232,12 @@ def select_training_recipe(
     maximum_peak = int(
         decision.target_memory_bytes * (1.0 - decision.minimum_memory_headroom_fraction)
     )
-    recipes = [TrainingRecipe(size, False) for size in settings.probe_micro_batch_sizes]
-    if settings.gradient_checkpointing_fallback:
+    recipes = (
+        [TrainingRecipe(size, False) for size in settings.probe_micro_batch_sizes]
+        if settings.target_only_training_loss
+        else [TrainingRecipe(settings.probe_batch_size, False)]
+    )
+    if settings.target_only_training_loss and settings.gradient_checkpointing_fallback:
         recipes.append(TrainingRecipe(settings.probe_micro_batch_sizes[-1], True))
     attempts: list[dict[str, object]] = []
     selected: TrainingRecipe | None = None
@@ -3090,13 +3262,14 @@ def select_training_recipe(
                     lr=settings.probe_learning_rates[0],
                     weight_decay=settings.probe_weight_decay,
                 )
-                _optimizer_step_target_only(
+                _optimizer_step_for_measurement(
                     probe,
                     tokenizer,
                     instances,
                     context_length,
                     device,
                     optimizer,
+                    settings,
                     recipe,
                     resource_guard=resource_guard,
                 )
@@ -3137,6 +3310,11 @@ def select_training_recipe(
         "effective_batch_size": settings.probe_batch_size,
         "candidate_micro_batch_sizes": list(settings.probe_micro_batch_sizes),
         "target_only_training_loss": settings.target_only_training_loss,
+        "training_recipe": (
+            "amendment_4_target_only"
+            if settings.target_only_training_loss
+            else "amendment_1_full_logits"
+        ),
         "gradient_checkpointing_fallback": settings.gradient_checkpointing_fallback,
         "configured_maximum_peak_bytes": maximum_peak,
         "system_swap_role": "environment-health signal only; not candidate feasibility",
@@ -3532,8 +3710,8 @@ def measure_noise_floor(
     recipe: TrainingRecipe,
 ) -> dict[str, object]:
     """Measure recipe differences against within-batch permutation noise."""
-    if device.type != "mps":
-        raise ValueError("Amendment 4a noise-floor measurement requires MPS")
+    if device.type not in {"mps", "cuda"}:
+        raise ValueError("Amendment 4a noise-floor measurement requires an accelerator")
     if len(batches) < settings.equivalence_noise_floor_batches:
         raise ValueError("noise-floor measurement received too few batches")
     rows: list[dict[str, float]] = []
@@ -3649,8 +3827,8 @@ def measure_shape_changing_control(
     recipe: TrainingRecipe,
 ) -> dict[str, object]:
     """Measure a shape-changing legacy control without making it a gate."""
-    if device.type != "mps":
-        raise ValueError("Amendment 4b shape-changing control requires MPS")
+    if device.type not in {"mps", "cuda"}:
+        raise ValueError("Amendment 4b shape-changing control requires an accelerator")
     if not batches:
         raise ValueError("shape-changing control requires at least one batch")
     rows: list[dict[str, object]] = []
@@ -3906,8 +4084,8 @@ def measure_outcome_gate(
     resource_guard: MemoryPeakSampler,
 ) -> dict[str, object]:
     """Run Amendment 4b's seeded 50-step outcome comparison."""
-    if device.type != "mps":
-        raise ValueError("Amendment 4b outcome gate requires MPS")
+    if device.type not in {"mps", "cuda"}:
+        raise ValueError("Amendment 4b outcome gate requires an accelerator")
     batches = _equivalence_batches(
         stream,
         count=settings.equivalence_trajectory_steps,
@@ -4073,8 +4251,8 @@ def measure_training_trajectory(
     resource_guard: MemoryPeakSampler,
 ) -> dict[str, object]:
     """Run the preregistered 50-step SmolLM2 trajectory comparison."""
-    if device.type != "mps":
-        raise ValueError("Amendment 4a trajectory measurement requires MPS")
+    if device.type not in {"mps", "cuda"}:
+        raise ValueError("Amendment 4a trajectory measurement requires an accelerator")
     batches = _equivalence_batches(
         stream,
         count=settings.equivalence_trajectory_steps,
@@ -4469,8 +4647,8 @@ def run_amendment_4a_equivalence(
             "existing Amendment 4a evidence is incomplete or does not match its manifest"
         )
     device = resolve_device(settings.measurement.device)
-    if device.type != "mps":
-        raise RuntimeError("Amendment 4a requires the configured real MPS device")
+    if device.type not in {"mps", "cuda"}:
+        raise RuntimeError("Amendment 4a requires the configured real accelerator")
     record: dict[str, object] = {
         "schema_version": AMENDMENT_4A_EQUIVALENCE_SCHEMA_VERSION,
         "manifest_sha256": manifest_sha256,
@@ -4739,8 +4917,8 @@ def run_amendment_4b_equivalence(
             "existing Amendment 4b evidence is incomplete or does not match its manifest"
         )
     device = resolve_device(settings.measurement.device)
-    if device.type != "mps":
-        raise RuntimeError("Amendment 4b requires the configured real MPS device")
+    if device.type not in {"mps", "cuda"}:
+        raise RuntimeError("Amendment 4b requires the configured real accelerator")
     outcome_seed_0, outcome_seed_1 = settings.measurement.equivalence_outcome_seeds
     record: dict[str, object] = {
         "schema_version": AMENDMENT_4B_EQUIVALENCE_SCHEMA_VERSION,
@@ -5263,16 +5441,33 @@ def evaluate_candidate(
                 }
             else:
                 phase = "language_quality"
-                language = evaluate_language_quality(
-                    model, tokenizer, settings, context_length, device
-                )
-                partial["language_modeling"] = language
-                sampler.raise_if_swap_limit_exceeded()
-                phase = "zero_shot_readiness"
-                zero_shot = evaluate_zero_shot_readiness(
-                    model, tokenizer, stream, settings, context_length, device
-                )
+                if settings.pristine_model_device == "host":
+                    model.to(device)
+                try:
+                    language = evaluate_language_quality(
+                        model, tokenizer, settings, context_length, device
+                    )
+                    partial["language_modeling"] = language
+                    sampler.raise_if_swap_limit_exceeded()
+                    phase = "zero_shot_readiness"
+                    zero_shot = evaluate_zero_shot_readiness(
+                        model, tokenizer, stream, settings, context_length, device
+                    )
+                finally:
+                    if settings.pristine_model_device == "host":
+                        model.to(torch.device("cpu"))
+                        cleanup_device(device)
                 partial["zero_shot_readiness"] = zero_shot
+                partial["pristine_model_placement"] = {
+                    "configured": settings.pristine_model_device,
+                    "training_copy_source": (
+                        "cpu" if settings.pristine_model_device == "host" else str(device)
+                    ),
+                    "mathematical_role": (
+                        "placement only; pristine weights and copied trainable values are "
+                        "unchanged"
+                    ),
+                }
                 sampler.raise_if_swap_limit_exceeded()
                 parameter_count = cast(int, identity["unique_parameters"])
                 feasibility = (
@@ -5326,7 +5521,7 @@ def evaluate_candidate(
                         )
                         if measured_over_cap:
                             reason = (
-                                "candidate's measured process/MPS peak exceeded the "
+                                "candidate's measured accelerator/process peak exceeded the "
                                 "configured memory cap"
                             )
                             result = {
@@ -5382,9 +5577,16 @@ def evaluate_candidate(
                         partial["task_stream_readiness"] = readiness
                         sampler.raise_if_swap_limit_exceeded()
                         phase = "cost"
-                        generation = benchmark_generation(
-                            model, tokenizer, stream, settings, context_length, device
-                        )
+                        if settings.pristine_model_device == "host":
+                            model.to(device)
+                        try:
+                            generation = benchmark_generation(
+                                model, tokenizer, stream, settings, context_length, device
+                            )
+                        finally:
+                            if settings.pristine_model_device == "host":
+                                model.to(torch.device("cpu"))
+                                cleanup_device(device)
                         sampler.raise_if_swap_limit_exceeded()
                         families = cast(list[dict[str, object]], readiness["families"])
                         cost: dict[str, object] = {

@@ -489,6 +489,105 @@ swap-growth invalidation and retry, persistent environment invalidation with fai
 and an unaffected normal completion. The full pytest coverage gate, Ruff, and strict mypy must pass
 before the detached sweep starts.
 
+#### Amendment 4c result — environment incomplete; no selection
+
+Amendment 4c ran under semantic manifest SHA-256
+`ef01ee46045f13d657ab7bf821799c56bc8a287ca9d0cc1ccb9a47ef27fc2bf1` and correlation ID
+`a5f982ce-5563-4f54-99b9-dbe440703fcd`. GPT-2, SmolLM2-135M, Pythia-160M, and
+SmolLM2-360M completed. Qwen2.5-0.5B, Qwen2.5-1.5B, and SmolLM2-1.7B exhausted their two
+environment-validity attempts as free memory fell to 8--21% and system swap grew. They were
+correctly recorded as `not_measured_environment`, not memory-infeasible. The ranking therefore
+returned `measurement_incomplete` with no selection. These Mac records remain immutable history
+and supply timing evidence only; they do not enter the next ranking.
+
+### Amendment 4d — homogeneous Vertex CUDA measurement
+
+Amendment 4d was recorded at **2026-10-15T11:24:24+05:30**, after the incomplete Amendment 4c
+result and before any cloud measurement or Vertex resource creation. The owner selected the one
+available homogeneous measurement environment: a Vertex AI spot `a2-highgpu-1g` worker with one
+40 GiB NVIDIA A100 in `us-central1`. This amendment carries forward the explicit Amendment 4b
+owner override; it does not reinterpret the failed 4b gate.
+
+The pre-registered protocol is:
+
+1. Rerun all seven selectable candidates with CUDA, the unchanged Amendment 4 target-only recipe,
+   primary seed `20261014`, repeat seeds `20261015` and `20261016` for the first-pass top two,
+   200 steps, the `[1e-5, 3e-5, 1e-4]` learning-rate grid, identical task items, and the unchanged
+   Amendment 2 decision rule. Only 4d records enter the 4d ranking; 4c is history.
+2. Use one advertised 40 GiB target for every workload and retain the 25% headroom rule, producing
+   a 30 GiB (`32,212,254,720` byte) configured peak limit. A candidate is infeasible only when its
+   own maximum CUDA allocated/reserved peak exceeds that limit at micro-batch 1 with gradient
+   checkpointing. Linux swap and `/proc/meminfo` free-memory pressure remain environment-health
+   signals only and retain 4c retry and `not_measured_environment` semantics.
+3. Keep the pristine base-weight copy in host RAM. The candidate accelerator contains the active
+   evaluation or training copy; the evaluator moves the pristine copy to CUDA only for inference
+   phases and returns it to host before copying it for training. This changes placement, not model
+   values, batches, gradients, or the optimizer. Tests must prove host placement excludes only the
+   pristine accelerator copy from the analytical lower bound and preserves the MPS path.
+4. After the cloud-only first-pass ranking and repeat seeds complete, rerun its top two once each
+   under the original Amendment 1 batch-8, full-logit recipe on the same spot A100 40 GiB. This
+   changes the earlier 80 GiB confirmation placement because only the 40 GiB A100 spot quota is
+   available. If the confirmation changes the winner, the original-recipe confirmation decides.
+5. Persist records and logs after every candidate workload and resume only manifest-compatible
+   records. A spot preemption may lose at most the currently running workload. A CustomJob is
+   bounded to a configurable maximum of three hours and is resubmitted to resume if the complete
+   protocol spans more than one job.
+
+The protocol comprises seven primary candidates, four repeat-seed workloads for the top two, and
+two original-recipe confirmations: thirteen candidate workloads in total. The requested
+seven-plus-two cost subtotal is reported separately, but omitting the four pre-registered repeat
+seeds would change the decision protocol and is not authorised.
+
+No cloud measurement exists at preregistration time. Reviewer inspection found that the original
+Google PyTorch 2.4 image used Python 3.10, below Aptivra's `>=3.11` package contract, and had passed
+its published availability date. Before any cloud resource was created, this amendment replaced
+it with the official public image:
+
+```text
+docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
+```
+
+The tag is `2.14.1-cuda12.6-cudnn9-runtime`; its direct Linux/amd64 manifest digest is
+`sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56`
+(there is no manifest-list digest). Docker Registry manifest/config-blob inspection on 2026-10-15
+verified config digest
+`sha256:00a378a42c3234d9f70fe71bdf91869535059fd3126880d39ffdf6ee5fcad7c3`,
+Python 3.12 from the `/usr/local/lib/python3.12` layer, `PYTORCH_VERSION=2.14.1`, and
+`CUDA_VERSION=12.6.3`; the exact public tag record remains available from
+[Docker Hub](https://hub.docker.com/v2/repositories/pytorch/pytorch/tags/2.14.1-cuda12.6-cudnn9-runtime).
+These facts were reproduced with Docker Registry v2 token, manifest, and config-blob GETs rather
+than inferred from the tag. The worker expects `torch.version.cuda == "12.6"`, the runtime ABI
+reported by this toolkit line.
+
+PyTorch's [2.14 support matrix](https://github.com/pytorch/pytorch/blob/main/RELEASE.md) lists the
+CUDA 12.6.3 Linux/x86 build for Turing 7.5 and Ampere 8.0/8.6, which covers the configured T4 and
+A100. Every Torch namespace, tensor, module, optimizer, CUDA, MPS, serialization, and testing API
+referenced under `aptivra/` was resolved against the 2.14 line; the exact pinned container import
+smoke remains the executable confirmation. Google explicitly permits an Artifact Registry or
+Docker Hub URI in `containerSpec.imageUri` for
+[Vertex custom training](https://cloud.google.com/vertex-ai/docs/training/configure-container-settings).
+
+An amd64 container smoke identified Python 3.12.3 at `sys.executable=/usr/bin/python3`. The
+generated `containerSpec` uses that image-owned interpreter. Before retrieving the sdist it checks
+Python 3.12, Torch 2.14.1, Torch CUDA ABI 12.6, and CUDA availability. It then downloads the
+reviewer-uploaded package with the worker service account, installs the exact Python 3.12
+non-Torch dependency closure from `uv.lock` into isolated `/tmp/aptivra-site` with `--no-deps`,
+installs Aptivra there with `--no-deps --no-build-isolation`, and verifies every target-scoped
+distribution against its exact pin. The closure includes the `gguf` runtime required by the
+public GGUF exporter; the all-module container import audit exposed and prevented its prior
+packaging omission. The installed worker repeats the runtime
+preflight before any artifact or model download. Pip is structurally unable to replace the
+image's CUDA Torch build. The mandatory T4 smoke test remains the stop gate; the full A100 sweep
+must not be submitted if the exact image or preflight fails.
+
+The 2026-10-15 local Docker rehearsal pulled that digest as Linux/amd64 under emulation. Its CPU
+preflight reported Python 3.12.3, `/usr/bin/python3`, Torch `2.14.1+cu126`, Torch CUDA ABI 12.6,
+and expected `cuda_available=false` because no GPU was passed through. The isolated install then
+verified all 36 lock-derived pins, imported all 111 discoverable `aptivra` modules with zero
+failures, and resolved all 128 Torch namespace, tensor, module, optimizer, CUDA, MPS,
+serialization, and testing APIs used by the package with zero missing APIs. This CPU rehearsal
+does not replace the mandatory Vertex T4 smoke, whose preflight requires CUDA availability.
+
 ## Historical powered results and derived analysis
 
 The sweep completed under manifest hash
@@ -613,17 +712,17 @@ preference for SmolLM2-360M, but it cannot answer the expanded seven-candidate q
 corrected memory recipe and is not promoted into the Amendment 4b decision. The ADR stays
 **Proposed**.
 
-Amendment 4c supersedes only the invalid environment-verdict mechanism, not the frozen 4b
-measurements or owner override. It has no result at preregistration time. The ADR remains
-**Proposed** until all seven fresh 4c candidate records satisfy the completeness rule and the
-resulting ranking receives owner review.
+Amendment 4c superseded only the invalid environment-verdict mechanism, not the frozen 4b
+measurements or owner override. Its incomplete result made no selection. Amendment 4d now
+supersedes 4c for selection and is pre-registered but unmeasured. The ADR remains **Proposed**
+until all seven cloud primaries, four repeat seeds, and two confirmations are complete and the
+result receives owner review.
 
 ## Decisions for the owner
 
-1. Decide whether to abandon the target-only memory recipe or authorise a future, separately
-   pre-registered outcome rule. Amendment 4b's observed trajectory bound must not be changed in
-   place after its failure.
-2. Do not select a base model from Amendment 4b: no Amendment 4b candidate ranking exists.
+1. Approve or reject the documented Vertex cost envelope only after the smoke test spec, pinned
+   image availability, and free-trial credit are reviewed. Preparation creates no cloud resource.
+2. Do not select a base model from 4b or 4c: neither produced a complete candidate ranking.
 
 ## Tokenizer and stop-rule contract changes
 
@@ -678,6 +777,10 @@ acceptance remains with the repository owner.
 - The Amendment 4b target-only recipe passed exact mathematics and final probe accuracy but
   exceeded the registered seed-to-seed loss-trajectory bound, so none of its configured
   candidates was measured.
+- Amendment 4c measured four candidates but correctly refused selection because three larger
+  candidates were environment-invalid on the 36 GiB Mac.
+- Amendment 4d requires paid, preemptible cloud capacity and a public Docker Hub dependency;
+  registry pull, bootstrap preflight, and T4 smoke success are mandatory before full spend.
 - Historically, the 360M base cost more memory and time than 135M; its Amendment 1 primary peak
   was 20,584,579,072 bytes, inside the configured headroom limit.
 - The result has only twelve independent family units, T9--T12 are renamed-template tasks, several
@@ -721,3 +824,19 @@ making swap and `memory_pressure` environment-health evidence only, retaining ev
 attempt, retrying after bounded recovery, and refusing selection whenever a competitor remains
 unmeasured. Candidate infeasibility now requires the already established absolute
 `max(process RSS peak, MPS driver allocation peak)` to exceed the unchanged cap.
+
+Amendment 4d removes the heterogeneous-host confound by measuring every workload on one CUDA
+A100 shape and treating CUDA allocator peaks as the feasibility metric. Preparation also exposed
+two paid-time failure modes before submission: installed packages do not contain repository
+scripts, and config-relative held-out paths do not resolve from an arbitrary worker directory.
+The worker entry point now lives inside the package, hashes that installed orchestrator, and
+stages immutable held-out assets beside the byte-identical embedded config. A CPU rehearsal of
+that same entry point is a mandatory pre-submit gate. The next retrospective must compare actual
+A100 runtimes and spend with the conservative Mac-derived estimate and update future estimates.
+
+Reviewer follow-up exposed a third paid-time failure mode: the pinned executor's Python 3.10
+could not install Aptivra's Python `>=3.11` sdist. The local rehearsal could not detect a remote
+image/package-contract mismatch. Prevention is now structural: registry-derived image facts are
+configuration, the image is pinned by direct Linux/amd64 digest, the command names its interpreter,
+Torch is never dependency-resolved by pip, bootstrap and worker preflights fail before any model
+download, and the exact pinned container is exercised locally when Docker is available.
