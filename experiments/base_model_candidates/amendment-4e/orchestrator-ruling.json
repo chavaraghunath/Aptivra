@@ -1,0 +1,15 @@
+{
+  "gate_statuses": {
+    "gpt2_consistency": "passed_documented_nondeterminism",
+    "placement_equivalence": "passed_documented_nondeterminism"
+  },
+  "made_by": "orchestrator",
+  "measurement_quality_finding": {
+    "finding": "LR selection can flip on a single validation item (selection fragility).",
+    "mitigation": "The protocol's existing three-seed repeat of the top two candidates is the mitigation.",
+    "ranking_requirement": "The ranking report must show, for the top two, whether the seed repeats agree."
+  },
+  "raw_strict_comparisons_retained": true,
+  "timestamp": "2026-10-15T16:17:47+05:30",
+  "verbatim_ruling": "The 4e brief defined the placement-equivalence gate as \"identical per-item outcomes and metrics, **allowing only documented nondeterminism**\", and the GPT-2 consistency gate as \"identical per-item outcomes, **or a stated tolerance with the reason**\". Your own evidence documents the nondeterminism. A re-run of the **unchanged legacy path** on SmolLM2-135M did not reproduce frozen 4c: one extra validation success in the unselected 3e-5 run flipped LR selection. So MPS execution is not bitwise reproducible from run to run, independent of the placement change. Against that floor:\n- placement: released vs frozen 4c has the same selected LR (1e-5), the same learned successes (705/1200) and the same mean gain (0.585). Differences appear only in an unselected-LR validation run, the same class of difference the legacy path shows against itself, and the maximum loss difference is 8.2e-6;\n- GPT-2: the same selected LR, 636/1200 and gain 0.53; one differing outcome, in an unselected run.\nBoth gates therefore **pass under their pre-registered nondeterminism clauses**. Record their status as `passed_documented_nondeterminism`, keep the raw `failed` strict comparisons in the evidence, and state that this ruling was made by the orchestrator, citing this evidence.\n\nAlso record a measurement-quality finding: LR selection can flip on a single validation item (selection fragility). The protocol's existing three-seed repeat of the top two candidates is the mitigation. The ranking report must show, for the top two, whether the seed repeats agree."
+}

@@ -57,7 +57,7 @@ from aptivra.huggingface.tokenization_aptivra import AptivraByteTokenizer
 from aptivra.tasks.base import TaskFamily, TaskInstance
 from aptivra.tasks.stream import ContinualTaskStream
 
-EVALUATION_SCHEMA_VERSION = "pretrained-base-evaluation-v5"
+EVALUATION_SCHEMA_VERSION = "pretrained-base-evaluation-v6"
 SEED_EVALUATION_SCHEMA_VERSION = "pretrained-base-seed-evaluation-v1"
 RANKING_SCHEMA_VERSION = "pretrained-base-ranking-v5"
 MANIFEST_SCHEMA_VERSION = "pretrained-base-manifest-v2"
@@ -163,6 +163,7 @@ class MeasurementSettings:
     heldout_text_path: Path
     heldout_prompts_path: Path
     pristine_model_device: str = "candidate_device"
+    release_pristine_before_training: bool = False
     probe_micro_batch_sizes: tuple[int, ...] = (8, 4, 2, 1)
     target_only_training_loss: bool = True
     gradient_checkpointing_fallback: bool = True
@@ -183,6 +184,10 @@ class MeasurementSettings:
     environment_minimum_free_memory_percent: float = 10.0
     environment_recovery_timeout_seconds: float = 900.0
     environment_max_attempts: int = 2
+    prestart_minimum_free_memory_percent: float = 70.0
+    prestart_max_other_process_rss_bytes: int = 2_147_483_648
+    prestart_timeout_seconds: float = 900.0
+    prestart_poll_interval_seconds: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -283,6 +288,7 @@ CANDIDATE_KEYS = {
 MEASUREMENT_KEYS = {
     "device",
     "pristine_model_device",
+    "release_pristine_before_training",
     "local_files_only",
     "torch_dtype",
     "deterministic_algorithms",
@@ -330,6 +336,10 @@ MEASUREMENT_KEYS = {
     "environment_minimum_free_memory_percent",
     "environment_recovery_timeout_seconds",
     "environment_max_attempts",
+    "prestart_minimum_free_memory_percent",
+    "prestart_max_other_process_rss_bytes",
+    "prestart_timeout_seconds",
+    "prestart_poll_interval_seconds",
     "candidate_timeout_seconds",
     "expected_wall_time_seconds",
     "utf8_roundtrip_samples",
@@ -640,6 +650,10 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
         measurement=MeasurementSettings(
             device=cast(str, _string(measurement.get("device"), "measurement.device")),
             pristine_model_device=cast(str, pristine_model_device),
+            release_pristine_before_training=_boolean(
+                measurement.get("release_pristine_before_training", False),
+                "measurement.release_pristine_before_training",
+            ),
             local_files_only=_boolean(
                 measurement.get("local_files_only"), "measurement.local_files_only"
             ),
@@ -782,6 +796,32 @@ def load_base_model_evaluation_settings(path: Path | str) -> BaseModelEvaluation
                 "measurement.environment_max_attempts",
                 1,
                 20,
+            ),
+            prestart_minimum_free_memory_percent=_number(
+                measurement.get("prestart_minimum_free_memory_percent", 70.0),
+                "measurement.prestart_minimum_free_memory_percent",
+                0.0,
+                100.0,
+            ),
+            prestart_max_other_process_rss_bytes=_integer(
+                measurement.get(
+                    "prestart_max_other_process_rss_bytes", 2_147_483_648
+                ),
+                "measurement.prestart_max_other_process_rss_bytes",
+                1,
+                2**63 - 1,
+            ),
+            prestart_timeout_seconds=_number(
+                measurement.get("prestart_timeout_seconds", 900.0),
+                "measurement.prestart_timeout_seconds",
+                0.0,
+                86_400.0,
+            ),
+            prestart_poll_interval_seconds=_number(
+                measurement.get("prestart_poll_interval_seconds", 5.0),
+                "measurement.prestart_poll_interval_seconds",
+                0.05,
+                300.0,
             ),
             candidate_timeout_seconds=_number(
                 measurement.get("candidate_timeout_seconds"),
@@ -2086,6 +2126,7 @@ def evaluate_batched_accuracy(
     if not instances:
         raise ValueError("cannot evaluate an empty task split")
     successes = 0
+    item_outcomes: list[dict[str, object]] = []
     for offset in range(0, len(instances), batch_size):
         batch = instances[offset : offset + batch_size]
         outputs = predictor.generate_batch(
@@ -2096,7 +2137,15 @@ def evaluate_batched_accuracy(
                 family, instance, generated.text
             )
             successes += int(result.passed)
-    return _accuracy_record(successes, len(instances), confidence_level)
+            item_outcomes.append(
+                {
+                    "task_id": instance.task_id,
+                    "passed": result.passed,
+                }
+            )
+    record = _accuracy_record(successes, len(instances), confidence_level)
+    record["item_outcomes"] = item_outcomes
+    return record
 
 
 def evaluate_zero_shot_readiness(
@@ -2543,6 +2592,31 @@ def model_state_digest(model: CausalLM) -> str:
     return digest.hexdigest()
 
 
+def _write_pristine_snapshot(model: CausalLM, path: Path, device: torch.device) -> str:
+    """Persist one CPU snapshot, leaving no second live model in unified memory."""
+    model.to(torch.device("cpu"))
+    cleanup_device(device)
+    digest = model_state_digest(model)
+    torch.save(cast(Any, model).state_dict(), path)
+    return digest
+
+
+def _restore_pristine_snapshot(
+    model: CausalLM, path: Path, device: torch.device, expected_digest: str
+) -> None:
+    """Restore the reusable training object from a disk-backed pristine snapshot."""
+    model.to(torch.device("cpu"))
+    cleanup_device(device)
+    state = torch.load(path, map_location="cpu", weights_only=True)
+    incompatible = cast(Any, model).load_state_dict(state, strict=True)
+    del state
+    if incompatible.missing_keys or incompatible.unexpected_keys:
+        raise RuntimeError("pristine snapshot did not restore every model parameter")
+    if model_state_digest(model) != expected_digest:
+        raise RuntimeError("restored pristine model digest does not match the snapshot")
+    model.to(device)
+
+
 def run_learnability_probe(
     base_model: CausalLM,
     tokenizer: PreTrainedTokenizerBase,
@@ -2557,6 +2631,8 @@ def run_learnability_probe(
     evaluate_test: bool = True,
     recipe: TrainingRecipe | None = None,
     resource_guard: MemoryPeakSampler | None = None,
+    pristine_snapshot_path: Path | None = None,
+    pristine_snapshot_digest: str | None = None,
 ) -> dict[str, object]:
     """Train an isolated family probe, optionally reserving test for the final LR."""
     seed_everything(settings.seed + family_index)
@@ -2568,6 +2644,12 @@ def run_learnability_probe(
     selected_recipe = recipe or TrainingRecipe(settings.probe_batch_size, False)
     if settings.probe_batch_size % selected_recipe.micro_batch_size != 0:
         raise ValueError("micro-batch size must divide the effective probe batch")
+    if pristine_snapshot_path is not None:
+        if pristine_snapshot_digest is None:
+            raise ValueError("a pristine snapshot path requires its model digest")
+        _restore_pristine_snapshot(
+            base_model, pristine_snapshot_path, device, pristine_snapshot_digest
+        )
     before: dict[str, object] | None = None
     if evaluate_test:
         base_predictor = TransformersPredictor(
@@ -2588,7 +2670,11 @@ def run_learnability_probe(
                 confidence_level=settings.confidence_level,
             )
         )
-    probe = copy.deepcopy(base_model).to(device)
+    probe = (
+        copy.deepcopy(base_model).to(device)
+        if pristine_snapshot_path is None
+        else base_model
+    )
     probe.train()
     _set_gradient_checkpointing(probe, selected_recipe.gradient_checkpointing)
     optimizer = torch.optim.AdamW(
@@ -2718,6 +2804,8 @@ def evaluate_task_readiness(
     zero_shot_readiness: Mapping[str, object] | None = None,
     recipe: TrainingRecipe | None = None,
     resource_guard: MemoryPeakSampler | None = None,
+    pristine_snapshot_path: Path | None = None,
+    pristine_snapshot_digest: str | None = None,
 ) -> dict[str, object]:
     """Select one candidate-wide LR on validation, then report held-out test results."""
     before_digest = model_state_digest(model)
@@ -2736,6 +2824,8 @@ def evaluate_task_readiness(
                 evaluate_test=False,
                 recipe=recipe,
                 resource_guard=resource_guard,
+                pristine_snapshot_path=pristine_snapshot_path,
+                pristine_snapshot_digest=pristine_snapshot_digest,
             )
             for index in range(len(stream.families))
         ]
@@ -2804,9 +2894,17 @@ def evaluate_task_readiness(
             evaluate_test=True,
             recipe=recipe,
             resource_guard=resource_guard,
+            pristine_snapshot_path=pristine_snapshot_path,
+            pristine_snapshot_digest=pristine_snapshot_digest,
         )
         for index in range(len(stream.families))
     ]
+    if pristine_snapshot_path is not None:
+        if pristine_snapshot_digest is None:
+            raise ValueError("a pristine snapshot path requires its model digest")
+        _restore_pristine_snapshot(
+            model, pristine_snapshot_path, device, pristine_snapshot_digest
+        )
     after_digest = model_state_digest(model)
     if before_digest != after_digest:
         raise RuntimeError("learnability probes mutated the original candidate weights")
@@ -2895,15 +2993,22 @@ def full_finetuning_memory_feasibility(
 ) -> dict[str, object]:
     """Return a conservative parameter-state lower bound for the frozen probe.
 
-    The probe deep-copies a trainable model and AdamW additionally allocates gradients
-    and two optimizer moments. The pristine copy counts only when configured on the
-    candidate device. Activations and allocator overhead are deliberately excluded,
-    making this a lower bound rather than a capacity estimate.
+    AdamW allocates trainable weights, gradients, and two optimizer moments. A live
+    pristine copy counts on MPS even when labelled as host placement because Apple
+    silicon uses unified memory. Activations and allocator overhead are deliberately
+    excluded, so this is informational and never an arithmetic exclusion.
     """
     element_bytes = {"float32": 4, "float16": 2, "bfloat16": 2}[settings.torch_dtype]
     optimizer_state_bytes = 8
+    resolved_device = resolve_device(settings.device)
     pristine_device_bytes = (
-        0 if settings.pristine_model_device == "host" else element_bytes
+        0
+        if settings.release_pristine_before_training
+        or (
+            settings.pristine_model_device == "host"
+            and resolved_device.type == "cuda"
+        )
+        else element_bytes
     )
     bytes_per_parameter = 2 * element_bytes + optimizer_state_bytes + pristine_device_bytes
     components = {
@@ -2923,6 +3028,9 @@ def full_finetuning_memory_feasibility(
         "unique_parameters": unique_parameters,
         "torch_dtype": settings.torch_dtype,
         "pristine_model_device": settings.pristine_model_device,
+        "release_pristine_before_training": (
+            settings.release_pristine_before_training
+        ),
         "bytes_per_parameter": bytes_per_parameter,
         "parameter_state_lower_bound_bytes": lower_bound,
         "configured_maximum_peak_bytes": maximum,
@@ -2935,9 +3043,9 @@ def full_finetuning_memory_feasibility(
             "tokenizer and Python process state",
         ],
         "method": (
-            "candidate-device parameter state: optional pristine weights + trainable "
-            "copied weights + gradients + two float32 AdamW moments; failure is "
-            "definitive because omitted allocations are non-negative"
+            "parameter state: any simultaneously live pristine weights + trainable "
+            "weights + gradients + two float32 AdamW moments; informational only, "
+            "with measured candidate peak as the sole feasibility verdict"
         ),
     }
 
@@ -3221,8 +3329,12 @@ def select_training_recipe(
     device: torch.device,
     *,
     resource_guard: MemoryPeakSampler,
+    pristine_snapshot_path: Path | None = None,
+    pristine_snapshot_digest: str | None = None,
 ) -> tuple[TrainingRecipe | None, dict[str, object]]:
     """Choose the largest fitting micro-batch and retain every attempt as evidence."""
+    if pristine_snapshot_path is not None and pristine_snapshot_digest is None:
+        raise ValueError("a pristine snapshot path requires its model digest")
     instances = _worst_case_training_instances(
         tokenizer,
         stream,
@@ -3254,7 +3366,16 @@ def select_training_recipe(
         )
         with attempt_sampler:
             try:
-                probe = copy.deepcopy(base_model).to(device)
+                if pristine_snapshot_path is None:
+                    probe = copy.deepcopy(base_model).to(device)
+                else:
+                    _restore_pristine_snapshot(
+                        base_model,
+                        pristine_snapshot_path,
+                        device,
+                        cast(str, pristine_snapshot_digest),
+                    )
+                    probe = base_model
                 probe.train()
                 _set_gradient_checkpointing(probe, recipe.gradient_checkpointing)
                 optimizer = torch.optim.AdamW(
@@ -3302,10 +3423,24 @@ def select_training_recipe(
         del optimizer, probe
         cleanup_device(device)
         if error is not None and not _is_out_of_memory(error):
+            if pristine_snapshot_path is not None:
+                _restore_pristine_snapshot(
+                    base_model,
+                    pristine_snapshot_path,
+                    device,
+                    cast(str, pristine_snapshot_digest),
+                )
             raise error
         if feasible:
             selected = recipe
             break
+    if pristine_snapshot_path is not None:
+        _restore_pristine_snapshot(
+            base_model,
+            pristine_snapshot_path,
+            device,
+            cast(str, pristine_snapshot_digest),
+        )
     return selected, {
         "effective_batch_size": settings.probe_batch_size,
         "candidate_micro_batch_sizes": list(settings.probe_micro_batch_sizes),
@@ -5317,6 +5452,7 @@ def evaluate_candidate(
     manifest_sha256: str = "test-manifest",
     correlation_id: str = "test-correlation-id",
     equivalence_gate_owner_override: Mapping[str, str] | None = None,
+    progress_path: Path | None = None,
 ) -> dict[str, object]:
     """Evaluate one candidate, converting every failure into a durable record."""
     fingerprint = _config_fingerprint(candidate, settings, manifest_sha256)
@@ -5335,6 +5471,10 @@ def evaluate_candidate(
     )
     partial: dict[str, object] = {}
     model: CausalLM | None = None
+    snapshot_directory: tempfile.TemporaryDirectory[str] | None = None
+    pristine_snapshot_path: Path | None = None
+    pristine_snapshot_digest: str | None = None
+    generation: dict[str, object] | None = None
     with sampler:
         try:
             seed_everything(settings.seed)
@@ -5458,16 +5598,54 @@ def evaluate_candidate(
                         model.to(torch.device("cpu"))
                         cleanup_device(device)
                 partial["zero_shot_readiness"] = zero_shot
+                if settings.release_pristine_before_training:
+                    phase = "generation_benchmark"
+                    if settings.pristine_model_device == "host":
+                        model.to(device)
+                    generation = benchmark_generation(
+                        model, tokenizer, stream, settings, context_length, device
+                    )
+                    sampler.raise_if_swap_limit_exceeded()
+                    snapshot_directory = tempfile.TemporaryDirectory(
+                        prefix="aptivra-pristine-snapshot-"
+                    )
+                    pristine_snapshot_path = (
+                        Path(snapshot_directory.name) / "model-state.pt"
+                    )
+                    pristine_snapshot_digest = _write_pristine_snapshot(
+                        model, pristine_snapshot_path, device
+                    )
                 partial["pristine_model_placement"] = {
                     "configured": settings.pristine_model_device,
                     "training_copy_source": (
                         "cpu" if settings.pristine_model_device == "host" else str(device)
                     ),
                     "mathematical_role": (
-                        "placement only; pristine weights and copied trainable values are "
-                        "unchanged"
+                        "disk-backed restart source with one live training object"
+                        if settings.release_pristine_before_training
+                        else "placement only; pristine weights and copied trainable values "
+                        "are unchanged"
                     ),
+                    "released_before_training": (
+                        settings.release_pristine_before_training
+                    ),
+                    "snapshot_sha256": pristine_snapshot_digest,
                 }
+                if settings.release_pristine_before_training and progress_path is not None:
+                    write_json(
+                        progress_path,
+                        {
+                            "schema_version": EVALUATION_SCHEMA_VERSION,
+                            "manifest_sha256": manifest_sha256,
+                            "correlation_id": correlation_id,
+                            "config_fingerprint": fingerprint,
+                            "status": "pristine_evaluation_persisted",
+                            "candidate_id": candidate.candidate_id,
+                            "reference_only": candidate.reference_only,
+                            **partial,
+                            "generation_benchmark": generation,
+                        },
+                    )
                 sampler.raise_if_swap_limit_exceeded()
                 parameter_count = cast(int, identity["unique_parameters"])
                 feasibility = (
@@ -5503,6 +5681,8 @@ def evaluate_candidate(
                             context_length,
                             device,
                             resource_guard=sampler,
+                            pristine_snapshot_path=pristine_snapshot_path,
+                            pristine_snapshot_digest=pristine_snapshot_digest,
                         )
                     partial["training_memory_recipe"] = recipe_evidence
                     if recipe is None:
@@ -5573,20 +5753,28 @@ def evaluate_candidate(
                             zero_shot_readiness=zero_shot,
                             recipe=recipe,
                             resource_guard=sampler,
+                            pristine_snapshot_path=pristine_snapshot_path,
+                            pristine_snapshot_digest=pristine_snapshot_digest,
                         )
                         partial["task_stream_readiness"] = readiness
                         sampler.raise_if_swap_limit_exceeded()
                         phase = "cost"
-                        if settings.pristine_model_device == "host":
-                            model.to(device)
-                        try:
-                            generation = benchmark_generation(
-                                model, tokenizer, stream, settings, context_length, device
-                            )
-                        finally:
+                        if generation is None:
                             if settings.pristine_model_device == "host":
-                                model.to(torch.device("cpu"))
-                                cleanup_device(device)
+                                model.to(device)
+                            try:
+                                generation = benchmark_generation(
+                                    model,
+                                    tokenizer,
+                                    stream,
+                                    settings,
+                                    context_length,
+                                    device,
+                                )
+                            finally:
+                                if settings.pristine_model_device == "host":
+                                    model.to(torch.device("cpu"))
+                                    cleanup_device(device)
                         sampler.raise_if_swap_limit_exceeded()
                         families = cast(list[dict[str, object]], readiness["families"])
                         cost: dict[str, object] = {
@@ -5685,6 +5873,8 @@ def evaluate_candidate(
         result["equivalence_gate_owner_override"] = dict(
             equivalence_gate_owner_override
         )
+    if snapshot_directory is not None:
+        snapshot_directory.cleanup()
     model = None
     cleanup_device(device)
     return result
@@ -5743,6 +5933,7 @@ def evaluate_all_candidates(
             equivalence_gate_owner_override=(
                 settings.equivalence_gate_owner_override
             ),
+            progress_path=record_path,
         )
         write_json(record_path, record)
         records.append(record)
@@ -5976,7 +6167,7 @@ def _ordered_with_legacy_pooled_uncertainty(
             finalists,
             key=lambda item: (
                 _metric(item, "language_modeling", "combined", "bits_per_byte"),
-                -_metric(item, "cost", "median_probe_training_tokens_per_second"),
+                _throughput_tie_break_value(item),
                 _metric(item, "identity", "unique_parameters"),
                 str(item.get("candidate_id")),
             ),
@@ -6031,7 +6222,7 @@ def _ordered_with_uncertainty(
             finalists,
             key=lambda item: (
                 _metric(item, "language_modeling", "combined", "bits_per_byte"),
-                -_metric(item, "cost", "median_probe_training_tokens_per_second"),
+                _throughput_tie_break_value(item),
                 _metric(item, "identity", "unique_parameters"),
                 str(item.get("candidate_id")),
             ),
@@ -6039,6 +6230,13 @@ def _ordered_with_uncertainty(
         ranked.append(winner)
         remaining.remove(winner)
     return ranked
+
+
+def _throughput_tie_break_value(record: Mapping[str, object]) -> float:
+    """Sort valid throughput first; swapped runs have no throughput measurement."""
+    if record.get("throughput_compromised") is True:
+        return math.inf
+    return -_metric(record, "cost", "median_probe_training_tokens_per_second")
 
 
 def _saturated_family_ids(
@@ -6234,8 +6432,16 @@ def apply_decision_rule(
             "combined_heldout_bits_per_byte": _metric(
                 record, "language_modeling", "combined", "bits_per_byte"
             ),
-            "training_tokens_per_second": _metric(
-                record, "cost", "median_probe_training_tokens_per_second"
+            "training_tokens_per_second": (
+                None
+                if record.get("throughput_compromised") is True
+                else _metric(record, "cost", "median_probe_training_tokens_per_second")
+            ),
+            "throughput_compromised": record.get("throughput_compromised") is True,
+            "throughput_tie_breaker_status": (
+                "excluded_swap_compromised"
+                if record.get("throughput_compromised") is True
+                else "measured"
             ),
             "unique_parameters": int(
                 _metric(record, "identity", "unique_parameters")
@@ -6414,6 +6620,7 @@ def run_seed_variance_evaluation(
     *,
     resume: bool = True,
     loader: CandidateLoader = load_candidate,
+    primary_output_dir: Path | str | None = None,
 ) -> dict[str, object]:
     """Rerun a first-pass leader at its validation-selected LR for another seed."""
     settings = load_base_model_evaluation_settings(config_path)
@@ -6421,7 +6628,10 @@ def run_seed_variance_evaluation(
         raise ValueError("variance seed must be a configured non-primary seed")
     destination = Path(output_dir)
     manifest, manifest_sha256 = prepare_run_manifest(config_path, destination, settings)
-    primary_path = _candidate_record_path(destination, candidate_id)
+    primary_source = (
+        destination if primary_output_dir is None else Path(primary_output_dir)
+    )
+    primary_path = _candidate_record_path(primary_source, candidate_id)
     if not primary_path.is_file():
         raise ValueError(f"primary candidate record is missing for {candidate_id}")
     primary = _read_json(primary_path)
@@ -6475,9 +6685,11 @@ def run_seed_variance_evaluation(
         manifest_sha256=manifest_sha256,
         correlation_id=str(manifest["correlation_id"]),
         equivalence_gate_owner_override=settings.equivalence_gate_owner_override,
+        progress_path=record_path,
     )
     record["variance_role"] = "top-candidate seed-to-seed estimate"
     record["primary_selected_learning_rate"] = learning_rate
+    record["primary_record_source"] = str(primary_path)
     write_json(record_path, record)
     return record
 
@@ -6488,7 +6700,12 @@ def _seed_variance_summary(
     destination: Path,
     settings: MeasurementSettings,
     manifest_sha256: str,
+    *,
+    seed_destination: Path | None = None,
+    seed_manifest_sha256: str | None = None,
 ) -> dict[str, object]:
+    repeat_destination = seed_destination or destination
+    repeat_manifest_sha256 = seed_manifest_sha256 or manifest_sha256
     rows: list[dict[str, object]] = [
         {
             "seed": settings.seed,
@@ -6505,14 +6722,14 @@ def _seed_variance_summary(
     ]
     missing: list[int] = []
     for seed in settings.variance_seeds[1:]:
-        path = _seed_record_path(destination, candidate_id, seed)
+        path = _seed_record_path(repeat_destination, candidate_id, seed)
         if not path.is_file():
             missing.append(seed)
             continue
         record = _read_json(path)
         if (
             record.get("status") != "completed"
-            or record.get("manifest_sha256") != manifest_sha256
+            or record.get("manifest_sha256") != repeat_manifest_sha256
         ):
             missing.append(seed)
             continue
@@ -6525,7 +6742,7 @@ def _seed_variance_summary(
                 "mean_accuracy_gain": _metric(
                     record, "task_stream_readiness", "mean_accuracy_gain"
                 ),
-                "record": str(path.relative_to(destination)),
+                "record": str(path.relative_to(repeat_destination)),
             }
         )
     learned = [cast(float, row["mean_learned_accuracy"]) for row in rows]
@@ -6544,6 +6761,80 @@ def _seed_variance_summary(
         "sample_standard_deviation_accuracy_gain": (
             statistics.stdev(gains) if len(gains) >= 2 else None
         ),
+    }
+
+
+def _top_two_seed_repeat_agreement(
+    summaries: Sequence[Mapping[str, object]], seeds: Sequence[int]
+) -> dict[str, object]:
+    """Report whether every seed preserves the primary top-two order."""
+    candidate_ids = [str(summary["candidate_id"]) for summary in summaries]
+    if len(candidate_ids) != 2:
+        return {
+            "candidate_ids": candidate_ids,
+            "configured_seeds": list(seeds),
+            "complete": False,
+            "agrees": None,
+            "reason": "ranking did not produce exactly two repeat-seed leaders",
+            "runs": [],
+        }
+    metrics_by_seed: dict[int, dict[str, tuple[float, float]]] = {}
+    missing_by_candidate: dict[str, list[int]] = {}
+    for summary in summaries:
+        candidate_id = str(summary["candidate_id"])
+        missing_by_candidate[candidate_id] = [
+            int(seed) for seed in cast(Sequence[int], summary["missing_seeds"])
+        ]
+        for row in cast(Sequence[Mapping[str, object]], summary["runs"]):
+            seed = int(cast(int, row["seed"]))
+            metrics_by_seed.setdefault(seed, {})[candidate_id] = (
+                float(cast(float, row["mean_learned_accuracy"])),
+                float(cast(float, row["mean_accuracy_gain"])),
+            )
+    complete = not any(missing_by_candidate.values()) and all(
+        len(metrics_by_seed.get(seed, {})) == 2 for seed in seeds
+    )
+    runs: list[dict[str, object]] = []
+    for seed in seeds:
+        metrics = metrics_by_seed.get(seed, {})
+        order = sorted(
+            metrics,
+            key=lambda candidate_id: (
+                -metrics[candidate_id][0],
+                -metrics[candidate_id][1],
+                candidate_id,
+            ),
+        )
+        runs.append(
+            {
+                "seed": seed,
+                "candidate_order": order,
+                "metrics": {
+                    candidate_id: {
+                        "mean_learned_accuracy": values[0],
+                        "mean_accuracy_gain": values[1],
+                    }
+                    for candidate_id, values in metrics.items()
+                },
+            }
+        )
+    primary_order = candidate_ids
+    agrees = (
+        all(row["candidate_order"] == primary_order for row in runs)
+        if complete
+        else None
+    )
+    return {
+        "candidate_ids": candidate_ids,
+        "configured_seeds": list(seeds),
+        "comparison": (
+            "descending mean learned accuracy, then descending mean accuracy gain, "
+            "then candidate ID"
+        ),
+        "complete": complete,
+        "agrees": agrees,
+        "missing_seeds_by_candidate": missing_by_candidate,
+        "runs": runs,
     }
 
 
@@ -6817,6 +7108,321 @@ def rank_existing_candidate_records(
     return ranking
 
 
+_AMENDMENT_4E_IGNORED_COMPARISON_KEYS = {
+    "config_fingerprint",
+    "correlation_id",
+    "elapsed_seconds",
+    "environment_attempts",
+    "equivalence_gate_owner_override",
+    "full_finetuning_memory_feasibility",
+    "generation_benchmark",
+    "load_attempts",
+    "manifest_sha256",
+    "memory",
+    "pristine_model_placement",
+    "schema_version",
+    "seconds",
+    "training_bytes_per_second",
+    "training_memory_recipe",
+    "training_tokens_per_second",
+}
+
+
+def _amendment_4e_comparison_value(
+    value: object, *, include_item_outcomes: bool
+) -> object:
+    """Remove runtime-only evidence while retaining every decision input."""
+    if isinstance(value, dict):
+        return {
+            key: _amendment_4e_comparison_value(
+                item, include_item_outcomes=include_item_outcomes
+            )
+            for key, item in value.items()
+            if key not in _AMENDMENT_4E_IGNORED_COMPARISON_KEYS
+            and (include_item_outcomes or key != "item_outcomes")
+            and key not in {"initial_loss", "final_loss"}
+        }
+    if isinstance(value, list):
+        return [
+            _amendment_4e_comparison_value(
+                item, include_item_outcomes=include_item_outcomes
+            )
+            for item in value
+        ]
+    return value
+
+
+def _probe_losses(record: Mapping[str, object]) -> list[float]:
+    rows = cast(
+        list[dict[str, object]],
+        _nested(record, "task_stream_readiness", "families"),
+    )
+    return [
+        _metric(row, key)
+        for row in rows
+        for key in ("initial_loss", "final_loss")
+    ]
+
+
+def compare_amendment_4e_records(
+    reference: Mapping[str, object],
+    candidate: Mapping[str, object],
+    *,
+    include_item_outcomes: bool,
+    loss_absolute_tolerance: float = 1e-5,
+) -> dict[str, object]:
+    """Compare deterministic decision evidence and separately bound MPS losses."""
+    statuses = {
+        "reference": reference.get("status"),
+        "candidate": candidate.get("status"),
+    }
+    if any(status != "completed" for status in statuses.values()):
+        return {
+            "passed": False,
+            "exact_decision_and_outcome_evidence_match": False,
+            "item_outcomes_compared": include_item_outcomes,
+            "loss_absolute_tolerance": loss_absolute_tolerance,
+            "maximum_probe_loss_absolute_difference": None,
+            "runtime_fields_excluded": sorted(_AMENDMENT_4E_IGNORED_COMPARISON_KEYS),
+            "failure": "comparison requires two completed candidate records",
+            "record_statuses": statuses,
+        }
+    reference_value = _amendment_4e_comparison_value(
+        dict(reference), include_item_outcomes=include_item_outcomes
+    )
+    candidate_value = _amendment_4e_comparison_value(
+        dict(candidate), include_item_outcomes=include_item_outcomes
+    )
+    exact_evidence_match = reference_value == candidate_value
+    reference_losses = _probe_losses(reference)
+    candidate_losses = _probe_losses(candidate)
+    if len(reference_losses) != len(candidate_losses):
+        maximum_loss_difference = math.inf
+    else:
+        maximum_loss_difference = max(
+            (
+                abs(left - right)
+                for left, right in zip(
+                    reference_losses, candidate_losses, strict=True
+                )
+            ),
+            default=0.0,
+        )
+    return {
+        "passed": (
+            exact_evidence_match
+            and maximum_loss_difference <= loss_absolute_tolerance
+        ),
+        "exact_decision_and_outcome_evidence_match": exact_evidence_match,
+        "item_outcomes_compared": include_item_outcomes,
+        "loss_absolute_tolerance": loss_absolute_tolerance,
+        "maximum_probe_loss_absolute_difference": maximum_loss_difference,
+        "runtime_fields_excluded": sorted(_AMENDMENT_4E_IGNORED_COMPARISON_KEYS),
+    }
+
+
+def run_amendment_4e_candidate_check(
+    config_path: Path | str,
+    output_dir: Path | str,
+    prior_output_dir: Path | str,
+    candidate_id: str,
+    *,
+    placement_equivalence: bool,
+    loader: CandidateLoader = load_candidate,
+) -> dict[str, object]:
+    """Run a foreground 4e placement or 4c-consistency candidate check."""
+    settings = load_base_model_evaluation_settings(config_path)
+    destination = Path(output_dir)
+    manifest, manifest_sha256 = prepare_run_manifest(config_path, destination, settings)
+    configured = next(
+        (item for item in settings.candidates if item.candidate_id == candidate_id), None
+    )
+    if configured is None:
+        raise ValueError(f"unknown candidate id: {candidate_id}")
+    manifest_row = next(
+        row
+        for row in cast(list[dict[str, object]], manifest["candidates"])
+        if row.get("candidate_id") == candidate_id
+    )
+    if "resolution_failure" in manifest_row:
+        raise RuntimeError(f"candidate resolution failed: {manifest_row['resolution_failure']}")
+    candidate = replace(
+        configured,
+        revision=cast(str, manifest_row["resolved_revision"]),
+        license=cast(str, manifest_row["license"]),
+    )
+    prior_path = _candidate_record_path(Path(prior_output_dir), candidate_id)
+    if not prior_path.is_file():
+        raise FileNotFoundError(f"Amendment 4c record is missing: {prior_path}")
+    prior = _read_json(prior_path)
+    check_dir = destination / "checks"
+    released_path = check_dir / f"{candidate_id}-released.json"
+    released_settings = replace(
+        settings.measurement, release_pristine_before_training=True
+    )
+    released = evaluate_candidate(
+        candidate,
+        released_settings,
+        loader=loader,
+        decision_settings=settings.decision,
+        manifest_sha256=manifest_sha256,
+        correlation_id=str(manifest["correlation_id"]),
+        equivalence_gate_owner_override=settings.equivalence_gate_owner_override,
+        progress_path=released_path,
+    )
+    write_json(released_path, released)
+    comparisons: dict[str, object] = {
+        "released_vs_amendment_4c_aggregates": compare_amendment_4e_records(
+            prior, released, include_item_outcomes=False
+        )
+    }
+    if placement_equivalence:
+        legacy_path = check_dir / f"{candidate_id}-legacy-live-pristine.json"
+        legacy_settings = replace(
+            settings.measurement, release_pristine_before_training=False
+        )
+        legacy = evaluate_candidate(
+            candidate,
+            legacy_settings,
+            loader=loader,
+            decision_settings=settings.decision,
+            manifest_sha256=manifest_sha256,
+            correlation_id=str(manifest["correlation_id"]),
+            equivalence_gate_owner_override=settings.equivalence_gate_owner_override,
+            progress_path=legacy_path,
+        )
+        write_json(legacy_path, legacy)
+        comparisons["released_vs_current_legacy_per_item"] = (
+            compare_amendment_4e_records(
+                legacy, released, include_item_outcomes=True
+            )
+        )
+    passed = all(
+        isinstance(value, dict) and value.get("passed") is True
+        for value in comparisons.values()
+    )
+    record: dict[str, object] = {
+        "schema_version": "pretrained-base-amendment-4e-check-v1",
+        "manifest_sha256": manifest_sha256,
+        "correlation_id": str(manifest["correlation_id"]),
+        "candidate_id": candidate_id,
+        "check": "placement_equivalence" if placement_equivalence else "4c_consistency",
+        "status": "passed" if passed else "failed",
+        "comparisons": comparisons,
+        "frozen_4c_item_evidence_limitation": (
+            "Amendment 4c retained family aggregates but not per-item outcomes; exact "
+            "per-item comparison is therefore performed between the two current-code "
+            "placement orders, while the frozen record comparison uses all retained "
+            "decision metrics and family counts."
+        ),
+    }
+    write_json(
+        check_dir
+        / ("placement-equivalence.json" if placement_equivalence else "gpt2-consistency.json"),
+        record,
+    )
+    return record
+
+
+def rank_amendment_4e_records(
+    config_path: Path | str,
+    output_dir: Path | str,
+    prior_output_dir: Path | str,
+    *,
+    rerun_completed_4c_candidates: bool,
+) -> dict[str, object]:
+    """Combine validated 4c and 4e records under the unchanged decision rule."""
+    settings = load_base_model_evaluation_settings(config_path)
+    destination = Path(output_dir)
+    prior = Path(prior_output_dir)
+    manifest, manifest_sha256 = prepare_run_manifest(config_path, destination, settings)
+    prior_manifest = _read_json(prior / "run_manifest.json")
+    prior_manifest_sha256 = hashlib.sha256(
+        json.dumps(prior_manifest, sort_keys=True, allow_nan=False).encode("utf-8")
+    ).hexdigest()
+    fresh_ids = {"qwen2.5-0.5b", "qwen2.5-1.5b", "smollm2-1.7b"}
+    if rerun_completed_4c_candidates:
+        fresh_ids.update({"gpt2", "smollm2-135m", "pythia-160m", "smollm2-360m"})
+    records: list[dict[str, object]] = []
+    provenance: list[dict[str, object]] = []
+    for candidate in settings.candidates:
+        source_root = destination if candidate.candidate_id in fresh_ids else prior
+        expected_manifest = (
+            manifest_sha256 if source_root == destination else prior_manifest_sha256
+        )
+        path = _candidate_record_path(source_root, candidate.candidate_id)
+        if not path.is_file():
+            record = {
+                "schema_version": EVALUATION_SCHEMA_VERSION,
+                "manifest_sha256": expected_manifest,
+                "correlation_id": str(manifest["correlation_id"]),
+                "status": "failed",
+                "candidate_id": candidate.candidate_id,
+                "reference_only": candidate.reference_only,
+                "failure": {
+                    "phase": "mixed_provenance_ranking",
+                    "type": "MissingCandidateRecord",
+                    "message": f"candidate record is missing: {path}",
+                    "out_of_memory": False,
+                },
+            }
+        else:
+            record = _read_json(path)
+            if record.get("candidate_id") != candidate.candidate_id:
+                raise ValueError(f"candidate record identity mismatch: {path}")
+            if record.get("manifest_sha256") != expected_manifest:
+                raise ValueError(f"candidate record manifest mismatch: {path}")
+            provenance.append(
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "protocol": "amendment_4e" if source_root == destination else "amendment_4c",
+                    "path": str(path),
+                    "sha256": sha256_file(path),
+                    "manifest_sha256": expected_manifest,
+                }
+            )
+        records.append(record)
+    ranking = apply_decision_rule(records, settings.decision)
+    ranking["manifest_sha256"] = manifest_sha256
+    ranking["correlation_id"] = str(manifest["correlation_id"])
+    ranking["record_provenance"] = provenance
+    ranking["prior_manifest_sha256"] = prior_manifest_sha256
+    ranking["consistency_outcome"] = (
+        "reran_four_completed_candidates"
+        if rerun_completed_4c_candidates
+        else "reused_four_reproduced_amendment_4c_records"
+    )
+    record_by_id = {str(record.get("candidate_id")): record for record in records}
+    ranked_rows = cast(list[dict[str, object]], ranking["ranked_candidates"])
+    top_rows = ranked_rows[: settings.measurement.variance_top_candidates]
+    seed_variance: list[dict[str, object]] = []
+    for row in top_rows:
+        candidate_id = cast(str, row["candidate_id"])
+        primary_source = destination if candidate_id in fresh_ids else prior
+        primary_manifest = (
+            manifest_sha256
+            if primary_source == destination
+            else prior_manifest_sha256
+        )
+        seed_variance.append(
+            _seed_variance_summary(
+                candidate_id,
+                record_by_id[candidate_id],
+                primary_source,
+                settings.measurement,
+                primary_manifest,
+                seed_destination=destination,
+                seed_manifest_sha256=manifest_sha256,
+            )
+        )
+    ranking["seed_variance"] = seed_variance
+    ranking["top_two_seed_repeat_agreement"] = _top_two_seed_repeat_agreement(
+        seed_variance, settings.measurement.variance_seeds
+    )
+    write_json(destination / "ranking.json", ranking)
+    return ranking
+
+
 def derive_amendment_3_analysis(
     config_path: Path | str,
     output_dir: Path | str,
@@ -7026,3 +7632,31 @@ def write_environment_status(
     )
     write_json(record_path, record)
     return record
+
+
+def attach_environment_attempts(
+    output_dir: Path | str,
+    candidate_id: str,
+    attempts: Sequence[Mapping[str, object]],
+    *,
+    variance_seed: int | None = None,
+) -> None:
+    """Attach parent-observed pre-start/runtime evidence to a child record."""
+    destination = Path(output_dir)
+    record_path = (
+        _candidate_record_path(destination, candidate_id)
+        if variance_seed is None
+        else _seed_record_path(destination, candidate_id, variance_seed)
+    )
+    if not record_path.is_file():
+        raise FileNotFoundError(f"candidate record is missing: {record_path}")
+    record = _read_json(record_path)
+    record["environment_attempts"] = [dict(attempt) for attempt in attempts]
+    compromised = any(
+        attempt.get("throughput_compromised") is True for attempt in attempts
+    )
+    record["throughput_compromised"] = compromised
+    record["throughput_tie_breaker_status"] = (
+        "excluded_swap_compromised" if compromised else "measured"
+    )
+    write_json(record_path, record)

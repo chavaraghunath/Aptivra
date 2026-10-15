@@ -1,0 +1,50 @@
+{
+  "attempt": 1,
+  "configured_maximum_swap_growth_bytes": 1073741824,
+  "configured_minimum_free_memory_percent": 10.0,
+  "elapsed_seconds": 158.24884154097526,
+  "environment_invalid_reasons": [
+    "system swap growth exceeded the configured environment limit"
+  ],
+  "forced_termination_reason": null,
+  "poll_interval_seconds": 0.5,
+  "prestart_check": {
+    "normal": true,
+    "samples": [
+      {
+        "elapsed_seconds": 8.300412446260452e-08,
+        "free_memory_percent": 53.0,
+        "other_processes_above_rss_threshold": [],
+        "swap_used_bytes": 11162028605
+      },
+      {
+        "elapsed_seconds": 5.0815354580117855,
+        "free_memory_percent": 83.0,
+        "other_processes_above_rss_threshold": [],
+        "swap_used_bytes": 11153639997
+      }
+    ]
+  },
+  "process_started": true,
+  "recovery": {
+    "normal": true,
+    "samples": [
+      {
+        "elapsed_seconds": 8.297502063214779e-08,
+        "free_memory_percent": 83.0,
+        "other_processes_above_rss_threshold": [],
+        "swap_used_bytes": 11153639997
+      }
+    ]
+  },
+  "returncode": -15,
+  "status": "environment_invalid",
+  "system_free_memory_after_percent": 42.0,
+  "system_free_memory_before_percent": 83.0,
+  "system_free_memory_minimum_percent": 19.0,
+  "system_swap_after_bytes": 13086165565,
+  "system_swap_before_bytes": 11153639997,
+  "system_swap_growth_bytes": 1932525568,
+  "system_swap_peak_bytes": 13086165565,
+  "system_swap_peak_growth_bytes": 1932525568
+}

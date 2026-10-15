@@ -1,0 +1,5568 @@
+{
+  "candidate_id": "smollm2-135m",
+  "config_fingerprint": "2fe540d5925f1084b2337712d93897b25d2a3b4d3708a8faf7f13a57a64aa278",
+  "correlation_id": "505515c5-5208-4431-a45e-df800622e691",
+  "elapsed_seconds": 2727.3565940839762,
+  "equivalence_gate_owner_override": {
+    "adr_section": "Owner override of Amendment 4b (2026-10-14)",
+    "by": "raghunath",
+    "date": "2026-10-14"
+  },
+  "failure": {
+    "message": "learnability probes mutated the original candidate weights",
+    "out_of_memory": false,
+    "phase": "task_readiness",
+    "type": "RuntimeError"
+  },
+  "manifest_sha256": "4ba041fb825ce719617838f2e6f1add03ed696ca5df51ddab842ceab86f42bb9",
+  "memory": {
+    "configured_maximum_swap_growth_bytes": 1073741824,
+    "cuda_allocated_baseline_bytes": null,
+    "cuda_max_memory_allocated_bytes": null,
+    "cuda_max_memory_reserved_bytes": null,
+    "cuda_reserved_baseline_bytes": null,
+    "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+    "hard_constraint_peak_bytes": 7848493056,
+    "mps_driver_baseline_bytes": 475136,
+    "mps_driver_delta_bytes": 7848017920,
+    "mps_driver_peak_bytes": 7848493056,
+    "process_rss_baseline_bytes": 438288384,
+    "process_rss_delta_bytes": 2582593536,
+    "process_rss_peak_bytes": 3020881920,
+    "sample_interval_seconds": 0.02,
+    "swap_sample_interval_seconds": 0.5,
+    "system_swap_after_bytes": 8006339133,
+    "system_swap_before_bytes": 7670459269,
+    "system_swap_growth_bytes": 335879864,
+    "system_swap_peak_bytes": 8462469693,
+    "system_swap_peak_growth_bytes": 792010424
+  },
+  "partial_measurements": {
+    "full_finetuning_memory_feasibility": {
+      "bytes_per_parameter": 16,
+      "components_bytes": {
+        "adamw_first_and_second_moments": 1076120064,
+        "gradients": 538060032,
+        "pristine_base_weights_on_candidate_device": 0,
+        "trainable_copy_weights": 538060032
+      },
+      "configured_maximum_peak_bytes": 28991029248,
+      "configured_minimum_headroom_fraction": 0.25,
+      "configured_target_memory_bytes": 38654705664,
+      "excluded_from_lower_bound": [
+        "activations",
+        "allocator overhead",
+        "tokenizer and Python process state"
+      ],
+      "fits_parameter_state_lower_bound": true,
+      "method": "parameter state: any simultaneously live pristine weights + trainable weights + gradients + two float32 AdamW moments; informational only, with measured candidate peak as the sole feasibility verdict",
+      "parameter_state_lower_bound_bytes": 2152240128,
+      "pristine_model_device": "candidate_device",
+      "release_pristine_before_training": true,
+      "torch_dtype": "float32",
+      "unique_parameters": 134515008,
+      "verdict_role": "informational lower bound; Amendment 4c feasibility uses only the measured candidate peak"
+    },
+    "identity": {
+      "architecture": "llama",
+      "context_length": 8192,
+      "license": "apache-2.0",
+      "license_source": "config_fallback",
+      "load_attempts": 1,
+      "model_vocabulary_size": 49152,
+      "repo_id_or_path": "HuggingFaceTB/SmolLM2-135M",
+      "resolved_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+      "tokenizer_type": "GPT2Tokenizer",
+      "tokenizer_vocabulary_size": 49152,
+      "torch_dtype": "float32",
+      "trust_remote_code": false,
+      "unique_parameters": 134515008,
+      "vocabulary_size_mismatch": false
+    },
+    "language_modeling": {
+      "combined": {
+        "bits_per_byte": 0.9283719906497278,
+        "boundary_convention": "lossless separately tokenized prompt and answer spans",
+        "scored_bytes": 10858,
+        "total_bits": 10080.263074474744
+      },
+      "heldout_prompt_answers": {
+        "bits_per_byte": 0.9627904555447012,
+        "scored_bytes": 660,
+        "scored_tokens": 179,
+        "total_bits": 635.4417006595028,
+        "uniform_byte_baseline_bpb": 8.0,
+        "unigram_byte_baseline_bpb": 4.756592024870373,
+        "windows": 24
+      },
+      "heldout_text": {
+        "bits_per_byte": 0.9261444767420318,
+        "first_token_conditioning": "tokenizer BOS, EOS, or padding seed token",
+        "scored_bytes": 10198,
+        "scored_tokens": 2299,
+        "total_bits": 9444.82137381524,
+        "uniform_byte_baseline_bpb": 8.0,
+        "unigram_byte_baseline_bpb": 4.530826271523949,
+        "windowing_rule": "fixed target stride with maximum available left context; each target token and represented byte scored once",
+        "windows": 9
+      }
+    },
+    "pristine_model_placement": {
+      "configured": "candidate_device",
+      "mathematical_role": "disk-backed restart source with one live training object",
+      "released_before_training": true,
+      "snapshot_sha256": "e0da06e444bc9ad258989d27a8908961116754573c80d0106fb819d35e5becd0",
+      "training_copy_source": "mps"
+    },
+    "structural_fitness": {
+      "all_blocks_expose_feed_forward": true,
+      "block_container": "model.layers",
+      "consistent_feed_forward_path": true,
+      "expected_transformer_blocks": 30,
+      "feed_forward_paths": [
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp",
+        "mlp"
+      ],
+      "hidden_size": 576,
+      "transformer_blocks": 30
+    },
+    "task_stream_properties": {
+      "all_prompt_and_target_text_ascii": true,
+      "chance_level_definition": "uniform random choice over distinct targets present in the test split; descriptive only and most relevant when the target set is small",
+      "families": [
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 53,
+            "train": 74,
+            "validation": 48
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T1_modular_arithmetic",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.9433962264150944,
+            "distinct_targets": 50,
+            "item_fraction": 0.97,
+            "items": 97
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.018867924528301886
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T2_string_transforms",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.0,
+            "distinct_targets": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.01
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 99,
+            "train": 256,
+            "validation": 100
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T3_list_operations",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.0,
+            "distinct_targets": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.010101010101010102
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 46,
+            "train": 121,
+            "validation": 48
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T4_syntax_matching",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.043478260869565216,
+            "distinct_targets": 2,
+            "item_fraction": 0.56,
+            "items": 56
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.021739130434782608
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 2,
+            "train": 2,
+            "validation": 2
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T5_boolean_logic",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 1.0,
+            "distinct_targets": 2,
+            "item_fraction": 1.0,
+            "items": 100
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.5
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 67,
+            "train": 130,
+            "validation": 67
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T6_sequence_completion",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.6865671641791045,
+            "distinct_targets": 46,
+            "item_fraction": 0.73,
+            "items": 73
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.014925373134328358
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 4,
+            "train": 4,
+            "validation": 4
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T7_state_machines",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 1.0,
+            "distinct_targets": 4,
+            "item_fraction": 1.0,
+            "items": 100
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.25
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 13,
+            "train": 21,
+            "validation": 10
+          },
+          "distinct_template_signatures": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "family_id": "T8_python_microsynth",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.6923076923076923,
+            "distinct_targets": 9,
+            "item_fraction": 0.95,
+            "items": 95
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 0.0,
+            "distinct_templates": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.07692307692307693
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "distinct_template_signatures": {
+            "test": 3,
+            "train": 3,
+            "validation": 3
+          },
+          "family_id": "T9_algo_synth",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.0,
+            "distinct_targets": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 1.0,
+            "distinct_templates": 3,
+            "item_fraction": 1.0,
+            "items": 100
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.01
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "distinct_template_signatures": {
+            "test": 2,
+            "train": 2,
+            "validation": 2
+          },
+          "family_id": "T10_docstring_code",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.0,
+            "distinct_targets": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 1.0,
+            "distinct_templates": 2,
+            "item_fraction": 1.0,
+            "items": 100
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.01
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "distinct_template_signatures": {
+            "test": 2,
+            "train": 2,
+            "validation": 2
+          },
+          "family_id": "T11_bug_fixer",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.0,
+            "distinct_targets": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 1.0,
+            "distinct_templates": 2,
+            "item_fraction": 1.0,
+            "items": 100
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.01
+        },
+        {
+          "all_prompt_and_target_text_ascii": true,
+          "distinct_targets": {
+            "test": 100,
+            "train": 256,
+            "validation": 100
+          },
+          "distinct_template_signatures": {
+            "test": 2,
+            "train": 2,
+            "validation": 2
+          },
+          "family_id": "T12_type_inferrer",
+          "test_target_overlap_with_train": {
+            "distinct_target_fraction": 0.0,
+            "distinct_targets": 0,
+            "item_fraction": 0.0,
+            "items": 0
+          },
+          "test_template_overlap_with_train": {
+            "distinct_template_fraction": 1.0,
+            "distinct_templates": 2,
+            "item_fraction": 1.0,
+            "items": 100
+          },
+          "uniform_over_distinct_test_targets_chance_level": 0.01
+        }
+      ],
+      "template_signature_definition": "exact prompt/target pair after replacing a generated Python function identifier with <function_name> when one is present"
+    },
+    "tokenizer_fitness": {
+      "eos_token": "<|endoftext|>",
+      "eos_token_id": 0,
+      "eos_usable_as_answer_terminator": true,
+      "exact_roundtrip_after_nfc_normalization": true,
+      "exact_task_stream_roundtrip": true,
+      "exact_utf8_roundtrip": true,
+      "mean_bytes_per_token": 1.9618707424042583,
+      "model_eos_token_ids": [
+        0
+      ],
+      "nfc_roundtrip_failures": [],
+      "non_nfc_input_cost": "canonically equivalent non-NFC input is normalized and its original code-point sequence is not preserved",
+      "roundtrip_contract": "configured samples round-trip after NFC normalization and every stored task-stream prompt, target, and training target round-trips exactly",
+      "roundtrip_failures": [],
+      "roundtrip_samples": 16423,
+      "task_stream_bytes": 667862,
+      "task_stream_roundtrip_failures": [],
+      "task_stream_tokens": 340421
+    },
+    "training_memory_recipe": {
+      "attempts": [
+        {
+          "calibration_instance_ids": [
+            "T3_list_operations_s20261014021_i24",
+            "T3_list_operations_s20261014021_i218",
+            "T3_list_operations_s20261014021_i187",
+            "t10_0251",
+            "t10_0249",
+            "t10_0246",
+            "t10_0244",
+            "t10_0242"
+          ],
+          "calibration_steps": 1,
+          "configured_maximum_peak_bytes": 28991029248,
+          "effective_batch_size": 8,
+          "feasible": true,
+          "gradient_checkpointing": false,
+          "memory": {
+            "configured_maximum_swap_growth_bytes": 1073741824,
+            "cuda_allocated_baseline_bytes": null,
+            "cuda_max_memory_allocated_bytes": null,
+            "cuda_max_memory_reserved_bytes": null,
+            "cuda_reserved_baseline_bytes": null,
+            "hard_constraint_metric": "max(absolute process RSS peak, absolute MPS driver allocation peak)",
+            "hard_constraint_peak_bytes": 4175872000,
+            "mps_driver_baseline_bytes": 100352000,
+            "mps_driver_delta_bytes": 4075520000,
+            "mps_driver_peak_bytes": 4175872000,
+            "process_rss_baseline_bytes": 1460994048,
+            "process_rss_delta_bytes": 421691392,
+            "process_rss_peak_bytes": 1882685440,
+            "sample_interval_seconds": 0.02,
+            "swap_sample_interval_seconds": 0.5,
+            "system_swap_after_bytes": 7670459269,
+            "system_swap_before_bytes": 7670459269,
+            "system_swap_growth_bytes": 0,
+            "system_swap_peak_bytes": 7670459269,
+            "system_swap_peak_growth_bytes": 0
+          },
+          "micro_batch_size": 8
+        }
+      ],
+      "candidate_micro_batch_sizes": [
+        8,
+        4,
+        2,
+        1
+      ],
+      "configured_maximum_peak_bytes": 28991029248,
+      "effective_batch_size": 8,
+      "gradient_checkpointing_fallback": true,
+      "selected_gradient_checkpointing": false,
+      "selected_micro_batch_size": 8,
+      "system_swap_role": "environment-health signal only; not candidate feasibility",
+      "target_only_training_loss": true,
+      "training_recipe": "amendment_4_target_only"
+    },
+    "zero_shot_readiness": {
+      "evaluation_generation": "right-padded batched greedy decoding",
+      "families": [
+        {
+          "family_id": "T1_modular_arithmetic",
+          "zero_shot": {
+            "accuracy": 0.03,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i1"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i2"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i3"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i4"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i7"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i8"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i9"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i10"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i12"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i14"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i15"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i16"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i17"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i18"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i19"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i20"
+              },
+              {
+                "passed": true,
+                "task_id": "T1_modular_arithmetic_s20261014003_i21"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i22"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i23"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i24"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i25"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i26"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i27"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i28"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i29"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i30"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i31"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i33"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i35"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i36"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i37"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i38"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i39"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i40"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i41"
+              },
+              {
+                "passed": true,
+                "task_id": "T1_modular_arithmetic_s20261014003_i42"
+              },
+              {
+                "passed": true,
+                "task_id": "T1_modular_arithmetic_s20261014003_i43"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i44"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i45"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i46"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i47"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i48"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i50"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i51"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i52"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i53"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i54"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i55"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i56"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i57"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i58"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i59"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i60"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i61"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i62"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i63"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i64"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i65"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i66"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i67"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i68"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i70"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i71"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i72"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i73"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i75"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i76"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i77"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i78"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i79"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i80"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i81"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i82"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i83"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i84"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i85"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i86"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i87"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i88"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i89"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i90"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i91"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i92"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i93"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i94"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i95"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i96"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i98"
+              },
+              {
+                "passed": false,
+                "task_id": "T1_modular_arithmetic_s20261014003_i99"
+              }
+            ],
+            "successes": 3,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.010254524024038918,
+              "upper": 0.08451936429052759
+            }
+          }
+        },
+        {
+          "family_id": "T2_string_transforms",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i1"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i2"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i3"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i4"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i7"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i8"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i9"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i10"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i12"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i14"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i15"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i16"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i17"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i18"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i19"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i20"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i21"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i22"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i23"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i24"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i25"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i26"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i27"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i28"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i29"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i30"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i31"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i33"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i35"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i36"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i37"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i38"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i39"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i40"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i41"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i42"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i43"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i44"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i45"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i46"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i47"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i48"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i50"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i51"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i52"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i53"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i54"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i55"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i56"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i57"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i58"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i59"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i60"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i61"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i62"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i63"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i64"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i65"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i66"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i67"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i68"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i70"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i71"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i72"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i73"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i75"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i76"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i77"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i78"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i79"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i80"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i81"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i82"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i83"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i84"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i85"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i86"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i87"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i88"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i89"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i90"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i91"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i92"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i93"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i94"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i95"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i96"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i98"
+              },
+              {
+                "passed": false,
+                "task_id": "T2_string_transforms_s20261014013_i99"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T3_list_operations",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i1"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i2"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i3"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i4"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i7"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i8"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i9"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i10"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i12"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i14"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i15"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i16"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i17"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i18"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i19"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i20"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i21"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i22"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i23"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i24"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i25"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i26"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i27"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i28"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i29"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i30"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i31"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i33"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i35"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i36"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i37"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i38"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i39"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i40"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i41"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i42"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i43"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i44"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i45"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i46"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i47"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i48"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i50"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i51"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i52"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i53"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i54"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i55"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i56"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i57"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i58"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i59"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i60"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i61"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i62"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i63"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i64"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i65"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i66"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i67"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i68"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i70"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i71"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i72"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i73"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i75"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i76"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i77"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i78"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i79"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i80"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i81"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i82"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i83"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i84"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i85"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i86"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i87"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i88"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i89"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i90"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i91"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i92"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i93"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i94"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i95"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i96"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i98"
+              },
+              {
+                "passed": false,
+                "task_id": "T3_list_operations_s20261014023_i99"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T4_syntax_matching",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i1"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i2"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i3"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i4"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i7"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i8"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i9"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i10"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i12"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i14"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i17"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i18"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i19"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i20"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i23"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i24"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i25"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i26"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i27"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i28"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i29"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i30"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i31"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i33"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i35"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i36"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i37"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i38"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i39"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i40"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i41"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i43"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i44"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i45"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i46"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i47"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i48"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i50"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i53"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i54"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i55"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i56"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i57"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i58"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i59"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i60"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i62"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i63"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i64"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i65"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i66"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i67"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i68"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i70"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i71"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i72"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i75"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i76"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i77"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i78"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i79"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i80"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i81"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i82"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i84"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i85"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i86"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i87"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i88"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i89"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i91"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i92"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i93"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i94"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i95"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i96"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i98"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i99"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i100"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i101"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i102"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i103"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i104"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i105"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i106"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i107"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i108"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i109"
+              },
+              {
+                "passed": false,
+                "task_id": "T4_syntax_matching_s20261014033_i110"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T5_boolean_logic",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i2"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i7"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i9"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i12"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i15"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i19"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i21"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i23"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i24"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i25"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i26"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i29"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i30"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i31"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i33"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i35"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i38"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i39"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i44"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i47"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i50"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i51"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i55"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i57"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i58"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i61"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i67"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i68"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i70"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i71"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i77"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i78"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i79"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i82"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i84"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i85"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i86"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i89"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i91"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i92"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i98"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i99"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i101"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i102"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i103"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i105"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i106"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i109"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i111"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i113"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i116"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i117"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i119"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i120"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i122"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i124"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i125"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i128"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i130"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i132"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i134"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i135"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i138"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i140"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i141"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i142"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i143"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i144"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i147"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i152"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i153"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i154"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i157"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i158"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i159"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i162"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i163"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i165"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i167"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i168"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i169"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i171"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i172"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i173"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i174"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i176"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i177"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i179"
+              },
+              {
+                "passed": false,
+                "task_id": "T5_boolean_logic_s20261014043_i181"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T6_sequence_completion",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i2"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i12"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i15"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i20"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i21"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i24"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i26"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i27"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i28"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i29"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i37"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i42"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i43"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i45"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i46"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i54"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i56"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i63"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i64"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i65"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i71"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i72"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i73"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i75"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i79"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i81"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i82"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i83"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i86"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i87"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i90"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i91"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i92"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i94"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i101"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i102"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i103"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i104"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i107"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i110"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i111"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i113"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i115"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i116"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i117"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i119"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i122"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i123"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i128"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i134"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i137"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i138"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i139"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i140"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i142"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i148"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i150"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i153"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i159"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i162"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i163"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i167"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i170"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i171"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i174"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i175"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i176"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i178"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i181"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i183"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i184"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i186"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i187"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i190"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i191"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i194"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i195"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261014053_i196"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i1"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i4"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i7"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i10"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i16"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i18"
+              },
+              {
+                "passed": false,
+                "task_id": "T6_sequence_completion_s20261024053_i19"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T7_state_machines",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i1"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i2"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i3"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i4"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i7"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i8"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i9"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i10"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i12"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i14"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i15"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i16"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i17"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i18"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i19"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i20"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i21"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i22"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i23"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i24"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i25"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i26"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i27"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i28"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i29"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i30"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i31"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i33"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i35"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i36"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i37"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i38"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i39"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i40"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i41"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i42"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i43"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i44"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i45"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i46"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i47"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i48"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i50"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i51"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i52"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i53"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i54"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i55"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i56"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i57"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i58"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i59"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i60"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i61"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i62"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i63"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i64"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i65"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i66"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i67"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i68"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i70"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i71"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i72"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i73"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i75"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i76"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i77"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i78"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i79"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i80"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i81"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i82"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i83"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i84"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i85"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i86"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i87"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i88"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i89"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i90"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i91"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i92"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i93"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i94"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i95"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i96"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i98"
+              },
+              {
+                "passed": false,
+                "task_id": "T7_state_machines_s20261014063_i99"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T8_python_microsynth",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i0"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i3"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i4"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i5"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i6"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i9"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i10"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i11"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i13"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i17"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i23"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i31"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i32"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i33"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i34"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i36"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i37"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i38"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i40"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i42"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i44"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i45"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i46"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i49"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i50"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i54"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i55"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i56"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i58"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i59"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i60"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i61"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i62"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i67"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i69"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i70"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i72"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i74"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i75"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i77"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i81"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i83"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i85"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i87"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i88"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i89"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i90"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i93"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i95"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i96"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i97"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i100"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i101"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i103"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i104"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i105"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i106"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i107"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i112"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i114"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i115"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i116"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i125"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i126"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i127"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i132"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i136"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i138"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i143"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i147"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i150"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i151"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i153"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i155"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i157"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i158"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i159"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i164"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i165"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i166"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i168"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i169"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i172"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i173"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i174"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i176"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i177"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i181"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i182"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i183"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i184"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i185"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i188"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i191"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i192"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i193"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i194"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i195"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261014073_i198"
+              },
+              {
+                "passed": false,
+                "task_id": "T8_python_microsynth_s20261044073_i1"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T9_algo_synth",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "t9_0000"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0001"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0002"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0003"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0004"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0005"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0006"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0007"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0008"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0009"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0010"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0011"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0012"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0013"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0014"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0015"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0016"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0017"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0018"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0019"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0020"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0021"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0022"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0023"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0024"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0025"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0026"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0027"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0028"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0029"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0030"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0031"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0032"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0033"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0034"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0035"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0036"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0037"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0038"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0039"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0040"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0041"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0042"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0043"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0044"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0045"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0046"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0047"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0048"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0049"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0050"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0051"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0052"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0053"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0054"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0055"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0056"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0057"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0058"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0059"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0060"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0061"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0062"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0063"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0064"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0065"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0066"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0067"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0068"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0069"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0070"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0071"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0072"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0073"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0074"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0075"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0076"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0077"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0078"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0079"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0080"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0081"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0082"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0083"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0084"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0085"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0086"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0087"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0088"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0089"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0090"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0091"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0092"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0093"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0094"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0095"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0096"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0097"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0098"
+              },
+              {
+                "passed": false,
+                "task_id": "t9_0099"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T10_docstring_code",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "t10_0000"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0001"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0002"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0003"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0004"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0005"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0006"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0007"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0008"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0009"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0010"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0011"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0012"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0013"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0014"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0015"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0016"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0017"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0018"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0019"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0020"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0021"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0022"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0023"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0024"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0025"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0026"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0027"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0028"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0029"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0030"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0031"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0032"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0033"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0034"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0035"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0036"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0037"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0038"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0039"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0040"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0041"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0042"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0043"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0044"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0045"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0046"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0047"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0048"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0049"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0050"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0051"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0052"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0053"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0054"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0055"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0056"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0057"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0058"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0059"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0060"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0061"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0062"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0063"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0064"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0065"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0066"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0067"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0068"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0069"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0070"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0071"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0072"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0073"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0074"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0075"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0076"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0077"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0078"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0079"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0080"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0081"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0082"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0083"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0084"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0085"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0086"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0087"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0088"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0089"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0090"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0091"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0092"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0093"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0094"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0095"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0096"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0097"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0098"
+              },
+              {
+                "passed": false,
+                "task_id": "t10_0099"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T11_bug_fixer",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "t11_0000"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0001"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0002"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0003"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0004"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0005"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0006"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0007"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0008"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0009"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0010"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0011"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0012"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0013"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0014"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0015"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0016"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0017"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0018"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0019"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0020"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0021"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0022"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0023"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0024"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0025"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0026"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0027"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0028"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0029"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0030"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0031"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0032"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0033"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0034"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0035"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0036"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0037"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0038"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0039"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0040"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0041"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0042"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0043"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0044"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0045"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0046"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0047"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0048"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0049"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0050"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0051"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0052"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0053"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0054"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0055"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0056"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0057"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0058"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0059"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0060"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0061"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0062"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0063"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0064"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0065"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0066"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0067"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0068"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0069"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0070"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0071"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0072"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0073"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0074"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0075"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0076"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0077"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0078"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0079"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0080"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0081"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0082"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0083"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0084"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0085"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0086"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0087"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0088"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0089"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0090"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0091"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0092"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0093"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0094"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0095"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0096"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0097"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0098"
+              },
+              {
+                "passed": false,
+                "task_id": "t11_0099"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        },
+        {
+          "family_id": "T12_type_inferrer",
+          "zero_shot": {
+            "accuracy": 0.0,
+            "item_outcomes": [
+              {
+                "passed": false,
+                "task_id": "t12_0000"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0001"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0002"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0003"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0004"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0005"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0006"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0007"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0008"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0009"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0010"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0011"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0012"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0013"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0014"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0015"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0016"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0017"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0018"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0019"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0020"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0021"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0022"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0023"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0024"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0025"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0026"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0027"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0028"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0029"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0030"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0031"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0032"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0033"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0034"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0035"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0036"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0037"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0038"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0039"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0040"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0041"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0042"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0043"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0044"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0045"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0046"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0047"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0048"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0049"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0050"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0051"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0052"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0053"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0054"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0055"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0056"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0057"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0058"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0059"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0060"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0061"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0062"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0063"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0064"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0065"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0066"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0067"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0068"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0069"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0070"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0071"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0072"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0073"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0074"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0075"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0076"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0077"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0078"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0079"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0080"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0081"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0082"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0083"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0084"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0085"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0086"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0087"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0088"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0089"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0090"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0091"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0092"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0093"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0094"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0095"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0096"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0097"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0098"
+              },
+              {
+                "passed": false,
+                "task_id": "t12_0099"
+              }
+            ],
+            "successes": 0,
+            "total": 100,
+            "wilson_interval": {
+              "confidence_level": 0.95,
+              "lower": 0.0,
+              "upper": 0.03699349820698565
+            }
+          }
+        }
+      ],
+      "heldout_split": "test",
+      "mean_zero_shot": {
+        "accuracy": 0.0025,
+        "successes": 3,
+        "total": 1200,
+        "wilson_interval": {
+          "confidence_level": 0.95,
+          "lower": 0.0008505818993887714,
+          "upper": 0.007324463700332476
+        }
+      },
+      "mean_zero_shot_accuracy": 0.0025,
+      "measurement_timing": "before any learnability-probe training allocation"
+    }
+  },
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v6",
+  "status": "failed"
+}

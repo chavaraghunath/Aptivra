@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from aptivra.eval.base_model_evaluation import (
     BaseModelEvaluationSettings,
+    attach_environment_attempts,
     derive_amendment_3_analysis,
     derive_existing_records_analysis,
     load_base_model_evaluation_settings,
@@ -40,23 +42,70 @@ def _equivalence_allows_sweep(
 
 
 def _wait_until_environment_normal(
-    *, minimum_free_memory_percent: float, timeout_seconds: float, poll_seconds: float
+    *,
+    minimum_free_memory_percent: float,
+    timeout_seconds: float,
+    poll_seconds: float,
+    maximum_other_process_rss_bytes: int | None = None,
 ) -> dict[str, object]:
     """Wait for host pressure to become normal and return bounded evidence."""
     started = time.monotonic()
     samples: list[dict[str, float | int]] = []
     while True:
-        sample: dict[str, float | int] = {
+        sample: dict[str, object] = {
             "elapsed_seconds": time.monotonic() - started,
             "swap_used_bytes": system_swap_used_bytes(),
             "free_memory_percent": system_free_memory_percentage(),
         }
+        heavy_processes = (
+            []
+            if maximum_other_process_rss_bytes is None
+            else _other_processes_above_rss(maximum_other_process_rss_bytes)
+        )
+        sample["other_processes_above_rss_threshold"] = heavy_processes
         samples.append(sample)
-        if sample["free_memory_percent"] >= minimum_free_memory_percent:
+        if (
+            float(sample["free_memory_percent"]) >= minimum_free_memory_percent
+            and not heavy_processes
+        ):
             return {"normal": True, "samples": samples}
         if time.monotonic() - started >= timeout_seconds:
             return {"normal": False, "samples": samples}
         time.sleep(poll_seconds)
+
+
+def _other_processes_above_rss(maximum_rss_bytes: int) -> list[dict[str, object]]:
+    """List heavy processes while excluding this orchestrator and its descendants."""
+    completed = subprocess.run(
+        ["/bin/ps", "-axo", "pid=,ppid=,rss=,comm="],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5.0,
+    )
+    rows: list[tuple[int, int, int, str]] = []
+    for line in completed.stdout.splitlines():
+        fields = line.strip().split(maxsplit=3)
+        if len(fields) != 4:
+            continue
+        try:
+            pid, parent_pid, rss_kib = map(int, fields[:3])
+        except ValueError:
+            continue
+        rows.append((pid, parent_pid, rss_kib * 1024, fields[3]))
+    excluded = {os.getpid()}
+    changed = True
+    while changed:
+        changed = False
+        for pid, parent_pid, _, _ in rows:
+            if parent_pid in excluded and pid not in excluded:
+                excluded.add(pid)
+                changed = True
+    return [
+        {"pid": pid, "rss_bytes": rss_bytes, "executable": executable}
+        for pid, _, rss_bytes, executable in rows
+        if pid not in excluded and rss_bytes > maximum_rss_bytes
+    ]
 
 
 def _run_child(
@@ -71,9 +120,71 @@ def _run_child(
     minimum_free_memory_percent: float,
     environment_recovery_timeout_seconds: float,
     environment_max_attempts: int,
+    prestart_minimum_free_memory_percent: float = 0.0,
+    prestart_max_other_process_rss_bytes: int = 2**63 - 1,
+    prestart_timeout_seconds: float = 0.0,
+    prestart_poll_interval_seconds: float = 0.05,
     variance_seed: int | None = None,
+    variance_primary_output_dir: Path | None = None,
 ) -> None:
     attempts: list[dict[str, object]] = []
+    prestart = _wait_until_environment_normal(
+        minimum_free_memory_percent=prestart_minimum_free_memory_percent,
+        timeout_seconds=prestart_timeout_seconds,
+        poll_seconds=prestart_poll_interval_seconds,
+        maximum_other_process_rss_bytes=prestart_max_other_process_rss_bytes,
+    )
+    if prestart["normal"] is not True:
+        monitor = {
+            "attempt": 0,
+            "status": "environment_invalid",
+            "process_started": False,
+            "environment_invalid_reasons": [
+                "quiet-machine pre-start requirements did not pass before timeout"
+            ],
+            "prestart_check": prestart,
+            "configured_prestart_minimum_free_memory_percent": (
+                prestart_minimum_free_memory_percent
+            ),
+            "configured_prestart_max_other_process_rss_bytes": (
+                prestart_max_other_process_rss_bytes
+            ),
+            "configured_prestart_timeout_seconds": prestart_timeout_seconds,
+            "configured_prestart_poll_interval_seconds": (
+                prestart_poll_interval_seconds
+            ),
+        }
+        attempts.append(monitor)
+        monitor_name = candidate_id.replace("/", "_")
+        if variance_seed is not None:
+            monitor_name += f"-seed-{variance_seed}"
+        write_json(
+            output_dir / "process_monitors" / f"{monitor_name}-prestart.json",
+            monitor,
+        )
+        write_environment_status(
+            config,
+            output_dir,
+            candidate_id,
+            status="not_measured_environment",
+            attempts=attempts,
+            variance_seed=variance_seed,
+        )
+        print(
+            json.dumps(
+                {
+                    "candidate_id": candidate_id,
+                    "event": "quiet_machine_timeout",
+                    "message": (
+                        "candidate was not started because the quiet-machine check "
+                        "did not pass before its configured timeout"
+                    ),
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        return
     for attempt_number in range(1, environment_max_attempts + 1):
         recovery = _wait_until_environment_normal(
             minimum_free_memory_percent=minimum_free_memory_percent,
@@ -89,6 +200,7 @@ def _run_child(
                     "system free-memory percentage did not recover before timeout"
                 ],
                 "recovery": recovery,
+                "prestart_check": prestart,
                 "configured_minimum_free_memory_percent": (
                     minimum_free_memory_percent
                 ),
@@ -130,6 +242,13 @@ def _run_child(
         command.append("--resume" if resume else "--no-resume")
         if variance_seed is not None:
             command.extend(("--variance-seed", str(variance_seed)))
+            if variance_primary_output_dir is not None:
+                command.extend(
+                    (
+                        "--variance-primary-output-dir",
+                        str(variance_primary_output_dir),
+                    )
+                )
         swap_before = system_swap_used_bytes()
         swap_peak = swap_before
         free_before = system_free_memory_percentage()
@@ -148,19 +267,20 @@ def _run_child(
             current_free = system_free_memory_percentage()
             swap_peak = max(swap_peak, current_swap)
             free_minimum = min(free_minimum, current_free)
-            if swap_peak - swap_before > maximum_swap_growth_bytes:
-                environment_reasons.append(
-                    "system swap growth exceeded the configured environment limit"
-                )
             if current_free < minimum_free_memory_percent:
                 environment_reasons.append(
-                    "system free-memory percentage fell below the normal threshold"
+                    "system free-memory percentage fell below the critical floor"
+                )
+            if _other_processes_above_rss(prestart_max_other_process_rss_bytes):
+                environment_reasons.append(
+                    "foreign heavy process appeared during candidate measurement"
                 )
             if environment_reasons:
                 process.terminate()
                 break
             if time.monotonic() - started > timeout_seconds:
                 timeout_message = f"candidate process exceeded {timeout_seconds} seconds"
+                environment_reasons.append(timeout_message)
                 process.terminate()
                 break
             time.sleep(swap_poll_interval_seconds)
@@ -174,15 +294,14 @@ def _run_child(
         free_after = system_free_memory_percentage()
         swap_peak = max(swap_peak, swap_after)
         free_minimum = min(free_minimum, free_after)
-        if swap_peak - swap_before > maximum_swap_growth_bytes:
-            environment_reasons.append(
-                "system swap growth exceeded the configured environment limit"
-            )
         if free_after < minimum_free_memory_percent:
             environment_reasons.append(
-                "system free-memory percentage fell below the normal threshold"
+                "system free-memory percentage fell below the critical floor"
             )
         environment_reasons = list(dict.fromkeys(environment_reasons))
+        throughput_compromised = (
+            swap_peak - swap_before > maximum_swap_growth_bytes
+        )
         monitor = {
             "attempt": attempt_number,
             "status": (
@@ -199,12 +318,19 @@ def _run_child(
             "system_free_memory_after_percent": free_after,
             "configured_maximum_swap_growth_bytes": maximum_swap_growth_bytes,
             "configured_minimum_free_memory_percent": minimum_free_memory_percent,
+            "throughput_compromised": throughput_compromised,
+            "throughput_compromise_reason": (
+                "system swap growth exceeded the configured reporting threshold"
+                if throughput_compromised
+                else None
+            ),
             "poll_interval_seconds": swap_poll_interval_seconds,
             "elapsed_seconds": time.monotonic() - started,
             "returncode": process.returncode,
             "environment_invalid_reasons": environment_reasons,
             "forced_termination_reason": timeout_message,
             "recovery": recovery,
+            "prestart_check": prestart,
         }
         attempts.append(monitor)
         monitor_name = candidate_id.replace("/", "_")
@@ -225,19 +351,6 @@ def _run_child(
                 attempts=attempts,
                 variance_seed=variance_seed,
             )
-            continue
-        if timeout_message is not None:
-            write_isolated_process_failure(
-                config,
-                output_dir,
-                candidate_id,
-                returncode=(
-                    process.returncode if process.returncode is not None else -1
-                ),
-                message=timeout_message,
-                variance_seed=variance_seed,
-                parent_process_memory=monitor,
-            )
             return
         if process.returncode != 0:
             diagnostic = (stderr or stdout)[-2000:]
@@ -252,6 +365,12 @@ def _run_child(
                 variance_seed=variance_seed,
                 parent_process_memory=monitor,
             )
+        attach_environment_attempts(
+            output_dir,
+            candidate_id,
+            attempts,
+            variance_seed=variance_seed,
+        )
         return
 
     write_environment_status(
@@ -279,6 +398,12 @@ def main() -> None:
     )
     parser.add_argument("--candidate-id", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--variance-seed", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--variance-primary-output-dir",
+        type=Path,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument(
         "--derive-existing-analysis",
         action="store_true",
@@ -377,6 +502,7 @@ def main() -> None:
                 args.candidate_id,
                 args.variance_seed,
                 resume=resume,
+                primary_output_dir=args.variance_primary_output_dir,
             )
             status = variance_record["status"]
         print(
@@ -419,6 +545,18 @@ def main() -> None:
                 settings.measurement.environment_recovery_timeout_seconds
             ),
             environment_max_attempts=settings.measurement.environment_max_attempts,
+            prestart_minimum_free_memory_percent=(
+                settings.measurement.prestart_minimum_free_memory_percent
+            ),
+            prestart_max_other_process_rss_bytes=(
+                settings.measurement.prestart_max_other_process_rss_bytes
+            ),
+            prestart_timeout_seconds=(
+                settings.measurement.prestart_timeout_seconds
+            ),
+            prestart_poll_interval_seconds=(
+                settings.measurement.prestart_poll_interval_seconds
+            ),
         )
     first_pass_ranking = rank_existing_candidate_records(args.config, output_dir)
     ranked = first_pass_ranking["ranked_candidates"]
@@ -453,6 +591,18 @@ def main() -> None:
                 ),
                 environment_max_attempts=(
                     settings.measurement.environment_max_attempts
+                ),
+                prestart_minimum_free_memory_percent=(
+                    settings.measurement.prestart_minimum_free_memory_percent
+                ),
+                prestart_max_other_process_rss_bytes=(
+                    settings.measurement.prestart_max_other_process_rss_bytes
+                ),
+                prestart_timeout_seconds=(
+                    settings.measurement.prestart_timeout_seconds
+                ),
+                prestart_poll_interval_seconds=(
+                    settings.measurement.prestart_poll_interval_seconds
                 ),
                 variance_seed=seed,
             )

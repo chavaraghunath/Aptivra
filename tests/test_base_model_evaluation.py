@@ -29,6 +29,7 @@ from transformers import (
 
 import aptivra.eval.base_model_evaluation as base_eval
 import scripts.evaluate_base_model_candidates as evaluator_cli
+import scripts.run_amendment_4e as amendment_4e_cli
 from aptivra.eval.base_model_evaluation import (
     BaseModelEvaluationSettings,
     CandidateSpec,
@@ -353,6 +354,38 @@ def test_generation_batches_prompts_without_changing_prompt_positions() -> None:
     results = predictor.generate_batch(["P", "PP"], stop_token_ids=(10,))
     assert [item.text for item in results] == ["PP", "PP"]
     assert model.batch_sizes == [2, 2]
+
+
+def test_batched_accuracy_persists_per_item_outcomes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    instances = [
+        TaskInstance("item-1", "toy", "P", "A"),
+        TaskInstance("item-2", "toy", "P", "A"),
+    ]
+    predictor = SimpleNamespace(
+        generate_batch=lambda *args, **kwargs: [
+            SimpleNamespace(text="pass"),
+            SimpleNamespace(text="fail"),
+        ]
+    )
+    monkeypatch.setattr(
+        base_eval.ContinualEvalHarness,
+        "verify_generated_output",
+        lambda family, instance, text: SimpleNamespace(passed=text == "pass"),
+    )
+    record = base_eval.evaluate_batched_accuracy(
+        cast(Any, predictor),
+        cast(Any, SimpleNamespace(stop_token_ids=(10,))),
+        instances,
+        batch_size=2,
+        confidence_level=0.95,
+    )
+    assert record["successes"] == 1
+    assert record["item_outcomes"] == [
+        {"task_id": "item-1", "passed": True},
+        {"task_id": "item-2", "passed": False},
+    ]
 
 
 class _ToyStream:
@@ -845,7 +878,7 @@ def test_device_resolution_prefers_real_accelerators_and_fails_explicitly(
         base_eval.resolve_device("cuda")
 
 
-def test_host_pristine_placement_changes_memory_only_not_training_math(
+def test_host_pristine_placement_does_not_remove_a_unified_memory_copy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     settings = replace(
@@ -862,6 +895,18 @@ def test_host_pristine_placement_changes_memory_only_not_training_math(
         "evaluate_batched_accuracy",
         lambda *args, **kwargs: _accuracy_record_for_test(),
     )
+    monkeypatch.setattr(
+        base_eval,
+        "student_t_interval",
+        lambda values, confidence: {
+            "mean": statistics.mean(values),
+            "lower": 0.0,
+            "upper": 1.0,
+            "confidence_level": confidence,
+            "clusters": len(values),
+            "method": "test",
+        },
+    )
     run_learnability_probe(
         cast(Any, model),
         cast(Any, _ToyTokenizer()),
@@ -877,8 +922,191 @@ def test_host_pristine_placement_changes_memory_only_not_training_math(
     )
     assert cast(dict[str, int], memory["components_bytes"])[
         "pristine_base_weights_on_candidate_device"
+    ] == 40
+    assert memory["bytes_per_parameter"] == 20
+    released = base_eval.full_finetuning_memory_feasibility(
+        10,
+        replace(settings, release_pristine_before_training=True),
+        DecisionSettings(("mit",), 10_000, 0.25, 0.0, 0.0, 0.02, True),
+    )
+    assert cast(dict[str, int], released["components_bytes"])[
+        "pristine_base_weights_on_candidate_device"
     ] == 0
-    assert memory["bytes_per_parameter"] == 16
+    assert released["bytes_per_parameter"] == 16
+
+
+def test_disk_snapshot_restores_one_reusable_training_model(tmp_path: Path) -> None:
+    model = _ToyLearnableLM()
+    expected = base_eval.model_state_digest(cast(Any, model))
+    snapshot = tmp_path / "pristine.pt"
+    assert (
+        base_eval._write_pristine_snapshot(
+            cast(Any, model), snapshot, torch.device("cpu")
+        )
+        == expected
+    )
+    with torch.no_grad():
+        model.bias.add_(9.0)
+    assert base_eval.model_state_digest(cast(Any, model)) != expected
+    base_eval._restore_pristine_snapshot(
+        cast(Any, model), snapshot, torch.device("cpu"), expected
+    )
+    assert base_eval.model_state_digest(cast(Any, model)) == expected
+
+
+def test_task_readiness_reuses_one_model_and_restores_pristine_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = replace(
+        _settings(tmp_path),
+        release_pristine_before_training=True,
+        probe_steps=1,
+        probe_warmup_steps=0,
+        probe_learning_rates=(0.01,),
+    )
+    model = _ToyLearnableLM()
+    expected = base_eval.model_state_digest(cast(Any, model))
+    snapshot = tmp_path / "pristine.pt"
+    base_eval._write_pristine_snapshot(
+        cast(Any, model), snapshot, torch.device("cpu")
+    )
+    monkeypatch.setattr(
+        base_eval,
+        "evaluate_batched_accuracy",
+        lambda *args, **kwargs: _accuracy_record_for_test(),
+    )
+    monkeypatch.setattr(
+        base_eval,
+        "student_t_interval",
+        lambda values, confidence: {
+            "mean": statistics.mean(values),
+            "lower": 0.0,
+            "upper": 1.0,
+            "confidence_level": confidence,
+            "clusters": len(values),
+            "method": "test",
+        },
+    )
+    zero_shot = {
+        "families": [
+            {"family_id": "toy", "zero_shot": _accuracy_record_for_test()}
+        ],
+        "mean_zero_shot_accuracy": 0.0,
+    }
+    result = base_eval.evaluate_task_readiness(
+        cast(Any, model),
+        cast(Any, _ToyTokenizer()),
+        cast(Any, _ToyStream()),
+        settings,
+        16,
+        torch.device("cpu"),
+        zero_shot_readiness=zero_shot,
+        recipe=base_eval.TrainingRecipe(1, False),
+        pristine_snapshot_path=snapshot,
+        pristine_snapshot_digest=expected,
+    )
+    assert result["mean_zero_shot_accuracy"] == 0.0
+    assert base_eval.model_state_digest(cast(Any, model)) == expected
+
+
+def test_recipe_selection_restores_snapshot_backed_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = replace(
+        _settings(tmp_path),
+        probe_batch_size=1,
+        probe_micro_batch_sizes=(1,),
+        probe_steps=1,
+        probe_warmup_steps=0,
+    )
+    instance = TaskInstance("item", "toy", "P", "A")
+    stream = cast(
+        Any,
+        SimpleNamespace(
+            families=[SimpleNamespace(family_id="toy")],
+            get_split=lambda family_id: TaskStreamSplit(
+                [instance], [instance], [instance]
+            ),
+        ),
+    )
+    model = _ToyLearnableLM()
+    expected = base_eval.model_state_digest(cast(Any, model))
+    snapshot = tmp_path / "pristine.pt"
+    base_eval._write_pristine_snapshot(
+        cast(Any, model), snapshot, torch.device("cpu")
+    )
+    monkeypatch.setattr(base_eval, "_set_gradient_checkpointing", lambda *args: None)
+    with base_eval.MemoryPeakSampler(torch.device("cpu"), 10.0) as guard:
+        selected, _ = base_eval.select_training_recipe(
+            cast(Any, model),
+            cast(Any, _ToyTokenizer()),
+            stream,
+            settings,
+            DecisionSettings(("mit",), 10**12, 0.1, 0.0, 0.0, 0.02, True),
+            16,
+            torch.device("cpu"),
+            resource_guard=guard,
+            pristine_snapshot_path=snapshot,
+            pristine_snapshot_digest=expected,
+        )
+    assert selected == base_eval.TrainingRecipe(1, False)
+    assert base_eval.model_state_digest(cast(Any, model)) == expected
+
+
+def test_amendment_4e_comparison_requires_exact_items_and_bounds_losses() -> None:
+    reference = {
+        "status": "completed",
+        "candidate_id": "toy",
+        "task_stream_readiness": {
+            "families": [
+                {
+                    "family_id": "toy",
+                    "initial_loss": 1.0,
+                    "final_loss": 0.5,
+                    "learned": {
+                        "accuracy": 1.0,
+                        "successes": 1,
+                        "total": 1,
+                        "item_outcomes": [{"task_id": "toy-1", "passed": True}],
+                    },
+                }
+            ]
+        },
+        "cost": {"memory": {"hard_constraint_peak_bytes": 1}},
+    }
+    candidate = copy.deepcopy(reference)
+    rows = cast(
+        list[dict[str, object]],
+        cast(dict[str, object], candidate["task_stream_readiness"])["families"],
+    )
+    rows[0]["final_loss"] = 0.500005
+    comparison = base_eval.compare_amendment_4e_records(
+        reference, candidate, include_item_outcomes=True
+    )
+    assert comparison["passed"] is True
+    learned = cast(dict[str, object], rows[0]["learned"])
+    learned["item_outcomes"] = [{"task_id": "toy-1", "passed": False}]
+    mismatch = base_eval.compare_amendment_4e_records(
+        reference, candidate, include_item_outcomes=True
+    )
+    assert mismatch["passed"] is False
+    incomplete = base_eval.compare_amendment_4e_records(
+        reference,
+        {"status": "failed", "candidate_id": "toy"},
+        include_item_outcomes=False,
+    )
+    assert incomplete["passed"] is False
+    assert incomplete["record_statuses"] == {
+        "reference": "completed",
+        "candidate": "failed",
+    }
+
+
+def test_amendment_4e_foreground_gates_fail_closed() -> None:
+    amendment_4e_cli._require_passed({"status": "passed"})
+    with pytest.raises(SystemExit) as failure:
+        amendment_4e_cli._require_passed({"status": "failed"})
+    assert failure.value.code == 2
 
 
 def test_environment_status_records_are_durable_and_distinct(
@@ -925,10 +1153,18 @@ def test_environment_status_records_are_durable_and_distinct(
 
 
 class _FakeCandidateProcess:
-    def __init__(self, *, completed: bool = False) -> None:
+    def __init__(
+        self, *, completed: bool = False, polls_before_complete: int | None = None
+    ) -> None:
         self.returncode: int | None = 0 if completed else None
+        self.polls_before_complete = polls_before_complete
 
     def poll(self) -> int | None:
+        if self.returncode is None and self.polls_before_complete is not None:
+            if self.polls_before_complete == 0:
+                self.returncode = 0
+            else:
+                self.polls_before_complete -= 1
         return self.returncode
 
     def terminate(self) -> None:
@@ -946,11 +1182,11 @@ class _FakeCandidateProcess:
         return "", ""
 
 
-def test_swap_growth_marks_attempt_environment_invalid_and_retries(
+def test_swap_growth_keeps_valid_result_and_compromises_only_throughput(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Whole-system swap invalidates one attempt without rejecting the candidate."""
-    processes = [_FakeCandidateProcess(), _FakeCandidateProcess(completed=True)]
+    """Whole-system swap preserves arithmetic evidence but excludes throughput."""
+    process = _FakeCandidateProcess(polls_before_complete=1)
     monkeypatch.setattr(
         evaluator_cli,
         "_wait_until_environment_normal",
@@ -959,10 +1195,10 @@ def test_swap_growth_marks_attempt_environment_invalid_and_retries(
     monkeypatch.setattr(
         evaluator_cli.subprocess,
         "Popen",
-        lambda *args, **kwargs: processes.pop(0),
+        lambda *args, **kwargs: process,
     )
-    swap_values = iter((100, 200, 200, 200, 200))
-    free_values = iter((50.0, 50.0, 50.0, 50.0, 50.0))
+    swap_values = iter((100, 200, 200))
+    free_values = iter((50.0, 50.0, 50.0))
     monkeypatch.setattr(
         evaluator_cli, "system_swap_used_bytes", lambda: next(swap_values)
     )
@@ -970,16 +1206,19 @@ def test_swap_growth_marks_attempt_environment_invalid_and_retries(
         evaluator_cli, "system_free_memory_percentage", lambda: next(free_values)
     )
     monitors: list[dict[str, object]] = []
-    statuses: list[str] = []
+    attached: list[dict[str, object]] = []
     monkeypatch.setattr(
         evaluator_cli,
         "write_json",
         lambda path, payload: monitors.append(dict(payload)),
     )
+    monkeypatch.setattr(evaluator_cli, "_other_processes_above_rss", lambda threshold: [])
     monkeypatch.setattr(
         evaluator_cli,
-        "write_environment_status",
-        lambda *args, **kwargs: statuses.append(cast(str, kwargs["status"])),
+        "attach_environment_attempts",
+        lambda output, candidate, attempts, **kwargs: attached.extend(
+            dict(item) for item in attempts
+        ),
     )
 
     evaluator_cli._run_child(
@@ -995,18 +1234,92 @@ def test_swap_growth_marks_attempt_environment_invalid_and_retries(
         environment_max_attempts=2,
     )
 
-    assert statuses == ["environment_invalid"]
-    assert [item["status"] for item in monitors] == [
-        "environment_invalid",
-        "completed",
-    ]
+    assert [item["status"] for item in monitors] == ["completed"]
+    assert attached[0]["throughput_compromised"] is True
+    assert process.returncode == 0
 
 
-def test_persistent_environment_invalidity_exhausts_attempts(
+def test_quiet_machine_check_waits_for_heavy_process_and_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(evaluator_cli, "system_swap_used_bytes", lambda: 0)
+    monkeypatch.setattr(evaluator_cli, "system_free_memory_percentage", lambda: 80.0)
+    heavy = iter(
+        ([{"pid": 99, "rss_bytes": 3_000_000_000, "executable": "other"}], [])
+    )
+    monkeypatch.setattr(
+        evaluator_cli, "_other_processes_above_rss", lambda threshold: next(heavy)
+    )
+    monkeypatch.setattr(evaluator_cli.time, "sleep", lambda seconds: None)
+    recovered = evaluator_cli._wait_until_environment_normal(
+        minimum_free_memory_percent=70.0,
+        timeout_seconds=10.0,
+        poll_seconds=0.1,
+        maximum_other_process_rss_bytes=2_147_483_648,
+    )
+    assert recovered["normal"] is True
+    assert len(cast(list[object], recovered["samples"])) == 2
+
+    monkeypatch.setattr(
+        evaluator_cli,
+        "_other_processes_above_rss",
+        lambda threshold: [
+            {"pid": 99, "rss_bytes": threshold + 1, "executable": "other"}
+        ],
+    )
+    timed_out = evaluator_cli._wait_until_environment_normal(
+        minimum_free_memory_percent=70.0,
+        timeout_seconds=0.0,
+        poll_seconds=0.1,
+        maximum_other_process_rss_bytes=2_147_483_648,
+    )
+    assert timed_out["normal"] is False
+
+
+def test_quiet_machine_timeout_never_starts_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Repeated host noise yields not_measured_environment, never rejection."""
-    processes = [_FakeCandidateProcess(), _FakeCandidateProcess()]
+    monkeypatch.setattr(
+        evaluator_cli,
+        "_wait_until_environment_normal",
+        lambda **kwargs: {"normal": False, "samples": [{"free_memory_percent": 60.0}]},
+    )
+    monkeypatch.setattr(
+        evaluator_cli.subprocess,
+        "Popen",
+        lambda *args, **kwargs: pytest.fail("candidate process must not start"),
+    )
+    statuses: list[str] = []
+    monkeypatch.setattr(evaluator_cli, "write_json", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        evaluator_cli,
+        "write_environment_status",
+        lambda *args, **kwargs: statuses.append(cast(str, kwargs["status"])),
+    )
+    evaluator_cli._run_child(
+        tmp_path / "config.yaml",
+        tmp_path / "evidence",
+        "candidate",
+        resume=False,
+        timeout_seconds=10.0,
+        maximum_swap_growth_bytes=50,
+        swap_poll_interval_seconds=0.01,
+        minimum_free_memory_percent=10.0,
+        environment_recovery_timeout_seconds=1.0,
+        environment_max_attempts=2,
+        prestart_minimum_free_memory_percent=70.0,
+        prestart_max_other_process_rss_bytes=2_147_483_648,
+        prestart_timeout_seconds=0.0,
+        prestart_poll_interval_seconds=0.1,
+    )
+    assert statuses == ["not_measured_environment"]
+
+
+def test_critical_memory_floor_aborts_as_environment_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Critical host pressure stops the active child and invalidates the run."""
+    process = _FakeCandidateProcess()
     monkeypatch.setattr(
         evaluator_cli,
         "_wait_until_environment_normal",
@@ -1015,15 +1328,16 @@ def test_persistent_environment_invalidity_exhausts_attempts(
     monkeypatch.setattr(
         evaluator_cli.subprocess,
         "Popen",
-        lambda *args, **kwargs: processes.pop(0),
+        lambda *args, **kwargs: process,
     )
-    swap_values = iter((100, 200, 200, 200, 300, 300))
+    swap_values = iter((100, 100, 100))
     monkeypatch.setattr(
         evaluator_cli, "system_swap_used_bytes", lambda: next(swap_values)
     )
     monkeypatch.setattr(
-        evaluator_cli, "system_free_memory_percentage", lambda: 50.0
+        evaluator_cli, "system_free_memory_percentage", lambda: 4.0
     )
+    monkeypatch.setattr(evaluator_cli, "_other_processes_above_rss", lambda threshold: [])
     statuses: list[str] = []
     monkeypatch.setattr(evaluator_cli, "write_json", lambda *args: None)
     monkeypatch.setattr(
@@ -1045,11 +1359,64 @@ def test_persistent_environment_invalidity_exhausts_attempts(
         environment_max_attempts=2,
     )
 
-    assert statuses == [
-        "environment_invalid",
-        "environment_invalid",
-        "not_measured_environment",
-    ]
+    assert statuses == ["environment_invalid"]
+    assert process.returncode == -15
+
+
+@pytest.mark.parametrize("abort_kind", ["wall_clock", "foreign_process"])
+def test_runtime_safety_stop_aborts_as_environment_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, abort_kind: str
+) -> None:
+    process = _FakeCandidateProcess()
+    monkeypatch.setattr(
+        evaluator_cli,
+        "_wait_until_environment_normal",
+        lambda **kwargs: {"normal": True, "samples": []},
+    )
+    monkeypatch.setattr(evaluator_cli.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(evaluator_cli, "system_swap_used_bytes", lambda: 0)
+    monkeypatch.setattr(evaluator_cli, "system_free_memory_percentage", lambda: 80.0)
+    monkeypatch.setattr(
+        evaluator_cli,
+        "_other_processes_above_rss",
+        lambda threshold: ([{"pid": 99}] if abort_kind == "foreign_process" else []),
+    )
+    monkeypatch.setattr(evaluator_cli, "write_json", lambda *args: None)
+    statuses: list[str] = []
+    monkeypatch.setattr(
+        evaluator_cli,
+        "write_environment_status",
+        lambda *args, **kwargs: statuses.append(cast(str, kwargs["status"])),
+    )
+    evaluator_cli._run_child(
+        tmp_path / "config.yaml",
+        tmp_path / "evidence",
+        "candidate",
+        resume=False,
+        timeout_seconds=-1.0 if abort_kind == "wall_clock" else 10.0,
+        maximum_swap_growth_bytes=50,
+        swap_poll_interval_seconds=0.01,
+        minimum_free_memory_percent=5.0,
+        environment_recovery_timeout_seconds=1.0,
+        environment_max_attempts=2,
+    )
+    assert statuses == ["environment_invalid"]
+    assert process.returncode == -15
+
+
+def test_tie_breaking_ignores_swap_compromised_throughput() -> None:
+    compromised = _decision_record("compromised", throughput=1000.0, parameters=200)
+    compromised["throughput_compromised"] = True
+    valid = _decision_record("valid", throughput=1.0, parameters=300)
+    ranking = base_eval.apply_decision_rule(
+        [compromised, valid],
+        DecisionSettings(("mit",), 1000, 0.1, 0.0, 0.0, 0.02, True),
+    )
+    rows = cast(list[dict[str, object]], ranking["ranked_candidates"])
+    assert rows[0]["candidate_id"] == "valid"
+    compromised_row = next(row for row in rows if row["candidate_id"] == "compromised")
+    assert compromised_row["training_tokens_per_second"] is None
+    assert compromised_row["throughput_tie_breaker_status"] == "excluded_swap_compromised"
 
 
 def test_equivalence_proof_compares_losses_and_parameter_updates(
@@ -2270,6 +2637,139 @@ def _decision_record(
     }
 
 
+def _add_probe_losses(record: dict[str, object]) -> dict[str, object]:
+    families = cast(
+        list[dict[str, object]],
+        cast(dict[str, object], record["task_stream_readiness"])["families"],
+    )
+    for row in families:
+        row["initial_loss"] = 1.0
+        row["final_loss"] = 0.5
+    return record
+
+
+def test_amendment_4e_foreground_check_and_mixed_ranking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidates = (
+        CandidateSpec("gpt2", "gpt2", "a" * 40, "mit", None, False),
+        CandidateSpec("qwen2.5-0.5b", "qwen", "b" * 40, "mit", None, False),
+    )
+    settings = BaseModelEvaluationSettings(
+        candidates=candidates,
+        measurement=_settings(tmp_path),
+        decision=DecisionSettings(
+            ("mit",), 1_000_000, 0.25, 0.0, 0.0, 0.02, True, 100, True
+        ),
+    )
+    manifest = {
+        "correlation_id": "4e-test",
+        "candidates": [
+            {
+                "candidate_id": candidate.candidate_id,
+                "resolved_revision": candidate.revision,
+                "license": candidate.license,
+            }
+            for candidate in candidates
+        ],
+    }
+    monkeypatch.setattr(
+        base_eval, "load_base_model_evaluation_settings", lambda path: settings
+    )
+    monkeypatch.setattr(
+        base_eval,
+        "prepare_run_manifest",
+        lambda *args: (manifest, "4e-manifest"),
+    )
+    prior = tmp_path / "prior"
+    output = tmp_path / "output"
+    gpt_record = _add_probe_losses(_decision_record("gpt2"))
+    gpt_record["manifest_sha256"] = "prior-manifest"
+    base_eval.write_json(base_eval._candidate_record_path(prior, "gpt2"), gpt_record)
+    monkeypatch.setattr(
+        base_eval,
+        "evaluate_candidate",
+        lambda *args, **kwargs: copy.deepcopy(gpt_record),
+    )
+    check = base_eval.run_amendment_4e_candidate_check(
+        tmp_path / "config.yaml",
+        output,
+        prior,
+        "gpt2",
+        placement_equivalence=True,
+    )
+    assert check["status"] == "passed"
+    assert (
+        cast(dict[str, object], check["comparisons"])[
+            "released_vs_current_legacy_per_item"
+        ]
+        is not None
+    )
+
+    prior_manifest = {"correlation_id": "prior"}
+    base_eval.write_json(prior / "run_manifest.json", prior_manifest)
+    prior_hash = base_eval.hashlib.sha256(
+        json.dumps(prior_manifest, sort_keys=True, allow_nan=False).encode("utf-8")
+    ).hexdigest()
+    gpt_record["manifest_sha256"] = prior_hash
+    base_eval.write_json(base_eval._candidate_record_path(prior, "gpt2"), gpt_record)
+    qwen_record = _decision_record("qwen2.5-0.5b", learned=0.6)
+    qwen_record["manifest_sha256"] = "4e-manifest"
+    base_eval.write_json(
+        base_eval._candidate_record_path(output, "qwen2.5-0.5b"), qwen_record
+    )
+    ranking = base_eval.rank_amendment_4e_records(
+        tmp_path / "config.yaml",
+        output,
+        prior,
+        rerun_completed_4c_candidates=False,
+    )
+    assert ranking["decision_status"] != "measurement_incomplete"
+    assert len(cast(list[object], ranking["record_provenance"])) == 2
+    agreement = cast(dict[str, object], ranking["top_two_seed_repeat_agreement"])
+    assert agreement["complete"] is False
+    assert agreement["agrees"] is None
+
+
+def test_top_two_seed_repeat_agreement_reports_order_stability() -> None:
+    summaries = [
+        {
+            "candidate_id": "leader",
+            "missing_seeds": [],
+            "runs": [
+                {
+                    "seed": seed,
+                    "mean_learned_accuracy": accuracy,
+                    "mean_accuracy_gain": accuracy,
+                }
+                for seed, accuracy in ((1, 0.7), (2, 0.6), (3, 0.8))
+            ],
+        },
+        {
+            "candidate_id": "runner-up",
+            "missing_seeds": [],
+            "runs": [
+                {
+                    "seed": seed,
+                    "mean_learned_accuracy": accuracy,
+                    "mean_accuracy_gain": accuracy,
+                }
+                for seed, accuracy in ((1, 0.6), (2, 0.5), (3, 0.7))
+            ],
+        },
+    ]
+    stable = base_eval._top_two_seed_repeat_agreement(summaries, (1, 2, 3))
+    assert stable["complete"] is True
+    assert stable["agrees"] is True
+
+    cast(list[dict[str, object]], summaries[1]["runs"])[1][
+        "mean_learned_accuracy"
+    ] = 0.9
+    flipped = base_eval._top_two_seed_repeat_agreement(summaries, (1, 2, 3))
+    assert flipped["complete"] is True
+    assert flipped["agrees"] is False
+
+
 def test_paired_family_comparison_matches_review_and_fails_closed() -> None:
     """Reviewer deltas reproduce the clustered interval and exact sign test."""
     differences = [0.05, 0.0, 0.05, 0.06, 0.09, 0.34, 0.03, 0.18, 0, 0, 0, 0]
@@ -2517,6 +3017,18 @@ def test_repository_config_and_manifest_are_strict_stable_and_offline(
     assert amendment_4c.execution is not None
     assert amendment_4c.execution.output_dir.name == "amendment-4c"
     assert amendment_4c.execution.resume is False
+
+    amendment_4e = base_eval.load_base_model_evaluation_settings(
+        Path("configs/base_model_candidates_amendment_4e.yaml")
+    )
+    assert amendment_4e.measurement.release_pristine_before_training is True
+    assert amendment_4e.measurement.prestart_minimum_free_memory_percent == 70.0
+    assert amendment_4e.measurement.prestart_max_other_process_rss_bytes == 2**31
+    assert amendment_4e.measurement.prestart_timeout_seconds == 900.0
+    assert amendment_4e.measurement.prestart_poll_interval_seconds == 5.0
+    assert amendment_4e.execution is not None
+    assert amendment_4e.execution.output_dir.name == "measurement-after-ruling"
+    assert amendment_4e.execution.output_dir.parent.name == "amendment-4e"
 
     manifest["evaluator_sha256"] = "0" * 64
     base_eval.write_json(tmp_path / "run_manifest.json", manifest)
@@ -2910,6 +3422,97 @@ def test_memory_lower_bound_is_informational_and_normal_completion_is_unaffected
     assert feasibility["fits_parameter_state_lower_bound"] is False
     assert feasibility["bytes_per_parameter"] == 20
     assert "informational lower bound" in cast(str, feasibility["verdict_role"])
+
+
+def test_candidate_releases_pristine_copy_before_training_and_persists_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 4e order benchmarks first, then trains from one disk-backed object."""
+    settings = replace(_settings(tmp_path), release_pristine_before_training=True)
+    candidate = CandidateSpec("released", "local", "a" * 40, "mit", "toy", False)
+    model = _ToyLearnableLM()
+    expected_digest = base_eval.model_state_digest(cast(Any, model))
+    zero_shot = {
+        "families": [{"family_id": "toy", "zero_shot": _accuracy_record_for_test()}],
+        "mean_zero_shot_accuracy": 0.0,
+    }
+    generation_calls: list[str] = []
+    snapshot_paths: list[Path] = []
+
+    monkeypatch.setattr(base_eval, "model_context_length", lambda *args: 16)
+    monkeypatch.setattr(base_eval, "_hidden_size", lambda *args: 5)
+    monkeypatch.setattr(base_eval, "_architecture_type", lambda *args: "toy")
+    monkeypatch.setattr(base_eval, "ContinualTaskStream", lambda **kwargs: _ToyStream())
+    monkeypatch.setattr(
+        base_eval,
+        "tokenizer_fitness",
+        lambda *args: {
+            "exact_roundtrip_after_nfc_normalization": True,
+            "exact_task_stream_roundtrip": True,
+            "eos_usable_as_answer_terminator": True,
+        },
+    )
+    monkeypatch.setattr(
+        base_eval,
+        "inspect_expert_attachment_structure",
+        lambda *args: {"all_blocks_expose_feed_forward": True},
+    )
+    monkeypatch.setattr(
+        base_eval,
+        "evaluate_language_quality",
+        lambda *args: {"combined": {"bits_per_byte": 1.25}},
+    )
+    monkeypatch.setattr(base_eval, "evaluate_zero_shot_readiness", lambda *args: zero_shot)
+
+    def benchmark(*args: object) -> dict[str, object]:
+        del args
+        generation_calls.append("before-training")
+        return {"median_tokens_per_second": 1.0}
+
+    def select_recipe(*args: object, **kwargs: object) -> tuple[object, object]:
+        del args
+        snapshot = cast(Path, kwargs["pristine_snapshot_path"])
+        snapshot_paths.append(snapshot)
+        assert snapshot.is_file()
+        assert kwargs["pristine_snapshot_digest"] == expected_digest
+        return base_eval.TrainingRecipe(1, False), {
+            "selected_micro_batch_size": 1,
+            "selected_gradient_checkpointing": False,
+        }
+
+    def task_readiness(*args: object, **kwargs: object) -> dict[str, object]:
+        del args
+        assert kwargs["pristine_snapshot_path"] == snapshot_paths[0]
+        assert kwargs["pristine_snapshot_digest"] == expected_digest
+        return cast(dict[str, object], _completed_measurements()["task_stream_readiness"])
+
+    monkeypatch.setattr(base_eval, "benchmark_generation", benchmark)
+    monkeypatch.setattr(base_eval, "select_training_recipe", select_recipe)
+    monkeypatch.setattr(base_eval, "evaluate_task_readiness", task_readiness)
+    progress_path = tmp_path / "released-progress.json"
+    record = evaluate_candidate(
+        candidate,
+        settings,
+        loader=lambda *args: LoadedCandidate(
+            cast(Any, model), cast(Any, _ToyTokenizer()), "a" * 40
+        ),
+        decision_settings=DecisionSettings(
+            ("mit",), 38_654_705_664, 0.25, 0.0, 0.0, 0.02, True
+        ),
+        progress_path=progress_path,
+    )
+
+    assert record["status"] == "completed"
+    assert generation_calls == ["before-training"]
+    placement = cast(dict[str, object], record["pristine_model_placement"])
+    assert placement["released_before_training"] is True
+    assert placement["snapshot_sha256"] == expected_digest
+    feasibility = cast(dict[str, object], record["full_finetuning_memory_feasibility"])
+    assert feasibility["bytes_per_parameter"] == 16
+    progress = json.loads(progress_path.read_text(encoding="utf-8"))
+    assert progress["status"] == "pristine_evaluation_persisted"
+    assert progress["generation_benchmark"] == {"median_tokens_per_second": 1.0}
+    assert snapshot_paths and not snapshot_paths[0].exists()
 
 
 def _accuracy_record_for_test() -> dict[str, object]:

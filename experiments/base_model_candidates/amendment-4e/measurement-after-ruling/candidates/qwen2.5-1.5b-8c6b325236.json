@@ -1,0 +1,123 @@
+{
+  "candidate_id": "qwen2.5-1.5b",
+  "config_fingerprint": "81ca25b592f9dffbb493c4f3bebf0448c64282a659bed2759557053e83733876",
+  "correlation_id": "250e03ff-5501-477e-867b-407dd03c799d",
+  "environment_attempts": [
+    {
+      "attempt": 1,
+      "configured_maximum_swap_growth_bytes": 1073741824,
+      "configured_minimum_free_memory_percent": 10.0,
+      "elapsed_seconds": 158.24884154097526,
+      "environment_invalid_reasons": [
+        "system swap growth exceeded the configured environment limit"
+      ],
+      "forced_termination_reason": null,
+      "poll_interval_seconds": 0.5,
+      "prestart_check": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.300412446260452e-08,
+            "free_memory_percent": 53.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 11162028605
+          },
+          {
+            "elapsed_seconds": 5.0815354580117855,
+            "free_memory_percent": 83.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 11153639997
+          }
+        ]
+      },
+      "process_started": true,
+      "recovery": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.297502063214779e-08,
+            "free_memory_percent": 83.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 11153639997
+          }
+        ]
+      },
+      "returncode": -15,
+      "status": "environment_invalid",
+      "system_free_memory_after_percent": 42.0,
+      "system_free_memory_before_percent": 83.0,
+      "system_free_memory_minimum_percent": 19.0,
+      "system_swap_after_bytes": 13086165565,
+      "system_swap_before_bytes": 11153639997,
+      "system_swap_growth_bytes": 1932525568,
+      "system_swap_peak_bytes": 13086165565,
+      "system_swap_peak_growth_bytes": 1932525568
+    },
+    {
+      "attempt": 2,
+      "configured_maximum_swap_growth_bytes": 1073741824,
+      "configured_minimum_free_memory_percent": 10.0,
+      "elapsed_seconds": 164.5308538750105,
+      "environment_invalid_reasons": [
+        "system swap growth exceeded the configured environment limit"
+      ],
+      "forced_termination_reason": null,
+      "poll_interval_seconds": 0.5,
+      "prestart_check": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.300412446260452e-08,
+            "free_memory_percent": 53.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 11162028605
+          },
+          {
+            "elapsed_seconds": 5.0815354580117855,
+            "free_memory_percent": 83.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 11153639997
+          }
+        ]
+      },
+      "process_started": true,
+      "recovery": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.300412446260452e-08,
+            "free_memory_percent": 62.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 13077776957
+          }
+        ]
+      },
+      "returncode": -15,
+      "status": "environment_invalid",
+      "system_free_memory_after_percent": 45.0,
+      "system_free_memory_before_percent": 63.0,
+      "system_free_memory_minimum_percent": 18.0,
+      "system_swap_after_bytes": 14265551421,
+      "system_swap_before_bytes": 13077776957,
+      "system_swap_growth_bytes": 1187774464,
+      "system_swap_peak_bytes": 14282328637,
+      "system_swap_peak_growth_bytes": 1204551680
+    }
+  ],
+  "equivalence_gate_owner_override": {
+    "adr_section": "Owner override of Amendment 4b (2026-10-14)",
+    "by": "raghunath",
+    "date": "2026-10-14"
+  },
+  "failure": {
+    "message": "all configured attempts were environment-invalid",
+    "out_of_memory": false,
+    "phase": "environment_health",
+    "type": "EnvironmentInvalid"
+  },
+  "manifest_sha256": "b197dc73a599d67a1c158fcf7d574110f10f87effce93f458a5a2d32706ba05d",
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v6",
+  "status": "not_measured_environment",
+  "variance_seed": null
+}

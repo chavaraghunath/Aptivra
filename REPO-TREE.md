@@ -195,6 +195,6 @@
   - `aptivra/genesis.py` — Top-level unified cognitive architecture facade orchestrating all 10 engines across all 4 phases.
 - `multitier_c/` — High-throughput C ABI sharding runtime with zero-copy mmap hot-swapping and HDC associative search.
 - `experiments/` — Version-controlled machine-readable experiment evidence.
-  - `experiments/base_model_candidates/` — Frozen powered and amendment evidence, including immutable candidate/repeat-seed records, family-clustered analysis, the failed Amendment 4 proof, the manifested Amendment 4a interruption and noise-floor failure, and the failed Amendment 4b outcome gate.
+  - `experiments/base_model_candidates/` — Frozen powered and amendment evidence, including immutable candidate/repeat-seed records, family-clustered analysis, the failed Amendment 4 proof, the manifested Amendment 4a interruption and noise-floor failure, the failed Amendment 4b outcome gate, and Amendment 4e foreground checks, detached-run state, candidate measurements, and mixed-provenance ranking.
 - `scripts/` — Execution, benchmarking, base-model evaluation, Vertex dry-run rendering, and export scripts.
 - `tests/` — Pytest unit and integration test suite.

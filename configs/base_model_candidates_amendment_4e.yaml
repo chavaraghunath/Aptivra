@@ -1,0 +1,163 @@
+# Pre-registered Amendment 4e measured Mac completion. Earlier evidence stays immutable.
+equivalence_gate:
+  owner_override:
+    by: raghunath
+    date: "2026-10-14"
+    adr_section: Owner override of Amendment 4b (2026-10-14)
+
+candidates:
+  - id: gpt2
+    source: openai-community/gpt2
+    revision: 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    license: mit
+    architecture: gpt2
+    loader: transformers
+    reference_only: false
+  - id: smollm2-135m
+    source: HuggingFaceTB/SmolLM2-135M
+    revision: 93efa2f097d58c2a74874c7e644dbc9b0cee75a2
+    license: apache-2.0
+    architecture: llama
+    loader: transformers
+    reference_only: false
+  - id: pythia-160m
+    source: EleutherAI/pythia-160m
+    revision: 50f5173d932e8e61f858120bcb800b97af589f46
+    license: apache-2.0
+    architecture: gpt_neox
+    loader: transformers
+    reference_only: false
+  - id: smollm2-360m
+    source: HuggingFaceTB/SmolLM2-360M
+    revision: f8027fd0eaeea54caa13c31d31b9fdc459c38b49
+    license: apache-2.0
+    architecture: llama
+    loader: transformers
+    reference_only: false
+  - id: qwen2.5-0.5b
+    source: Qwen/Qwen2.5-0.5B
+    revision: 060db6499f32faf8b98477b0a26969ef7d8b9987
+    license: apache-2.0
+    architecture: qwen2
+    loader: transformers
+    reference_only: false
+  - id: qwen2.5-1.5b
+    source: Qwen/Qwen2.5-1.5B
+    revision: 8faed761d45a263340a0528343f099c05c9a4323
+    license: apache-2.0
+    architecture: qwen2
+    loader: transformers
+    reference_only: false
+  - id: smollm2-1.7b
+    source: HuggingFaceTB/SmolLM2-1.7B
+    revision: effd688a12921b4cc83e3312b6feb579f70f9c71
+    license: apache-2.0
+    architecture: llama
+    loader: transformers
+    reference_only: false
+  - id: aptivra-byte-reference
+    source: raghunath1/aptivra-200m-tiered-memory
+    revision: f55718d191e85be18f75c2726f4eb20322cb1ad6
+    license: apache-2.0
+    architecture: aptivra
+    loader: aptivra_legacy
+    reference_only: true
+
+measurement:
+  device: auto
+  pristine_model_device: candidate_device
+  release_pristine_before_training: true
+  local_files_only: true
+  torch_dtype: float32
+  deterministic_algorithms: true
+  deterministic_warn_only: true
+  seed: 20261014
+  variance_seeds:
+    - 20261014
+    - 20261015
+    - 20261016
+  variance_top_candidates: 2
+  train_items_per_family: 256
+  validation_items_per_family: 100
+  test_items_per_family: 100
+  max_generation_attempts: 1000
+  max_new_tokens: 48
+  probe_steps: 200
+  probe_batch_size: 8
+  probe_micro_batch_sizes:
+    - 8
+    - 4
+    - 2
+    - 1
+  target_only_training_loss: true
+  gradient_checkpointing_fallback: true
+  equivalence_candidate_ids:
+    - smollm2-135m
+    - gpt2
+  equivalence_steps: 3
+  equivalence_loss_absolute_tolerance: 0.00005
+  equivalence_update_max_absolute_tolerance: 0.000001
+  equivalence_update_relative_l2_tolerance: 0.0001
+  equivalence_exact_loss_absolute_tolerance: 0.000000000001
+  equivalence_exact_gradient_relative_l2_tolerance: 0.0000000001
+  equivalence_noise_floor_batches: 3
+  equivalence_noise_floor_multiplier: 2.0
+  equivalence_trajectory_steps: 50
+  equivalence_protocol: amendment_4b
+  equivalence_shape_control_chunk_size: 1
+  equivalence_outcome_seeds:
+    - 0
+    - 1
+  probe_learning_rates:
+    - 0.00001
+    - 0.00003
+    - 0.0001
+  probe_warmup_steps: 20
+  probe_weight_decay: 0.0
+  evaluation_batch_size: 16
+  confidence_level: 0.95
+  generation_benchmark_prompts: 2
+  generation_benchmark_new_tokens: 32
+  generation_benchmark_warmup_runs: 1
+  generation_benchmark_repetitions: 3
+  scoring_stride_tokens: 256
+  load_retries: 4
+  load_retry_backoff_seconds: 2.0
+  memory_sample_interval_seconds: 0.02
+  swap_sample_interval_seconds: 0.5
+  environment_minimum_free_memory_percent: 10.0
+  environment_recovery_timeout_seconds: 900.0
+  environment_max_attempts: 2
+  prestart_minimum_free_memory_percent: 70.0
+  prestart_max_other_process_rss_bytes: 2147483648
+  prestart_timeout_seconds: 900.0
+  prestart_poll_interval_seconds: 5.0
+  candidate_timeout_seconds: 21600.0
+  expected_wall_time_seconds: 86400.0
+  utf8_roundtrip_samples:
+    - " leading and trailing whitespace "
+    - "multiple   spaces\tand\nlines"
+    - "nul:\u0000:end"
+    - "e\u0301 and é"
+    - "日本語と漢字"
+    - "مرحبا بالعالم"
+    - "emoji: 🧠🚀🌍"
+  heldout_text_path: ../aptivra/eval/model_card_heldout_text_v1.txt
+  heldout_prompts_path: ../aptivra/eval/model_card_heldout_v1.json
+
+decision:
+  permissive_licenses:
+    - apache-2.0
+    - mit
+  target_memory_bytes: 38654705664
+  minimum_memory_headroom_fraction: 0.25
+  minimum_mean_learned_accuracy: 0.0
+  minimum_mean_accuracy_gain: 0.0
+  learnability_tie_margin: 0.02
+  clustered_confidence_interval_intersects_tie_region: true
+  maximum_swap_growth_bytes: 1073741824
+  require_complete_candidate_measurements: true
+
+execution:
+  output_dir: ../experiments/base_model_candidates/amendment-4e/measurement-after-ruling
+  resume: true

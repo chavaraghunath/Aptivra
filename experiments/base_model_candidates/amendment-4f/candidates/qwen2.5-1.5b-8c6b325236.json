@@ -1,0 +1,69 @@
+{
+  "candidate_id": "qwen2.5-1.5b",
+  "config_fingerprint": "223256e0b690b74cfb45cd8bce758ea5e83d2aad673a8fc170ca6259582079f6",
+  "correlation_id": "1ee04c75-8265-416b-9763-eea43b5384d1",
+  "environment_attempts": [
+    {
+      "attempt": 1,
+      "configured_maximum_swap_growth_bytes": 1073741824,
+      "configured_minimum_free_memory_percent": 5.0,
+      "elapsed_seconds": 3266.018111542013,
+      "environment_invalid_reasons": [
+        "system free-memory percentage fell below the critical floor"
+      ],
+      "forced_termination_reason": null,
+      "poll_interval_seconds": 0.5,
+      "prestart_check": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.300412446260452e-08,
+            "free_memory_percent": 88.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 10620827074
+          }
+        ]
+      },
+      "process_started": true,
+      "recovery": {
+        "normal": true,
+        "samples": [
+          {
+            "elapsed_seconds": 8.300412446260452e-08,
+            "free_memory_percent": 88.0,
+            "other_processes_above_rss_threshold": [],
+            "swap_used_bytes": 10620827074
+          }
+        ]
+      },
+      "returncode": -15,
+      "status": "environment_invalid",
+      "system_free_memory_after_percent": 32.0,
+      "system_free_memory_before_percent": 88.0,
+      "system_free_memory_minimum_percent": 3.0,
+      "system_swap_after_bytes": 13918997053,
+      "system_swap_before_bytes": 10620827074,
+      "system_swap_growth_bytes": 3298169979,
+      "system_swap_peak_bytes": 24519502725,
+      "system_swap_peak_growth_bytes": 13898675651,
+      "throughput_compromise_reason": "system swap growth exceeded the configured reporting threshold",
+      "throughput_compromised": true
+    }
+  ],
+  "equivalence_gate_owner_override": {
+    "adr_section": "Owner override of Amendment 4b (2026-10-14)",
+    "by": "raghunath",
+    "date": "2026-10-14"
+  },
+  "failure": {
+    "message": "the latest attempt was environment-invalid and is retryable",
+    "out_of_memory": false,
+    "phase": "environment_health",
+    "type": "EnvironmentInvalid"
+  },
+  "manifest_sha256": "915e58e0cd6f5248d8d899426276658ba76b6f95ab0e66cc2255611d95d7fc48",
+  "reference_only": false,
+  "schema_version": "pretrained-base-evaluation-v6",
+  "status": "environment_invalid",
+  "variance_seed": null
+}

@@ -8,9 +8,8 @@ artifact_uri: gs://aptivra-training-base-sweep-4d-20261015/evidence/amendment-4d
 # Official PyTorch Docker Hub image. Docker Registry manifest/config metadata verified
 # 2026-10-15: direct linux/amd64 manifest (not a multi-platform index), Python 3.12,
 # PyTorch 2.14.1, CUDA toolkit 12.6.3, and torch CUDA ABI 12.6.
-executor_image_uri: docker.io/pytorch/pytorch
+executor_image_uri: docker.io/pytorch/pytorch@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
 executor_image_tag: 2.14.1-cuda12.6-cudnn9-runtime
-executor_image_digest: sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
 python_executable: /usr/bin/python3
 expected_python_version: "3.12"
 expected_torch_version: 2.14.1

@@ -544,7 +544,7 @@ its published availability date. Before any cloud resource was created, this ame
 it with the official public image:
 
 ```text
-docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
+docker.io/pytorch/pytorch@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
 ```
 
 The tag is `2.14.1-cuda12.6-cudnn9-runtime`; its direct Linux/amd64 manifest digest is
@@ -587,6 +587,140 @@ verified all 36 lock-derived pins, imported all 111 discoverable `aptivra` modul
 failures, and resolved all 128 Torch namespace, tensor, module, optimizer, CUDA, MPS,
 serialization, and testing APIs used by the package with zero missing APIs. This CPU rehearsal
 does not replace the mandatory Vertex T4 smoke, whose preflight requires CUDA availability.
+
+### Amendment 4e — measured Mac feasibility with one live weight copy
+
+Amendment 4e was recorded at **2026-10-15T12:54:42+05:30**, before any Amendment 4e
+placement-equivalence, consistency, or candidate measurement. It corrects a mistaken premise
+introduced by the orchestrator during review of Amendment 4d. The orchestrator counted a live
+pristine reference copy and therefore used 20 bytes per parameter to arithmetically exclude the
+two largest candidates. On Apple silicon, placing that copy on the CPU does not move it out of
+the unified-memory capacity being tested. The reviewer correctly identified that the
+memory-minimal training state is 16 bytes per parameter: trainable fp32 weights, fp32 gradients,
+and two fp32 AdamW moments. On that basis Qwen2.5-1.5B requires 24.70 GB and SmolLM2-1.7B
+requires 27.38 GB before activations, both below the unchanged 28,991,029,248-byte cap. The
+orchestrator halted rather than propagate its exclusion premise; this amendment records both the
+error and that halt.
+
+The pre-registered Amendment 4e protocol is:
+
+1. **No arithmetic exclusions.** Feasibility remains exactly the Amendment 4c rule: only the
+   candidate's own measured `max(process RSS peak, MPS driver allocation peak)` decides whether
+   it fits the 28,991,029,248-byte cap, at micro-batch 1 with gradient checkpointing if required.
+   An analytical parameter-state figure is informational and cannot skip a measurement.
+2. **One live weight copy during training, unchanged mathematics.** The pristine model is used
+   for held-out language scoring, zero-shot task outcomes, generation benchmarking, and as the
+   immutable source of each probe's initial weights; it is not used by a training regulariser or
+   by the optimizer. Those pristine-only evaluations run before training and their results are
+   persisted. The evaluator then stores a restartable pristine snapshot, releases the separate
+   in-memory pristine model, and restores the single trainable copy from that snapshot before
+   every isolated learning-rate/family probe. This preserves identical initial values, batches,
+   gradients, optimizer behavior, and final scoring while preventing the pristine copy from
+   overlapping the training peak. SmolLM2-135M must produce identical per-item outcomes and
+   decision metrics under current-code legacy and released-pristine orders. Frozen Amendment 4c
+   records retained family counts but not item rows, so the historical comparison necessarily
+   checks every retained count and decision metric rather than unavailable per-item evidence.
+   Initial and final probe losses may differ by at most `1e-5` absolute because changing MPS
+   allocation/order can change float32 reduction rounding; outcomes and all other decision
+   evidence remain exact. A mismatch halts the sweep.
+3. **Quiet-machine pre-start gate.** Before each candidate attempt, system free memory must be at
+   least the configurable 70% default and no process other than the orchestrator's own process
+   tree may exceed a configurable RSS threshold whose default is 2 GiB. A failed check polls at a
+   configurable interval until a configurable timeout, then stops before loading the candidate
+   with a clear environment message. Every candidate record includes the observed checks and
+   decision. These values are configuration, not source constants.
+4. **Amendment 4c consistency gate.** GPT-2 is rerun first on MPS under the current code and must
+   reproduce the Amendment 4c per-item outcomes and metrics. Any justified tolerance must be
+   stated before comparison together with its numerical reason. If GPT-2 does not reproduce, all
+   four completed Amendment 4c candidates are rerun; otherwise the unchanged GPT-2,
+   SmolLM2-135M, Pythia-160M, and SmolLM2-360M Amendment 4c records may enter the combined
+   ranking with explicit source provenance.
+5. **Three fresh MPS measurements.** Qwen2.5-0.5B, Qwen2.5-1.5B, and SmolLM2-1.7B are measured
+   smallest first under Amendment 4c's workload and decision rule plus items 2 and 3 above. New
+   evidence is written only under `experiments/base_model_candidates/amendment-4e/`. The combined
+   ranking uses the reproduced Amendment 4c records and these three fresh records. Environment-
+   invalid handling is unchanged, and ranking still refuses selection while any candidate is
+   unmeasured, failed, or otherwise incomplete.
+
+#### Amendment 4e first-attempt halt and prevention
+
+The first SmolLM2-135M foreground attempt wrote its halted record at
+**2026-10-15T14:01:21+05:30**. The new
+snapshot-backed recipe calibration correctly used one live model, but returned that object after
+its one-step optimizer calibration without restoring the pristine snapshot. The later readiness
+postcondition detected the changed digest and stopped with `learnability probes mutated the
+original candidate weights`; no comparison or candidate sweep was allowed to proceed. The
+comparison orchestrator then exposed a second defect by assuming every input record was complete
+and raising `KeyError` while examining the failed record. The failed manifest and record are
+retained under `experiments/base_model_candidates/amendment-4e/failed-attempt-1/` and are excluded
+from ranking.
+
+The source correction restores the reusable object before recipe selection returns or propagates
+a non-memory error. Regression coverage now proves the selector's pristine digest postcondition,
+and Amendment 4e comparison fails closed with an explicit record-status reason when either input
+is incomplete. All gates and both foreground checks must rerun against the corrected evaluator
+before the detached sweep may start.
+
+#### Amendment 4e orchestrator ruling (2026-10-15T16:17:47+05:30)
+
+The 4e brief defined the placement-equivalence gate as "identical per-item outcomes and metrics, **allowing only documented nondeterminism**", and the GPT-2 consistency gate as "identical per-item outcomes, **or a stated tolerance with the reason**". Your own evidence documents the nondeterminism. A re-run of the **unchanged legacy path** on SmolLM2-135M did not reproduce frozen 4c: one extra validation success in the unselected 3e-5 run flipped LR selection. So MPS execution is not bitwise reproducible from run to run, independent of the placement change. Against that floor:
+- placement: released vs frozen 4c has the same selected LR (1e-5), the same learned successes (705/1200) and the same mean gain (0.585). Differences appear only in an unselected-LR validation run, the same class of difference the legacy path shows against itself, and the maximum loss difference is 8.2e-6;
+- GPT-2: the same selected LR, 636/1200 and gain 0.53; one differing outcome, in an unselected run.
+Both gates therefore **pass under their pre-registered nondeterminism clauses**. Record their status as `passed_documented_nondeterminism`, keep the raw `failed` strict comparisons in the evidence, and state that this ruling was made by the orchestrator, citing this evidence.
+
+Also record a measurement-quality finding: LR selection can flip on a single validation item (selection fragility). The protocol's existing three-seed repeat of the top two candidates is the mitigation. The ranking report must show, for the top two, whether the seed repeats agree.
+
+This ruling was made by the orchestrator from the raw strict comparisons in
+`checks/placement-equivalence.json` and `checks/gpt2-consistency.json`, the released records in
+the same evidence directory, the unchanged-live-pristine rerun, and the frozen Amendment 4c
+candidate records. The raw strict comparison booleans remain `false`; only the foreground gate
+statuses carry the orchestrator's documented-nondeterminism adjudication. The combined ranking
+records the top-two order for every configured seed and an explicit `agrees` verdict; an
+incomplete repeat set cannot report agreement.
+
+Because the foreground manifest freezes the evaluator and orchestrator digests from before this
+ruling, the post-ruling measurement writes to
+`experiments/base_model_candidates/amendment-4e/measurement-after-ruling/`. The original
+foreground manifest and evidence remain in their existing parent directory; the nested run gets
+a new manifest and correlation ID and reads the adjudicated gate records from the parent.
+
+The cloud path is parked. Free-trial Vertex spot CPU quota is one CPU per region, so a 429 for
+`custom_model_training_preemptible_cpus` blocks every GPU-backed machine before GPU capacity is
+considered. No Google Cloud resource is created by Amendment 4e. The configured Vertex image URI
+must use digest-only syntax,
+`docker.io/pytorch/pytorch@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56`;
+the human-readable tag `2.14.1-cuda12.6-cudnn9-runtime` remains a separate documented field.
+Validation rejects any image URI containing both a tag and a digest.
+
+### Amendment 4f — swap compromises speed, not accuracy
+
+Amendment 4f was pre-registered at **2026-10-15T17:13:35+05:30**, after the orchestrator stopped
+the post-ruling Amendment 4e measurement at about 17:11 IST during SmolLM2-1.7B and before any
+Amendment 4f measurement. All evidence under
+`experiments/base_model_candidates/amendment-4e/measurement-after-ruling/` remains immutable.
+
+The orchestrator's Amendment 4c design made a category error: it discarded the primary accuracy,
+gain, and bits-per-byte evidence to protect the fourth tie-breaker, throughput. On the quiet Mac,
+all Qwen attempts crossed 1 GiB of swap growth while roughly 18--23% system memory remained free;
+the candidates themselves induced macOS compression and swap. Swapping changes elapsed time, not
+the arithmetic result. The design error is attributed to the orchestrator.
+
+The pre-registered Amendment 4f protocol is:
+
+1. Candidate feasibility is unchanged: measured `max(process RSS peak, MPS driver allocation
+   peak)` must be at most **28,991,029,248 bytes**; a larger peak is `infeasible`.
+2. Swap and memory pressure are recorded in full and do not invalidate completed arithmetic.
+   Swap growth above the configured 1 GiB reporting threshold marks the record
+   `throughput_compromised`; its tokens-per-second value is reported as unmeasured and excluded
+   from the fourth tie-breaker only.
+3. The quiet-machine pre-start gate remains. After start, `environment_invalid` is reserved for
+   conditions that prevent a trustworthy result: free memory below the configurable 5% critical
+   floor, the configurable six-hour wall-clock limit, or a foreign process crossing the same
+   configurable heavy-process criterion mid-run.
+4. Recipe, seeds, items, decision order, pristine-release order, the Amendment 4e ruling, reuse of
+   the four reproduced Amendment 4c records, top-two seed repeats, and their agreement report are
+   unchanged. Fresh candidates run Qwen2.5-0.5B, Qwen2.5-1.5B, then SmolLM2-1.7B, and all new
+   evidence is written only under `experiments/base_model_candidates/amendment-4f/`.
 
 ## Historical powered results and derived analysis
 
@@ -713,15 +847,16 @@ corrected memory recipe and is not promoted into the Amendment 4b decision. The 
 **Proposed**.
 
 Amendment 4c superseded only the invalid environment-verdict mechanism, not the frozen 4b
-measurements or owner override. Its incomplete result made no selection. Amendment 4d now
-supersedes 4c for selection and is pre-registered but unmeasured. The ADR remains **Proposed**
-until all seven cloud primaries, four repeat seeds, and two confirmations are complete and the
-result receives owner review.
+measurements or owner override. Its incomplete result made no selection. Amendment 4d is parked
+without a cloud resource because the free-trial spot-CPU quota blocks every GPU job. Amendment 4e
+now completes the three missing Mac measurements and combines them with reproduced 4c records.
+The ADR remains **Proposed** until the 4e checks, measurements, combined ranking, and owner review
+are complete.
 
 ## Decisions for the owner
 
-1. Approve or reject the documented Vertex cost envelope only after the smoke test spec, pinned
-   image availability, and free-trial credit are reviewed. Preparation creates no cloud resource.
+1. Keep the Vertex path parked unless quota becomes available and a separate owner instruction
+   authorises resource creation. Amendment 4e creates no cloud resource.
 2. Do not select a base model from 4b or 4c: neither produced a complete candidate ranking.
 
 ## Tokenizer and stop-rule contract changes

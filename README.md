@@ -97,26 +97,34 @@ identities, immutable revisions, powered MPS budgets, learning-rate grid, seeds,
 and Amendment 2 family-clustered decision rule live in `configs/base_model_candidates.yaml`; the
 exact powered-run config is preserved beside the evidence as `powered-sweep-config.yaml`. The
 Amendment 4a noise-floor and trajectory controls are frozen in
-`configs/base_model_candidates_amendment_4a.yaml`; the current fresh-run protocol is
-`configs/base_model_candidates_amendment_4c.yaml`. The
+`configs/base_model_candidates_amendment_4a.yaml`; the current completion protocol is
+`configs/base_model_candidates_amendment_4f.yaml`. The
 evaluator writes an immutable run manifest, one atomic JSON record per candidate, qualifying
 repeat-seed records, a versioned equivalence record, and `ranking.json`. Amendment 3 evidence
 remains historical under `experiments/base_model_candidates/amendment-3/`. Amendment 4 and 4a
 evidence lives under `experiments/base_model_candidates/amendment-4/` and
 `experiments/base_model_candidates/amendment-4a/`; neither protocol produced a ranking.
-The stopped `amendment-4b-override` directory and log are immutable evidence. Amendment 4c writes
-only to `experiments/base_model_candidates/amendment-4c/`.
+The stopped `amendment-4b-override` directory and log are immutable evidence. Amendment 4c is
+frozen under `experiments/base_model_candidates/amendment-4c/`; Amendment 4e writes only under
+`experiments/base_model_candidates/amendment-4e/`.
+Amendment 4f preserves swapping runs for accuracy and marks only their throughput as compromised;
+its detached evidence is isolated under `experiments/base_model_candidates/amendment-4f/`.
 Each candidate runs in a fresh process so an MPS allocator failure cannot contaminate later
 measurements; completed matching records are resumable. The rejected one-item sweep is preserved under
 `experiments/base_model_candidates/archive/first_underpowered_sweep/`.
 
 ```bash
 PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
-  -m scripts.evaluate_base_model_candidates \
-  --config configs/base_model_candidates_amendment_4c.yaml
+  -m scripts.run_amendment_4e --placement-equivalence
+
+PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
+  -m scripts.run_amendment_4e --gpt2-consistency
+
+PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
+  -m scripts.run_amendment_4e --launch-detached
 ```
 
-That command uses the existing manifested owner override, selects the largest fitting micro-batch
+These commands use the existing manifested owner override, select the largest fitting micro-batch
 from `8, 4, 2, 1`, projects through the LM head only at target positions, and uses gradient
 checkpointing only after micro-batch 1 fails. Candidate feasibility is determined only by the
 measured maximum of process RSS and MPS driver allocation against the 36 GiB target with 25%
@@ -126,6 +134,14 @@ after every attempt. More than 1 GiB swap growth or less than 10% free memory ma
 total attempts. Exhaustion records `not_measured_environment`, and ranking refuses to select while
 any non-reference candidate remains unmeasured. Frozen manifests fail closed rather than accept
 changed code or configuration.
+
+Amendment 4e evaluates pristine held-out metrics and generation before training, persists them,
+snapshots the weights to temporary disk, and restores one live model object before each probe.
+Its independent pre-start gate requires at least 70% free memory and no unrelated process above
+2 GiB RSS. The detached launcher uses `caffeinate`, offline Hugging Face settings, a new process
+session, a log, and a PID file. It measures Qwen2.5-0.5B, Qwen2.5-1.5B, and SmolLM2-1.7B in that
+order, then combines them with reproduced Amendment 4c evidence under the unchanged fail-closed
+decision rule.
 
 The current Amendment 4 equivalence record is failed. SmolLM2-135M step 1 matched loss within
 `1.37e-7` and maximum absolute parameter update within `9.24e-7`, but its relative-L2 update
@@ -154,13 +170,14 @@ Amendment 4 therefore supersedes that ranking only after all seven candidates ar
 verifier contract from Amendment 3 remains unchanged. ADR-0008 remains Proposed until the new
 equivalence evidence, ranking, and owner review are complete.
 
-### Amendment 4d Vertex preparation
+### Amendment 4d Vertex preparation (parked)
 
 Amendment 4c completed GPT-2, SmolLM2-135M, Pythia-160M, and SmolLM2-360M on the Mac but
-correctly returned no selection: Qwen2.5-0.5B, Qwen2.5-1.5B, and SmolLM2-1.7B were
-`not_measured_environment`. Amendment 4d therefore reruns all seven candidates and the complete
-top-two repeat/confirmation protocol on one Vertex spot A100 40 GB. The cloud ranking reads only
-4d records. Its immutable model revisions and CUDA measurement settings are in
+correctly returned no selection. The planned Amendment 4d cloud path is parked: free-trial Vertex
+spot CPU quota is one CPU per region, and a 429 on
+`custom_model_training_preemptible_cpus` blocks every GPU-backed machine before accelerator
+capacity is considered. No cloud resource was created. Its preserved immutable model revisions
+and CUDA measurement settings are in
 `configs/base_model_candidates_amendment_4d.yaml`; the T4 smoke workload is in
 `configs/base_model_candidates_vertex_smoke.yaml`.
 
@@ -175,7 +192,7 @@ bytes, independent of host RSS and swap.
 The pinned executor is the official public PyTorch 2.14.1/Python 3.12/CUDA 12.6.3 image:
 
 ```text
-docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
+docker.io/pytorch/pytorch@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
 ```
 
 Docker Registry manifest and config-blob inspection verified a direct Linux/amd64 manifest,
@@ -242,7 +259,7 @@ Preparation and dry-run rendering are local and non-mutating:
 uv build --sdist --out-dir /tmp/aptivra-dist
 
 docker pull --platform=linux/amd64 \
-  docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
+  docker.io/pytorch/pytorch@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56
 
 PYTHONPATH=$PWD /Users/raghunath/code/personal/Aptivra/.venv/bin/python \
   -m scripts.vertex_base_sweep --dry-run --mode smoke \

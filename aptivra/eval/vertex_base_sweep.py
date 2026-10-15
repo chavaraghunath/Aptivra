@@ -72,7 +72,6 @@ class VertexSweepSettings:
     artifact_uri: str
     executor_image_uri: str
     executor_image_tag: str
-    executor_image_digest: str
     python_executable: str
     expected_python_version: str
     expected_torch_version: str
@@ -174,7 +173,6 @@ def load_vertex_sweep_settings(path: Path | str) -> VertexSweepSettings:
         "artifact_uri",
         "executor_image_uri",
         "executor_image_tag",
-        "executor_image_digest",
         "python_executable",
         "expected_python_version",
         "expected_torch_version",
@@ -227,9 +225,6 @@ def load_vertex_sweep_settings(path: Path | str) -> VertexSweepSettings:
         ),
         executor_image_tag=_string(
             root.get("executor_image_tag"), "executor_image_tag"
-        ),
-        executor_image_digest=_string(
-            root.get("executor_image_digest"), "executor_image_digest"
         ),
         python_executable=_string(
             root.get("python_executable"), "python_executable"
@@ -298,12 +293,14 @@ def load_vertex_sweep_settings(path: Path | str) -> VertexSweepSettings:
         "gs://"
     ):
         raise ValueError("package_uri and artifact_uri must use gs://")
-    if not re.fullmatch(r"sha256:[0-9a-f]{64}", settings.executor_image_digest):
-        raise ValueError("executor_image_digest must be an immutable sha256 digest")
-    if "@" in settings.executor_image_uri or ":" in settings.executor_image_uri.rsplit(
-        "/", 1
-    )[-1]:
-        raise ValueError("executor_image_uri must be a repository without tag or digest")
+    if not re.fullmatch(
+        r"(?:[^/@:]+(?::[0-9]+)?/)*[^/@:]+@sha256:[0-9a-f]{64}",
+        settings.executor_image_uri,
+    ):
+        raise ValueError(
+            "executor_image_uri must be a digest-only repository@sha256 URI; "
+            "tag+digest URIs are forbidden"
+        )
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", settings.executor_image_tag):
         raise ValueError("executor_image_tag must be an explicit valid tag")
     if not settings.python_executable.startswith("/"):
@@ -558,10 +555,7 @@ def build_custom_job_spec(
     machine = settings.full if mode == "full" else settings.smoke
     encoded_config = base64.b64encode(evaluation_config).decode("ascii")
     artifact_uri = _artifact_mode_uri(settings.artifact_uri, mode)
-    image = (
-        f"{settings.executor_image_uri}:{settings.executor_image_tag}"
-        f"@{settings.executor_image_digest}"
-    )
+    image = settings.executor_image_uri
     worker_args = _worker_args(
         settings,
         mode=mode,

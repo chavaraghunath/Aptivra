@@ -175,7 +175,7 @@ def test_vertex_config_and_specs_are_exact_and_non_mutating(tmp_path: Path) -> N
     }
     container = cast(dict[str, Any], pool["containerSpec"])
     assert container["imageUri"] == (
-        "docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime"
+        "docker.io/pytorch/pytorch"
         "@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56"
     )
     assert "pythonPackageSpec" not in pool
@@ -219,7 +219,12 @@ def test_vertex_config_and_specs_are_exact_and_non_mutating(tmp_path: Path) -> N
     ("field", "value", "message"),
     [
         ("disable_retries", True, "retries"),
-        ("executor_image_digest", "latest", "sha256"),
+        (
+            "executor_image_uri",
+            "docker.io/pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime"
+            "@sha256:1262abc856a428933c0477b4be87079173a0b087b7691c47fcb396b7b5775c56",
+            "tag\\+digest",
+        ),
         ("package_uri", "https://example/package", "gs://"),
         ("runtime_dependencies", ["torch==2.14.1"], "must not replace"),
     ],
