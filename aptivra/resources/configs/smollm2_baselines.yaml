@@ -1,0 +1,49 @@
+smollm2_baselines:
+  schema_version: aptivra.standard_baseline_config.v1
+  feature:
+    enabled: false
+  methods:
+    - frozen_base
+    - naive_sequential
+    - replay
+    - online_ewc
+    - manual_lora
+  seeds:
+    - 20261016
+    - 20261017
+    - 20261018
+    - 20261019
+    - 20261020
+  training:
+    learning_rate: 0.0001
+    epochs_per_task: 1
+    micro_batch_size: 8
+    gradient_accumulation_steps: 1
+    effective_batch_size: 8
+    max_optimizer_steps_per_task: 10000
+    max_new_tokens: 128
+  replay:
+    capacity: 500
+    ratio: 0.5
+    sampling_seed: 20261016
+    per_family_minimum: 1
+    byte_limit: 67108864
+    eviction_policy: stratified_hash_reservoir
+  online_ewc:
+    penalty_lambda: 400.0
+    decay: 1.0
+    fisher_sample_size: 100
+    state_byte_limit: 3000000000
+  manual_lora:
+    rank: 16
+    alpha: 16.0
+    dropout: 0.0
+    target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+      - gate_proj
+      - up_proj
+      - down_proj
+    max_adapters: 12

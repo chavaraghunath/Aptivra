@@ -231,6 +231,25 @@ def test_builder_uses_handwritten_clickhouse_fixture_and_stream_verifies_hashes(
         "integrated-terminal->terminal": 1
     }
 
+    truncated_path = tmp_path / "truncated.jsonl"
+    truncated_path.write_text(
+        "\n".join(config.raw_dataset_path.read_text(encoding="utf-8").splitlines()[:-1])
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="incomplete relative to the manifest"):
+        GitHubIssuesContinualStream(config.manifest_path, truncated_path)
+
+    duplicate_path = tmp_path / "duplicate.jsonl"
+    duplicate_path.write_text(
+        config.raw_dataset_path.read_text(encoding="utf-8")
+        + config.raw_dataset_path.read_text(encoding="utf-8").splitlines()[0]
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate record_id"):
+        GitHubIssuesContinualStream(config.manifest_path, duplicate_path)
+
     shard_path.write_text("[]\n", encoding="utf-8")
     with pytest.raises(ValueError, match="shard hash mismatch"):
         GitHubIssuesContinualStream(config.manifest_path, config.raw_dataset_path)

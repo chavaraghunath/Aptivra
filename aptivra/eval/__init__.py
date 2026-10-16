@@ -1,6 +1,6 @@
 """Evaluation harness and metrics calculation modules."""
 
-from aptivra.eval.harness import ContinualEvalHarness
+from aptivra.eval.harness import ContinualEvalHarness, StandardContinualEvalHarness
 from aptivra.eval.metrics import (
     ContinualLearningMetrics,
     compute_backward_transfer,
@@ -16,4 +16,5 @@ __all__ = [
     "compute_max_forgetting",
     "compute_confidence_intervals",
     "ContinualEvalHarness",
+    "StandardContinualEvalHarness",
 ]

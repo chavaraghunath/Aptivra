@@ -228,6 +228,8 @@ class GitHubIssueTriageTaskFamily(TaskFamily):
 class GitHubIssuesContinualStream:
     """Manifest-backed GitHub issue stream matching the evaluation harness protocol."""
 
+    stream_id = "github-issues-chronological-v3"
+
     def __init__(
         self, manifest_path: Path | str, raw_dataset_path: Path | str | None = None
     ) -> None:
@@ -253,9 +255,13 @@ class GitHubIssuesContinualStream:
         by_window: dict[str, dict[str, list[TaskInstance]]] = defaultdict(
             lambda: {"train": [], "val": [], "test": []}
         )
+        raw_record_ids: set[str] = set()
 
         for raw_record in raw_records:
             record_id = raw_record["record_id"]
+            if record_id in raw_record_ids:
+                raise ValueError(f"Local dataset contains duplicate record_id: {record_id}")
+            raw_record_ids.add(record_id)
             manifest_record = by_record_id.get(record_id)
             if manifest_record is None:
                 raise ValueError(f"Local dataset has record absent from manifest: {record_id}")
@@ -273,6 +279,13 @@ class GitHubIssuesContinualStream:
                 metadata=dict(manifest_record),
             )
             by_window[manifest_record["window_id"]][manifest_record["split"]].append(instance)
+
+        missing_record_ids = set(by_record_id) - raw_record_ids
+        if missing_record_ids:
+            raise ValueError(
+                "Local dataset is incomplete relative to the manifest; missing "
+                f"{len(missing_record_ids)} record(s)"
+            )
 
         audit = _require_mapping(manifest, "audit")
         windows = _require_list(manifest, "windows")
