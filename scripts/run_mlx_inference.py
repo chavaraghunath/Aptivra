@@ -9,8 +9,8 @@ from pathlib import Path
 import yaml
 
 from aptivra.export.mlx_export import export_mlx_npz
-from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.model.config import ModelConfig
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
 
 
 def try_mlx_matmul(name: str, path: Path) -> bool:

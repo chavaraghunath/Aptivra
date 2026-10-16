@@ -1,25 +1,15 @@
-"""Tests for chat reply sanitization."""
+"""Delimiter-only output cleanup tests for the standard chat path."""
 
-from aptivra.inference.chat_sanitize import sanitize_chat_reply
-
-
-def test_sanitize_strips_sql_drift() -> None:
-    raw = "My name is Aptivra. SELECT (high + low) WHERE age 30;"
-    assert "SELECT" not in sanitize_chat_reply(raw)
+from aptivra.inference.chat_prompt import strip_assistant_turn_delimiter
 
 
 def test_sanitize_identity_name() -> None:
-    raw = "My name is Aptivra, an autonomous cuntinual learning language model.-d as 2tE"
-    out = sanitize_chat_reply(raw)
-    assert out.startswith("My name is Aptivra")
-    assert "2tE" not in out
+    raw = "My name is Aptivra, with an unsupported claim.<|im_end|><|endoftext|>"
+    out = strip_assistant_turn_delimiter(raw)
+    assert out == "My name is Aptivra, with an unsupported claim."
+    assert "unsupported claim" in out
 
 
-def test_sanitize_first_sentence() -> None:
-    raw = (
-        "I was created by Raghunath Chava. "
-        "def binary_search(arr, x): return mid"
-    )
-    out = sanitize_chat_reply(raw)
-    assert "Raghunath" in out
-    assert "def " not in out
+def test_delimiter_cleanup_does_not_rescue_sql_or_replace_identity_facts() -> None:
+    raw = "Wrong identity. SELECT * FROM users<|im_end|>"
+    assert strip_assistant_turn_delimiter(raw) == "Wrong identity. SELECT * FROM users"

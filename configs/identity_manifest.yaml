@@ -1,0 +1,32 @@
+identity_manifest:
+  schema_version: aptivra.identity_manifest.v1
+  content_sha256: c8d18b205fdfd4c48257774dd8af4fd0105fdc97d0e7fc279a5538e8339749e5
+  model:
+    name: Aptivra
+    creator:
+      name: Raghunath Chava
+      attribution_kind: owner_attribution
+      approval: approved by the owner on 2026-10-17
+  base:
+    repository: HuggingFaceTB/SmolLM2-360M
+    revision: f8027fd0eaeea54caa13c31d31b9fdc459c38b49
+    config_sha256: 34f7801487078de7e434e19162c497e5cc6ff397080e40e8586627cb68a5168a
+    weights_sha256: 7aaff6661428bed033abba9522bec81938678642cca3181fe752b6ca9e1e540f
+    fingerprint: 73ab8d820d03e66de88804a0cfcf704bde3afb5adae1c579361688a88f77e2d8
+    unique_parameter_count: 361821120
+  components:
+    routed_lora:
+      statement: frozen base plus separately routed LoRA adapters
+      required_adapter_name: identity
+      required_rank: 16
+      required_router: sequence-level top-1
+      require_release_enabled_config: true
+  research_status: Research model; release capabilities require bound evaluation evidence.
+  required_limitations:
+    - An ordinary conversation changes only ephemeral context and does not persist weights, replay, or episodic memory.
+    - Aptivra may be wrong.
+    - Under automatic routing an adapter is active only when selected; manual adapter selection is an explicit evaluation or runtime mode.
+    - Capability is limited to the named evaluations in bound release evidence.
+  release_evaluation:
+    expected_stream_version: v2
+    record: null

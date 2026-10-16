@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 
 import yaml
 
-from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.hub_config import model_config_from_export_dir
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
 
 
 def load_inference_config(config_path: Path) -> dict[str, Any]:

@@ -145,3 +145,14 @@ The individual files under `mutation/cosmic-ray/` define only focused test
 commands and execution timeouts. Their `excluded-modules` lists are empty.
 The `mutation_gate` session mutates the strict validator itself, so the
 validity boundary is held to the same behavioral standard it enforces.
+
+## Change-scoped sessions
+
+`mutation/scoped/` holds per-module Cosmic Ray configurations that a change
+used to prove its own gate: for example, `lane6-*.toml` measure the modules
+whose behaviour ADR-0011 lane 6 added or changed, each against that lane's
+focused acceptance tests. They live outside `mutation/cosmic-ray/` on purpose.
+The repository-wide loop and the CI matrix cover those same modules through
+their package sessions, so running the scoped files there would only duplicate
+mutants. Re-run a scoped file the same way as a package session, including both
+`cr-rate` and the strict gate, when re-verifying that change.

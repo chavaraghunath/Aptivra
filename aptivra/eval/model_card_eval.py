@@ -22,12 +22,12 @@ from aptivra.eval.model_card_schema import (
     PROVENANCE_FILENAME,
     ConversionProvenance,
 )
-from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
-from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.model.config import ModelConfig
 from aptivra.resources import require_resource
-from aptivra.tasks.identity import ModelIdentityTaskFamily
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
+from aptivra.v0.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
+from aptivra.v0.tasks.identity import ModelIdentityTaskFamily
 
 
 @dataclass(frozen=True)

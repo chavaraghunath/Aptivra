@@ -15,12 +15,12 @@ from aptivra.baselines.base import BaselineTrainer
 from aptivra.eval.model_card_eval import evaluate_export_dir, write_evaluation_record
 from aptivra.export.hf_hub_artifacts import export_huggingface_hub_layout
 from aptivra.export.hf_push import push_aptivra_model_to_hf
-from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.memory.hybrid_store import HybridMemoryStore
-from aptivra.tasks.conversational import ConversationalTaskFamily
-from aptivra.tasks.identity import ModelIdentityTaskFamily
 from aptivra.tasks.multitasking import MultiTaskingTaskFamily
 from aptivra.tasks.skill_dataset import MCPSkillRepositoryLoader
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
+from aptivra.v0.tasks.conversational import ConversationalTaskFamily
+from aptivra.v0.tasks.identity import ModelIdentityTaskFamily
 
 
 def train_multidomain_conversational(

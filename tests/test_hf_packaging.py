@@ -42,11 +42,11 @@ from aptivra.export.hf_push import (
     push_aptivra_model_to_hf,
 )
 from aptivra.export.multitier import MultitierExporter
-from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
 from aptivra.v0.experts.expert import ExpertModule
 from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
 
 
 def _tiny_components() -> tuple[

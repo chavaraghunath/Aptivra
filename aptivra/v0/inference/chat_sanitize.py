@@ -2,7 +2,7 @@
 
 import re
 
-from aptivra.inference.chat_canonical import (
+from aptivra.v0.inference.chat_canonical import (
     APTIVRA_INTRO,
     CAPABILITIES_SUMMARY,
     CREATOR_BIO_REPLY,

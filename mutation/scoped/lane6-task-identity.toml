@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/tasks/identity.py"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_identity.py tests/test_identity_chat_lane6.py tests/test_verifier_strictness.py"
+
+[cosmic-ray.distributor]
+name = "local"

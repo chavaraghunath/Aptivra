@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from aptivra.inference.chat_finetune import finetune_backbone_for_chat
+from aptivra.v0.inference.chat_finetune import finetune_backbone_for_chat
 
 
 def main() -> None:

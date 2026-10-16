@@ -6,11 +6,11 @@ import torch
 import torch.nn as nn
 
 from aptivra.export.multitier import MultitierExporter
-from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
 from aptivra.v0.experts.expert import ExpertModule
 from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
 
 
 def _export_tiny(tmp_path: Path) -> Path:

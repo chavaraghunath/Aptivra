@@ -17,9 +17,9 @@ from aptivra.export.hf_hub_artifacts import (
     write_export_provenance,
 )
 from aptivra.export.multitier import MultitierLoader
-from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.model.config import ModelConfig
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
 
 
 def _checkpoint_config(

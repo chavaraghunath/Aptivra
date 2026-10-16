@@ -10,7 +10,8 @@ row requires the setting to be genuinely gone, not merely undocumented.
 
 The installed defaults for versioned task-stream evaluation, task-stream audit,
 GitHub issues stream building, model-card release gating, the ADR-0011 standard base,
-the ADR-0011 lane-3 baseline matrix, the ADR-0011 lane-4/5 PEFT expert and consolidation path, and verifier containment
+the ADR-0011 lane-3 baseline matrix, the ADR-0011 lane-4/5 PEFT expert and consolidation path,
+the ADR-0011 lane-6 identity/chat path, and verifier containment
 are packaged under `aptivra/resources/configs/`.
 Their same-named files under `configs/` are byte-matched, editable copies used
 by repository commands and explicit path overrides. Backbone and inference
@@ -38,6 +39,21 @@ presets remain repository-only and must be supplied explicitly outside a clone.
 | `standard_base.runtime.max_new_tokens` | environment | integer | `128` | positive; prompt plus generation limit must fit max sequence | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
 | `standard_base.runtime.stop_policy` | global | enum | `eos_only` | exactly `eos_only`; preserves the explicit raw/EOS-only call for diagnostics | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
 | `standard_base.runtime.task_stop_policy` | global | enum | `decoded_text` | exactly `decoded_text`; task-aware generation scans decoded UTF-8 across token boundaries and removes the matched terminator | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `smollm2_identity.feature.enabled` | global | boolean | `false` | `true`, `false`; identity training/loading fails before PEFT work while false | owner | yes | self | `configs/smollm2_identity.yaml`; `load_identity_settings` | no |
+| `smollm2_identity.template.version` | global | enum | `aptivra-chat-v1` | exactly the ADR-0011 lane-6 template version | owner | no | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `format_chat_prompt` | no |
+| `smollm2_identity.template.manifest_path` | environment | adjacent path | `identity_manifest.yaml` | one safe filename adjacent to the identity config; missing, stale, or invalid content fails generation | owner | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `load_identity_manifest` | no |
+| `smollm2_identity.template.start_token` | global | enum | `<\|im_start\|>` | exact single-ID token already present in the pinned tokenizer | owner | no | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `validate_chat_tokenizer` | no |
+| `smollm2_identity.template.end_token` | global | enum | `<\|im_end\|>` | exact single-ID message delimiter already present in the pinned tokenizer | owner | no | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `validate_chat_tokenizer` | no |
+| `smollm2_identity.template.eos_token` | global | enum | `<\|endoftext\|>` | exact single-ID tokenizer EOS; must equal `eos_token_id` | owner | no | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `validate_chat_tokenizer` | no |
+| `smollm2_identity.components.standard_expert_config_path` | environment | adjacent path | `smollm2_experts.yaml` | one safe filename; routed-LoRA claims require a present, valid, release-enabled expert/router config | owner | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `canonical_identity_records` | no |
+| `smollm2_identity.quality.minimum_canonical_prefix_ratio` | release | float | `0.65` | >0 and ≤1; applied to raw, unsanitized identity output | owner | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `canonical_prefix_ok` | no |
+| `smollm2_identity.training.adapter_name` | global | enum | `identity` | exactly `identity`; prevents collision with task experts | owner | no | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `train_identity_adapter` | no |
+| `smollm2_identity.training.learning_rate` | experiment | float | `0.0001` | >0 and ≤1 | researcher | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; identity AdamW | no |
+| `smollm2_identity.training.weight_decay` | experiment | float | `0.01` | 0–1 | researcher | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; identity AdamW | no |
+| `smollm2_identity.training.epochs` | experiment | integer | `1` | 1–100; still bounded by optimizer-step cap | researcher | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `train_identity_adapter` | no |
+| `smollm2_identity.training.max_optimizer_steps` | experiment | integer | `100` | 1–100000 hard step cap | researcher | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `train_identity_adapter` | no |
+| `smollm2_identity.training.max_sequence_tokens` | environment | integer | `8192` | 1–8192 and further bounded by the loaded base context | researcher | yes | `smollm2_identity.feature.enabled` | `configs/smollm2_identity.yaml`; `materialize_identity_batch` | no |
+| `identity_manifest.release_evaluation.expected_stream_version` | release | string | `v2` | non-empty; bound evidence must match exactly or generation fails | owner | yes | `smollm2_identity.feature.enabled` | `configs/identity_manifest.yaml`; `load_identity_manifest` | no |
 | `smollm2_experts.feature.enabled` | global | boolean | `false` | `true`, `false`; attachment and loading reject before PEFT use while false | owner | yes | self | `configs/smollm2_experts.yaml`; `load_standard_expert_settings` | no |
 | `smollm2_experts.peft.version` | global | exact version | `0.21.2` | exactly the reviewed lock-compatible PEFT release | owner | no | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `load_standard_expert_settings` | yes |
 | `smollm2_experts.peft.license` | global | SPDX license | `Apache-2.0` | exactly the reviewed Apache-2.0-compatible license | owner | no | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `load_standard_expert_settings` | yes |

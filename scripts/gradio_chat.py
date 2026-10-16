@@ -8,10 +8,10 @@ from typing import Any
 
 import yaml
 
-from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.chat_prompt import format_chat_prompt, normalize_gradio_history
-from aptivra.inference.chat_sanitize import sanitize_chat_reply
-from aptivra.inference.hub_config import model_config_from_export_dir
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
+from aptivra.v0.inference.chat_prompt import format_chat_prompt, normalize_gradio_history
+from aptivra.v0.inference.chat_sanitize import sanitize_chat_reply
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
 
 _LM: AptivraCausalLM | None = None
 _MAX_NEW_TOKENS = 128

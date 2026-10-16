@@ -1,6 +1,17 @@
-# ruff: noqa: E501
-"""Multi-Turn Conversational Task Family for Aptivra Dialogue Training."""
+"""Manifest-generated multi-turn identity conversation task family."""
 
+from __future__ import annotations
+
+from typing import Optional
+
+from aptivra.experts.standard import StandardExpertSettings
+from aptivra.inference.chat_canonical import (
+    IdentityManifest,
+    canonical_identity_records,
+    default_system_message,
+    load_identity_manifest,
+)
+from aptivra.inference.chat_prompt import CHAT_TEMPLATE_VERSION, format_chat_prompt
 from aptivra.tasks.base import (
     MechanicalVerifier,
     TaskFamily,
@@ -9,23 +20,34 @@ from aptivra.tasks.base import (
     exact_match_result,
 )
 
+# Cosmic Ray treats postponed PEP 604 annotations as executable binary
+# expressions, creating equivalent arithmetic mutants.  Classic Optional
+# preserves the public types while keeping the mutation inventory behavioral.
+
 
 class ConversationalVerifier(MechanicalVerifier):
-    """Mechanical verifier for multi-turn conversational dialog instances."""
+    """Exact unsanitized verifier for one manifest-bound assistant turn."""
 
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
         return exact_match_result(instance, model_output)
 
 
 class ConversationalTaskFamily(TaskFamily):
-    """Task Family for multi-turn conversational interactions and context retention."""
+    """Deterministic multi-turn records built only from canonical identity records."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        manifest: Optional[IdentityManifest] = None,  # noqa: UP045
+        *,
+        expert_settings: Optional[StandardExpertSettings] = None,  # noqa: UP045
+    ) -> None:
         super().__init__(
             family_id="conversational_dialogue",
-            name="Multi-Turn Conversational Dialogue",
-            description="Multi-turn interactive dialogue with context memory, clarification, and follow-ups.",
+            name="Manifest-Bound Multi-Turn Conversation",
+            description="Multi-turn identity dialogue with no facts beyond the manifest.",
         )
+        self.manifest = manifest or load_identity_manifest()
+        self.expert_settings = expert_settings
         self._verifier = ConversationalVerifier()
 
     @property
@@ -33,39 +55,34 @@ class ConversationalTaskFamily(TaskFamily):
         return self._verifier
 
     def generate_instances(self, count: int, seed: int = 42) -> list[TaskInstance]:
-        """Generates deterministic multi-turn conversational task instances."""
+        """Generate a prior canonical turn followed by another canonical question."""
+        records = canonical_identity_records(
+            self.manifest,
+            expert_settings=self.expert_settings,
+        )
+        system_message = default_system_message(self.manifest)
         instances: list[TaskInstance] = []
-
-        dialog_templates = [
-            (
-                "User: Hello, can you help me write a Python function for binary search?\nAssistant: Sure! Binary search requires a sorted list. Here is the implementation:\nUser: Can you make it recursive?\nAssistant:",
-                "def binary_search_recursive(arr, low, high, x):\n    if high >= low:\n        mid = (high + low) // 2\n        if arr[mid] == x: return mid\n        elif arr[mid] > x: return binary_search_recursive(arr, low, mid - 1, x)\n        else: return binary_search_recursive(arr, mid + 1, high, x)\n    else: return -1",
-            ),
-            (
-                "User: What is the difference between PyTorch MoE and dense transformers?\nAssistant: MoE activates a subset of expert layers per token, reducing compute while scaling parameters.\nUser: How does Gating Router select experts?\nAssistant:",
-                "Gating Router computes softmax probabilities over expert projection weights and selects top-k indices.",
-            ),
-            (
-                "User: I have a bug in my database query script.\nAssistant: Please share the error traceback or query code.\nUser: Here is the query: SELECT * FROM users WHERE age > 'thirty'\nAssistant:",
-                "The error occurs because string 'thirty' is passed to numeric column age. Use integer 30: SELECT * FROM users WHERE age > 30;",
-            ),
-            (
-                "User: Explain Tiered Memory Runtime in Aptivra.\nAssistant: TMR is a C-engine execution ABI that shards MoE expert weights for low-latency NVMe/RAM offloading.\nUser: What is its throughput?\nAssistant:",
-                "TMR achieves 3,142.21 MB/s shard export throughput and 433.25 MB/s load throughput.",
-            ),
-        ]
-
-        for i in range(count):
-            tpl_idx = (seed + i) % len(dialog_templates)
-            prompt, target = dialog_templates[tpl_idx]
+        for index in range(count):
+            prior = records[(seed + index) % len(records)]
+            current = records[(seed + index + 1) % len(records)]
+            prompt = format_chat_prompt(
+                [(prior.question, prior.answer)],
+                current.question,
+                system_message=system_message,
+            )
             instances.append(
                 TaskInstance(
-                    task_id=f"conv_dialogue_{i}",
+                    task_id=f"conv_dialogue_{index}",
                     task_family=self.family_id,
                     prompt=prompt,
-                    target_solution=target,
-                    metadata={"seed": seed, "turn": i},
+                    target_solution=current.answer,
+                    metadata={
+                        "seed": seed,
+                        "turn": index,
+                        "prompt_intent": current.prompt_intent,
+                        "template_version": CHAT_TEMPLATE_VERSION,
+                        "identity_manifest_sha256": self.manifest.content_sha256,
+                    },
                 )
             )
-
         return instances

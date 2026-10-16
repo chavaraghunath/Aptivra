@@ -1,6 +1,3 @@
-"""Inference helpers for Aptivra MoE causal language modeling."""
+"""Standard-base inference, versioned chat formatting, and identity adapters."""
 
-from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.tokenizer import ByteLevelTokenizer
-
-__all__ = ["AptivraCausalLM", "ByteLevelTokenizer"]
+__all__: list[str] = []

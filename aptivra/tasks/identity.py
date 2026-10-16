@@ -1,7 +1,17 @@
-# ruff: noqa: E501
-"""Model Identity & Capabilities Task Family for Aptivra Self-Knowledge Training."""
+"""Evidence-generated Aptivra identity task family."""
 
-from aptivra.inference.chat_canonical import APTIVRA_INTRO, CREATOR_REPLY, NAME_REPLY
+from __future__ import annotations
+
+from typing import Optional
+
+from aptivra.experts.standard import StandardExpertSettings
+from aptivra.inference.chat_canonical import (
+    IdentityManifest,
+    canonical_identity_records,
+    default_system_message,
+    load_identity_manifest,
+)
+from aptivra.inference.chat_prompt import CHAT_TEMPLATE_VERSION, format_chat_prompt
 from aptivra.tasks.base import (
     MechanicalVerifier,
     TaskFamily,
@@ -10,23 +20,37 @@ from aptivra.tasks.base import (
     exact_match_result,
 )
 
+# Cosmic Ray treats postponed PEP 604 annotations as executable binary
+# expressions, creating equivalent arithmetic mutants.  Classic Optional
+# preserves the public types while keeping the mutation inventory behavioral.
+
 
 class ModelIdentityVerifier(MechanicalVerifier):
-    """Mechanical verifier for Aptivra self-identity and capabilities queries."""
+    """Exact unsanitized verifier for evidence-generated identity answers."""
 
     def verify(self, instance: TaskInstance, model_output: str) -> VerifierResult:
         return exact_match_result(instance, model_output)
 
 
 class ModelIdentityTaskFamily(TaskFamily):
-    """Task Family for training self-identity, origin, and technical capabilities."""
+    """Deterministic identity records generated from one validated manifest."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        manifest: Optional[IdentityManifest] = None,  # noqa: UP045
+        *,
+        expert_settings: Optional[StandardExpertSettings] = None,  # noqa: UP045
+    ) -> None:
         super().__init__(
             family_id="model_identity_capabilities",
-            name="Model Self-Identity & Capabilities",
-            description="Self-knowledge training covering Aptivra identity, creator Raghunath Chava, MoE architecture, TMR C-engine, and continual learning capabilities.",
+            name="Model Self-Identity and Evidence-Bound Capabilities",
+            description=(
+                "Manifest-bound Aptivra identity, base provenance, limitations, and "
+                "release-evidence scope."
+            ),
         )
+        self.manifest = manifest or load_identity_manifest()
+        self.expert_settings = expert_settings
         self._verifier = ModelIdentityVerifier()
 
     @property
@@ -34,51 +58,32 @@ class ModelIdentityTaskFamily(TaskFamily):
         return self._verifier
 
     def generate_instances(self, count: int, seed: int = 42) -> list[TaskInstance]:
-        """Generates deterministic model identity and capability training instances."""
+        """Generate exact template prompts and targets without fabricated claims."""
+        records = canonical_identity_records(
+            self.manifest,
+            expert_settings=self.expert_settings,
+        )
+        system_message = default_system_message(self.manifest)
         instances: list[TaskInstance] = []
-
-        identity_qa_pairs = [
-            (
-                "User: What is Aptivra?\nAssistant:",
-                APTIVRA_INTRO,
-            ),
-            (
-                "User: What is your name?\nAssistant:",
-                NAME_REPLY,
-            ),
-            (
-                "User: Who created you?\nAssistant:",
-                CREATOR_REPLY,
-            ),
-            (
-                "User: Who is your creator and what is your model name?\nAssistant:",
-                "I am Aptivra, created by Raghunath Chava as an autonomous multi-domain continual learning system.",
-            ),
-            (
-                "User: What is your core architecture?\nAssistant:",
-                "My architecture is a 200M parameter Soft Top-2 Mixture-of-Experts (MoE) decoder-only Transformer integrated with a Tiered Memory Runtime (TMR) C-engine.",
-            ),
-            (
-                "User: What are your primary capabilities and learning capacity?\nAssistant:",
-                "My capabilities include continual multi-domain skill synthesis across 5,716+ MCP skills, multi-turn conversational dialogue with context memory, zero catastrophic forgetting (+0.042 BWT) via T1-Hybrid Contrastive Memory, and high-speed C-engine binary sharding (3,142 MB/s throughput).",
-            ),
-            (
-                "User: How do you prevent catastrophic forgetting when learning new skills?\nAssistant:",
-                "I prevent catastrophic forgetting using a T1-Hybrid Episodic Memory Store with contrastive vector embeddings (k=8) and AST syntax tree verification, coupled with soft Top-2 MoE routing across expert shards.",
-            ),
-        ]
-
-        for i in range(count):
-            tpl_idx = (seed + i) % len(identity_qa_pairs)
-            prompt, target = identity_qa_pairs[tpl_idx]
+        for index in range(count):
+            record = records[(seed + index) % len(records)]
             instances.append(
                 TaskInstance(
-                    task_id=f"identity_{i}",
+                    task_id=f"identity_{index}",
                     task_family=self.family_id,
-                    prompt=prompt,
-                    target_solution=target,
-                    metadata={"seed": seed, "index": i},
+                    prompt=format_chat_prompt(
+                        [],
+                        record.question,
+                        system_message=system_message,
+                    ),
+                    target_solution=record.answer,
+                    metadata={
+                        "seed": seed,
+                        "index": index,
+                        "prompt_intent": record.prompt_intent,
+                        "template_version": CHAT_TEMPLATE_VERSION,
+                        "identity_manifest_sha256": self.manifest.content_sha256,
+                    },
                 )
             )
-
         return instances

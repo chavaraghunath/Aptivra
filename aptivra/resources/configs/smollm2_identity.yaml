@@ -1,0 +1,21 @@
+smollm2_identity:
+  schema_version: aptivra.identity_config.v1
+  feature:
+    enabled: false
+  template:
+    version: aptivra-chat-v1
+    manifest_path: identity_manifest.yaml
+    start_token: <|im_start|>
+    end_token: <|im_end|>
+    eos_token: <|endoftext|>
+  components:
+    standard_expert_config_path: smollm2_experts.yaml
+  quality:
+    minimum_canonical_prefix_ratio: 0.65
+  training:
+    adapter_name: identity
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    epochs: 1
+    max_optimizer_steps: 100
+    max_sequence_tokens: 8192

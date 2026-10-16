@@ -8,15 +8,15 @@ from pathlib import Path
 
 import yaml
 
-from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
-from aptivra.inference.chat_prompt import format_chat_prompt
-from aptivra.inference.chat_quality import (
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
+from aptivra.v0.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
+from aptivra.v0.inference.chat_prompt import format_chat_prompt
+from aptivra.v0.inference.chat_quality import (
     canonical_prefix_ok,
     default_identity_cases,
     passes_case,
 )
-from aptivra.inference.hub_config import model_config_from_export_dir
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
 
 
 def _canonical_match(user_message: str, raw: str) -> bool:

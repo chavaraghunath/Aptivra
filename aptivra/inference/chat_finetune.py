@@ -1,135 +1,198 @@
-"""Fine-tune exported backbone for chat (UTF-8 bytes + full transformer forward)."""
+"""Target-only PEFT identity-adapter training for the versioned chat template."""
 
 from __future__ import annotations
 
-import copy
+import math
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Union, cast
 
 import torch
-import torch.nn as nn
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
-from aptivra.baselines.base import BaselineTrainer
-from aptivra.export.multitier import MultitierExporter, MultitierLoader
-from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
-from aptivra.inference.hub_config import model_config_from_export_dir
-from aptivra.tasks.base import TaskFamily, TaskInstance
+from aptivra.experts.standard import (
+    ExpertManifest,
+    PeftExpertBank,
+    StandardExpertSettings,
+)
+from aptivra.inference.chat_canonical import IdentityManifest
+from aptivra.inference.chat_prompt import (
+    END_OF_TEXT,
+    IM_END,
+    ChatTokenizer,
+    IdentitySettings,
+    validate_chat_tokenizer,
+)
+from aptivra.inference.standard_base import StandardBase
+from aptivra.tasks.base import TaskInstance
 from aptivra.tasks.conversational import ConversationalTaskFamily
 from aptivra.tasks.identity import ModelIdentityTaskFamily
 
+_IGNORE_INDEX = -100
 
-def _build_chat_instances(
-    repeats: int, *, include_conversational: bool = True
-) -> list[TaskInstance]:
-    families: list[TaskFamily] = [ModelIdentityTaskFamily()]
-    if include_conversational:
-        families.append(ConversationalTaskFamily())
-    instances: list[TaskInstance] = []
-    for family in families:
-        batch = family.generate_instances(count=max(repeats, 1), seed=42)
-        for _ in range(repeats):
-            instances.extend(batch)
-
-    for idx, (_label, prompt, answer) in enumerate(IDENTITY_CHAT_TEMPLATES):
-        for _ in range(repeats * 8):
-            instances.append(
-                TaskInstance(
-                    task_id=f"ui_extra_{idx}",
-                    task_family="model_identity_capabilities",
-                    prompt=prompt,
-                    target_solution=answer,
-                )
-            )
-    return instances
+# Cosmic Ray treats postponed PEP 604 annotations as executable binary
+# expressions, creating equivalent arithmetic mutants.  Keep the precise
+# public union without producing inert operator substitutions.
 
 
-def finetune_backbone_for_chat(
-    export_dir: Path | str,
+@dataclass(frozen=True)
+class IdentityTrainingBatch:
+    """One exact prompt/assistant-span training example."""
+
+    input_ids: torch.Tensor
+    attention_mask: torch.Tensor
+    labels: torch.Tensor
+    task_id: str
+    prompt_tokens: int
+    target_tokens: int
+
+
+@dataclass(frozen=True)
+class IdentityTrainingResult:
+    """Observable isolation, optimization, and artifact evidence."""
+
+    manifest: ExpertManifest
+    base_sha256_before: str
+    base_sha256_after: str
+    optimizer_steps: int
+    target_tokens: int
+    final_loss: float
+
+
+def identity_training_instances(
+    manifest: IdentityManifest,
     *,
-    epochs: int = 40,
-    lr: float = 3e-4,
-    device: str = "auto",
-    repeats: int = 8,
-    include_conversational: bool = False,
-    early_stop_patience: int = 10,
-) -> Path:
-    """Trains backbone lm_head path on identity + conversational data; re-exports shards."""
-    export_path = Path(export_dir)
-    model_config = model_config_from_export_dir(export_path, device=device)
-    dev = model_config.get_device()
-
-    loader = MultitierLoader(export_path)
-    backbone, router, experts = loader.load_model(model_config)
-    backbone = backbone.to(dev)
-    router = router.to(dev)
-    experts_list = [e.to(dev) for e in experts]
-
-    backbone.train()
-    optimizer = torch.optim.AdamW(backbone.parameters(), lr=lr)
-    criterion = nn.CrossEntropyLoss(ignore_index=-100)
-
-    instances = _build_chat_instances(
-        repeats=repeats,
-        include_conversational=include_conversational,
+    expert_settings: StandardExpertSettings,
+) -> tuple[TaskInstance, ...]:
+    """Return single- and multi-turn records generated from the same manifest."""
+    identity = ModelIdentityTaskFamily(manifest, expert_settings=expert_settings)
+    conversational = ConversationalTaskFamily(manifest, expert_settings=expert_settings)
+    record_count = 5
+    return tuple(
+        identity.generate_instances(record_count, seed=0)
+        + conversational.generate_instances(record_count, seed=0)
     )
 
-    best_loss = float("inf")
-    best_state: dict[str, torch.Tensor] | None = None
-    stale_epochs = 0
 
-    for epoch in range(epochs):
-        epoch_loss = 0.0
-        steps = 0
-        for inst in instances:
-            p_toks = BaselineTrainer.encode_text(inst.prompt)
-            s_toks = BaselineTrainer.encode_text(inst.target_solution)
-            full_seq = torch.cat([p_toks, s_toks])[: model_config.max_seq_len]
-            if full_seq.numel() < 2:
-                continue
+def materialize_identity_batch(
+    base: StandardBase,
+    instance: TaskInstance,
+    settings: IdentitySettings,
+) -> IdentityTrainingBatch:
+    """Mask the prompt and supervise answer, message close, and EOS exactly."""
+    token_ids = validate_chat_tokenizer(
+        cast(ChatTokenizer, base.tokenizer),
+        settings.template,
+    )
+    prompt_ids = base.tokenizer.encode(instance.prompt, add_special_tokens=False)
+    target_text = f"{instance.target_solution}{IM_END}{END_OF_TEXT}"
+    target_ids = base.tokenizer.encode(target_text, add_special_tokens=False)
+    if not prompt_ids:
+        raise ValueError(f"identity task {instance.task_id!r} has an empty tokenized prompt")
+    expected_suffix = [token_ids[IM_END], token_ids[END_OF_TEXT]]
+    if target_ids[-2:] != expected_suffix:
+        raise ValueError("identity target must end with message delimiter followed by EOS")
+    total_tokens = len(prompt_ids) + len(target_ids)
+    limit = min(
+        settings.training.max_sequence_tokens,
+        base.settings.runtime.max_sequence_tokens,
+    )
+    if total_tokens > limit:
+        raise ValueError(
+            f"identity task {instance.task_id!r} exceeds configured token limit: "
+            f"prompt={len(prompt_ids)}, target={len(target_ids)}, total={total_tokens}, "
+            f"limit={limit}"
+        )
+    ids = [*prompt_ids, *target_ids]
+    labels = [_IGNORE_INDEX] * len(prompt_ids) + target_ids
+    input_tensor = torch.tensor([ids], dtype=torch.long, device=base.device)
+    return IdentityTrainingBatch(
+        input_ids=input_tensor,
+        attention_mask=torch.ones_like(input_tensor),
+        labels=torch.tensor([labels], dtype=torch.long, device=base.device),
+        task_id=instance.task_id,
+        prompt_tokens=len(prompt_ids),
+        target_tokens=len(target_ids),
+    )
 
-            target_seq = full_seq.clone()
-            target_seq[: p_toks.numel()] = -100
 
-            inputs = full_seq.unsqueeze(0).to(dev)
-            targets = target_seq.unsqueeze(0).to(dev)
-
-            optimizer.zero_grad()
-            logits, _ = backbone(inputs)
-            shift_logits = logits[:, :-1, :].contiguous()
-            shift_targets = targets[:, 1:].contiguous()
-            if shift_targets.numel() == 0:
-                continue
-            loss = criterion(
-                shift_logits.reshape(-1, model_config.vocab_size),
-                shift_targets.reshape(-1),
-            )
-            loss.backward()
-            optimizer.step()
-            epoch_loss += float(loss.item())
-            steps += 1
-
-        avg = epoch_loss / max(steps, 1)
-        print(f"chat finetune epoch {epoch + 1}/{epochs} loss={avg:.4f}", flush=True)
-        if avg + 1e-6 < best_loss:
-            best_loss = avg
-            best_state = copy.deepcopy(backbone.state_dict())
-            stale_epochs = 0
-        else:
-            stale_epochs += 1
-            if stale_epochs >= early_stop_patience:
-                print(f"Early stop at epoch {epoch + 1} (best loss={best_loss:.4f})", flush=True)
+def train_identity_adapter(
+    base: StandardBase,
+    expert_settings: StandardExpertSettings,
+    identity_settings: IdentitySettings,
+    identity_manifest: IdentityManifest,
+    output_dir: Union[Path, str],  # noqa: UP007
+) -> IdentityTrainingResult:
+    """Train and atomically persist only the separate PEFT ``identity`` adapter."""
+    if not identity_settings.feature.enabled:
+        raise RuntimeError("ADR-0011 identity adapter training is disabled by configuration")
+    if not expert_settings.feature.enabled:
+        raise RuntimeError("ADR-0011 PEFT expert path is disabled by configuration")
+    validate_chat_tokenizer(
+        cast(ChatTokenizer, base.tokenizer),
+        identity_settings.template,
+    )
+    bank = PeftExpertBank.start_candidate(
+        base,
+        expert_settings,
+        identity_settings.training.adapter_name,
+    )
+    base_before = bank.base_parameter_sha256()
+    parameters = bank.adapter_parameters(identity_settings.training.adapter_name)
+    optimizer = torch.optim.AdamW(
+        parameters,
+        lr=identity_settings.training.learning_rate,
+        weight_decay=identity_settings.training.weight_decay,
+    )
+    instances = identity_training_instances(
+        identity_manifest,
+        expert_settings=expert_settings,
+    )
+    steps = 0
+    remaining_steps = identity_settings.training.max_optimizer_steps
+    target_tokens = 0
+    final_loss = math.nan
+    bank.model.train()
+    for _epoch in range(identity_settings.training.epochs):
+        for instance in instances:
+            if not remaining_steps:
                 break
-
-    if best_state is not None:
-        backbone.load_state_dict(best_state)
-
-    backbone.eval()
-    backbone_cpu = backbone.cpu()
-    router_cpu = router.cpu()
-    experts_cpu = [exp.cpu() for exp in experts_list]
-    MultitierExporter(export_path).export_model(
-        model=backbone_cpu,
-        router=router_cpu,
-        experts=experts_cpu,
-        model_config=model_config,
+            batch = materialize_identity_batch(base, instance, identity_settings)
+            optimizer.zero_grad(set_to_none=True)
+            output = cast(
+                CausalLMOutputWithPast,
+                bank.model(
+                    input_ids=batch.input_ids,
+                    attention_mask=batch.attention_mask,
+                    labels=batch.labels,
+                    use_cache=False,
+                    return_dict=True,
+                ),
+            )
+            if output.loss is None or not bool(torch.isfinite(output.loss).item()):
+                raise RuntimeError("identity adapter training produced a non-finite loss")
+            loss = cast(torch.Tensor, output.loss)
+            torch.autograd.backward(loss)
+            if not any(parameter.grad is not None for parameter in parameters):
+                raise RuntimeError("identity adapter received no gradients")
+            optimizer.step()
+            steps += 1
+            remaining_steps -= 1
+            target_tokens += batch.target_tokens
+            final_loss = float(output.loss.detach().item())
+        if not remaining_steps:
+            break
+    if not steps:
+        raise RuntimeError("identity adapter training completed no optimizer steps")
+    manifest = bank.promote_candidate(output_dir)
+    base_after = bank.base_parameter_sha256()
+    if base_after != base_before:
+        raise RuntimeError("identity adapter training modified frozen base bytes")
+    return IdentityTrainingResult(
+        manifest=manifest,
+        base_sha256_before=base_before,
+        base_sha256_after=base_after,
+        optimizer_steps=steps,
+        target_tokens=target_tokens,
+        final_loss=final_loss,
     )
-    return export_path

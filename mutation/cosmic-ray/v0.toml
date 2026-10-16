@@ -2,7 +2,7 @@
 module-path = "aptivra/v0"
 timeout = 180.0
 excluded-modules = []
-test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/v0 tests/test_router_consolidation.py::test_standard_expert_path_rejects_historical_v0_model"
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/v0 tests/test_hf_packaging.py tests/test_router_consolidation.py::test_standard_expert_path_rejects_historical_v0_model"
 
 [cosmic-ray.distributor]
 name = "local"

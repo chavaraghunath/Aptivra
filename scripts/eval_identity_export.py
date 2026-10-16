@@ -8,9 +8,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from aptivra.eval.harness import ContinualEvalHarness
-from aptivra.inference.causal_lm import AptivraCausalLM
-from aptivra.inference.hub_config import model_config_from_export_dir
-from aptivra.tasks.identity import ModelIdentityTaskFamily
+from aptivra.v0.inference.causal_lm import AptivraCausalLM
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
+from aptivra.v0.tasks.identity import ModelIdentityTaskFamily
 
 
 def main() -> None:

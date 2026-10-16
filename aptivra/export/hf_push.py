@@ -21,7 +21,7 @@ from aptivra.export.model_card import (
     load_release_gate_settings,
     load_results_record,
 )
-from aptivra.inference.hub_config import model_config_from_export_dir
+from aptivra.v0.inference.hub_config import model_config_from_export_dir
 
 HUB_PUBLICATION_FILES = (*HUB_LAYOUT_FILES, "README.md")
 
