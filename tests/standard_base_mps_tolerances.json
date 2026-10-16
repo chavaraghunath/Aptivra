@@ -1,0 +1,158 @@
+{
+  "schema_version": "aptivra.standard_base_mps_tolerance.v2",
+  "measured_at": "2026-10-16",
+  "environment": {
+    "hardware": "Apple M4 Max",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "torch_version": "2.14.1",
+    "transformers_version": "5.18.0"
+  },
+  "derivation": {
+    "repeatability_rule": "max(1e-6 numerical-resolution guard, 2 * maximum MPS run-to-run absolute delta)",
+    "cross_device_rule": "max(1e-6 numerical-resolution guard, 2 * maximum measured CPU-vs-MPS absolute delta)",
+    "decision_exception_rule": "A CPU-vs-MPS token mismatch is permitted only when the corresponding CPU top-1/top-2 margin is at or below the fixture's cross-device margin tolerance. After an allowed generation divergence, later positions are not comparable.",
+    "cpu_reference": "CPU fp32",
+    "mps_runs_per_fixture": 5
+  },
+  "fixtures": {
+    "tiny": {
+      "description": "Stock tied LlamaForCausalLM with deterministic non-zero random weights",
+      "weight_seed": 20261016,
+      "weight_initializer": "normal(mean=0, std=config.initializer_range)",
+      "normalization_weights": 1.0,
+      "cases": [
+        {"case_id": "ordinary-short", "prompt": "short prompt", "target": "answer", "max_new_tokens": 6},
+        {"case_id": "ordinary-numeric", "prompt": "one two", "target": "target", "max_new_tokens": 6},
+        {"case_id": "narrow-margin", "prompt": "<unk> <unk> y <unk>", "target": "answer", "max_new_tokens": 6}
+      ],
+      "cpu_reference": [
+        {
+          "case_id": "ordinary-short",
+          "generated_token_ids": [4, 4, 4, 4, 4, 4],
+          "top1_token_id": 4,
+          "top1_top2_margin": 0.2597670257091522,
+          "generation_top1_top2_margins": [0.2597670257091522, 0.25724539160728455, 0.25569361448287964, 0.25466036796569824, 0.253927618265152, 0.2533842921257019],
+          "loss": 2.83695125579834
+        },
+        {
+          "case_id": "ordinary-numeric",
+          "generated_token_ids": [11, 11, 11, 11, 11, 11],
+          "top1_token_id": 11,
+          "top1_top2_margin": 0.27861854434013367,
+          "generation_top1_top2_margins": [0.27861854434013367, 0.2800504267215729, 0.2805235981941223, 0.28073614835739136, 0.28083479404449463, 0.28087419271469116],
+          "loss": 2.794607400894165
+        },
+        {
+          "case_id": "narrow-margin",
+          "generated_token_ids": [1, 1, 1, 1, 15, 15],
+          "top1_token_id": 1,
+          "top1_top2_margin": 0.0036088228225708008,
+          "generation_top1_top2_margins": [0.0036088228225708008, 0.0021181702613830566, 0.0010733604431152344, 0.0002851635217666626, 0.00031688809394836426, 0.1819663941860199],
+          "loss": 2.796408176422119
+        }
+      ],
+      "mps_observations": [
+        {"run": 1, "prompts": [
+          {"case_id": "ordinary-short", "generated_token_ids": [4, 4, 4, 4, 4, 4], "top1_token_id": 4, "top1_top2_margin": 0.2597670257091522, "loss": 2.8369510173797607},
+          {"case_id": "ordinary-numeric", "generated_token_ids": [11, 11, 11, 11, 11, 11], "top1_token_id": 11, "top1_top2_margin": 0.27861857414245605, "loss": 2.794607400894165},
+          {"case_id": "narrow-margin", "generated_token_ids": [1, 1, 1, 1, 15, 15], "top1_token_id": 1, "top1_top2_margin": 0.0036088377237319946, "loss": 2.79640793800354}
+        ]},
+        {"run": 2, "prompts": [
+          {"case_id": "ordinary-short", "generated_token_ids": [4, 4, 4, 4, 4, 4], "top1_token_id": 4, "top1_top2_margin": 0.2597670257091522, "loss": 2.8369510173797607},
+          {"case_id": "ordinary-numeric", "generated_token_ids": [11, 11, 11, 11, 11, 11], "top1_token_id": 11, "top1_top2_margin": 0.27861857414245605, "loss": 2.794607400894165},
+          {"case_id": "narrow-margin", "generated_token_ids": [1, 1, 1, 1, 15, 15], "top1_token_id": 1, "top1_top2_margin": 0.0036088377237319946, "loss": 2.79640793800354}
+        ]},
+        {"run": 3, "prompts": [
+          {"case_id": "ordinary-short", "generated_token_ids": [4, 4, 4, 4, 4, 4], "top1_token_id": 4, "top1_top2_margin": 0.2597670257091522, "loss": 2.8369510173797607},
+          {"case_id": "ordinary-numeric", "generated_token_ids": [11, 11, 11, 11, 11, 11], "top1_token_id": 11, "top1_top2_margin": 0.27861857414245605, "loss": 2.794607400894165},
+          {"case_id": "narrow-margin", "generated_token_ids": [1, 1, 1, 1, 15, 15], "top1_token_id": 1, "top1_top2_margin": 0.0036088377237319946, "loss": 2.79640793800354}
+        ]},
+        {"run": 4, "prompts": [
+          {"case_id": "ordinary-short", "generated_token_ids": [4, 4, 4, 4, 4, 4], "top1_token_id": 4, "top1_top2_margin": 0.2597670257091522, "loss": 2.8369510173797607},
+          {"case_id": "ordinary-numeric", "generated_token_ids": [11, 11, 11, 11, 11, 11], "top1_token_id": 11, "top1_top2_margin": 0.27861857414245605, "loss": 2.794607400894165},
+          {"case_id": "narrow-margin", "generated_token_ids": [1, 1, 1, 1, 15, 15], "top1_token_id": 1, "top1_top2_margin": 0.0036088377237319946, "loss": 2.79640793800354}
+        ]},
+        {"run": 5, "prompts": [
+          {"case_id": "ordinary-short", "generated_token_ids": [4, 4, 4, 4, 4, 4], "top1_token_id": 4, "top1_top2_margin": 0.2597670257091522, "loss": 2.8369510173797607},
+          {"case_id": "ordinary-numeric", "generated_token_ids": [11, 11, 11, 11, 11, 11], "top1_token_id": 11, "top1_top2_margin": 0.27861857414245605, "loss": 2.794607400894165},
+          {"case_id": "narrow-margin", "generated_token_ids": [1, 1, 1, 1, 15, 15], "top1_token_id": 1, "top1_top2_margin": 0.0036088377237319946, "loss": 2.79640793800354}
+        ]}
+      ],
+      "measured_floor": {
+        "mps_generated_token_mismatches": 0,
+        "mps_top1_token_mismatches": 0,
+        "mps_margin_max_absolute_delta": 0.0,
+        "mps_loss_max_absolute_delta": 0.0,
+        "cpu_mps_generated_token_mismatches": 0,
+        "cpu_mps_top1_token_mismatches": 0,
+        "cpu_mps_margin_max_absolute_delta": 5.960464477539063e-08,
+        "cpu_mps_loss_max_absolute_delta": 2.384185791015625e-07
+      },
+      "chosen_tolerance": {
+        "mps_repeat_margin_absolute": 1e-06,
+        "mps_repeat_loss_absolute": 1e-06,
+        "cpu_mps_margin_absolute": 1e-06,
+        "cpu_mps_loss_absolute": 1e-06,
+        "cpu_decision_margin_epsilon": 1e-06,
+        "narrow_prompt_margin_maximum": 0.005
+      }
+    },
+    "real_smollm2_360m": {
+      "description": "Cached HuggingFaceTB/SmolLM2-360M at f8027fd0eaeea54caa13c31d31b9fdc459c38b49",
+      "cases": [
+        {"case_id": "capital", "prompt": "The capital of France is", "target": "Paris.", "max_new_tokens": 4},
+        {"case_id": "arithmetic", "prompt": "2 + 2 =", "target": "4", "max_new_tokens": 4},
+        {"case_id": "greeting", "prompt": "Write a short greeting:", "target": "Hello!", "max_new_tokens": 4}
+      ],
+      "cpu_reference": [
+        {"case_id": "capital", "generated_token_ids": [7042, 30, 657, 314], "top1_token_id": 7042, "top1_top2_margin": 0.03433990478515625, "generation_top1_top2_margins": [0.03433990478515625, 0.12194252014160156, 0.03440666198730469, 1.9724845886230469], "loss": 4.528130054473877},
+        {"case_id": "arithmetic", "generated_token_ids": [216, 36, 198, 198], "top1_token_id": 216, "top1_top2_margin": 4.075679779052734, "generation_top1_top2_margins": [4.075679779052734, 0.09789276123046875, 0.247314453125, 2.057849884033203], "loss": 5.868231296539307},
+        {"case_id": "greeting", "generated_token_ids": [198, 198, 18, 19556], "top1_token_id": 198, "top1_top2_margin": 1.5531272888183594, "generation_top1_top2_margins": [1.5531272888183594, 3.2080917358398438, 0.7045669555664062, 0.6456947326660156], "loss": 5.2158942222595215}
+      ],
+      "mps_observations": [
+        {"run": 1, "prompts": [
+          {"case_id": "capital", "generated_token_ids": [7042, 30, 657, 314], "top1_token_id": 7042, "top1_top2_margin": 0.0343475341796875, "loss": 4.528169631958008},
+          {"case_id": "arithmetic", "generated_token_ids": [216, 36, 198, 198], "top1_token_id": 216, "top1_top2_margin": 4.07563591003418, "loss": 5.86828088760376},
+          {"case_id": "greeting", "generated_token_ids": [198, 198, 18, 19556], "top1_token_id": 198, "top1_top2_margin": 1.5531539916992188, "loss": 5.2159271240234375}
+        ]},
+        {"run": 2, "prompts": [
+          {"case_id": "capital", "generated_token_ids": [7042, 30, 657, 314], "top1_token_id": 7042, "top1_top2_margin": 0.0343475341796875, "loss": 4.528169631958008},
+          {"case_id": "arithmetic", "generated_token_ids": [216, 36, 198, 198], "top1_token_id": 216, "top1_top2_margin": 4.07563591003418, "loss": 5.86828088760376},
+          {"case_id": "greeting", "generated_token_ids": [198, 198, 18, 19556], "top1_token_id": 198, "top1_top2_margin": 1.5531539916992188, "loss": 5.2159271240234375}
+        ]},
+        {"run": 3, "prompts": [
+          {"case_id": "capital", "generated_token_ids": [7042, 30, 657, 314], "top1_token_id": 7042, "top1_top2_margin": 0.0343475341796875, "loss": 4.528169631958008},
+          {"case_id": "arithmetic", "generated_token_ids": [216, 36, 198, 198], "top1_token_id": 216, "top1_top2_margin": 4.07563591003418, "loss": 5.86828088760376},
+          {"case_id": "greeting", "generated_token_ids": [198, 198, 18, 19556], "top1_token_id": 198, "top1_top2_margin": 1.5531539916992188, "loss": 5.2159271240234375}
+        ]},
+        {"run": 4, "prompts": [
+          {"case_id": "capital", "generated_token_ids": [7042, 30, 657, 314], "top1_token_id": 7042, "top1_top2_margin": 0.0343475341796875, "loss": 4.528169631958008},
+          {"case_id": "arithmetic", "generated_token_ids": [216, 36, 198, 198], "top1_token_id": 216, "top1_top2_margin": 4.07563591003418, "loss": 5.86828088760376},
+          {"case_id": "greeting", "generated_token_ids": [198, 198, 18, 19556], "top1_token_id": 198, "top1_top2_margin": 1.5531539916992188, "loss": 5.2159271240234375}
+        ]},
+        {"run": 5, "prompts": [
+          {"case_id": "capital", "generated_token_ids": [7042, 30, 657, 314], "top1_token_id": 7042, "top1_top2_margin": 0.0343475341796875, "loss": 4.528169631958008},
+          {"case_id": "arithmetic", "generated_token_ids": [216, 36, 198, 198], "top1_token_id": 216, "top1_top2_margin": 4.07563591003418, "loss": 5.86828088760376},
+          {"case_id": "greeting", "generated_token_ids": [198, 198, 18, 19556], "top1_token_id": 198, "top1_top2_margin": 1.5531539916992188, "loss": 5.2159271240234375}
+        ]}
+      ],
+      "measured_floor": {
+        "mps_generated_token_mismatches": 0,
+        "mps_top1_token_mismatches": 0,
+        "mps_margin_max_absolute_delta": 0.0,
+        "mps_loss_max_absolute_delta": 0.0,
+        "cpu_mps_generated_token_mismatches": 0,
+        "cpu_mps_top1_token_mismatches": 0,
+        "cpu_mps_margin_max_absolute_delta": 4.38690185546875e-05,
+        "cpu_mps_loss_max_absolute_delta": 4.9591064453125e-05
+      },
+      "chosen_tolerance": {
+        "mps_repeat_margin_absolute": 1e-06,
+        "mps_repeat_loss_absolute": 1e-06,
+        "cpu_mps_margin_absolute": 8.7738037109375e-05,
+        "cpu_mps_loss_absolute": 9.918212890625e-05,
+        "cpu_decision_margin_epsilon": 8.7738037109375e-05
+      }
+    }
+  }
+}

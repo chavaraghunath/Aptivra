@@ -97,6 +97,10 @@ minversion = "8.0"
 addopts = "-ra -q --cov=aptivra --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+markers = [
+    "integration: exercises an optional cached real-model integration path",
+    "mps: requires or conditionally exercises Apple Metal acceleration",
+]
 
 [tool.mutmut]
 # Mutate the complete Python package. There are intentionally no source or operator exclusions.

@@ -1,6 +1,6 @@
 # ADR-0011: Aptivra Continual Learning on SmolLM2-360M
 
-- **Status:** Proposed
+- **Status:** Accepted — approved by repository owner raghunath on 2026-10-16
 - **Date:** 2026-10-16
 - **Deciders:** Repository owner, Aptivra lead research engineer
 - **Supersedes for the rebuilt model:** ADR-0002, ADR-0003, and the model-execution and
@@ -586,6 +586,32 @@ the output is labelled `v0-byte-level historical evaluation only`.
 | 6. Identity/chat slice | Versioned Aptivra template and evidence-generated identity adapter. | No unsupported claim; exact message/EOS termination; unsanitized evaluation; stale/missing evidence fails generation; raw task prompts unchanged. |
 | 7. Packaging slice | Local standard/PEFT staged repository and new model card. | Offline `trust_remote_code=False`; no Python/`auto_map`; exact allowlist/hashes; base license/attribution; prohibited filename/text/metadata fails before a fake network client is called. |
 | 8. Measured pilot and H3 | Real-MPS memory calibration, then separately pre-registered experiment. | Peak ≤ cap, no fallback, repeatability tolerance, all baselines/seeds/streams complete, release gate and H3 rule evaluated fail-closed. |
+
+### Lane 0–1 implementation notes
+
+The owner accepted this ADR on 2026-10-16. Lane 0 records the immutable
+`v0-byte-level` boundary and the new `smollm2-standard-base-v1` fingerprint schema in the
+versioned standard-base configuration; no v0 artifact or schema is converted in place. Lane 1
+remains feature-disabled by default pending the final local acceptance gate.
+
+The MPS tolerance uses a non-degenerate stock `LlamaForCausalLM`: tied embeddings, non-zero random
+weights from CPU generator seed `20261016`, and three inputs with distinct, non-tied top-1 tokens.
+The narrow case has a CPU prompt-decision margin of `0.0036088228`; its generation reaches a
+smaller `0.0002851635` margin while still producing six tokens rather than terminating immediately.
+The unchanged load/collate/forward/generate path was executed five times on the Apple M4 Max under
+torch `2.14.1` and transformers `5.18.0`. MPS generated IDs, top-1 IDs, margins, and losses were
+identical across all five runs. CPU fp32 produced the same decision IDs; the largest tiny-fixture
+CPU/MPS margin and loss deltas were `5.9604645e-8` and `2.3841858e-7`.
+
+The cached immutable SmolLM2-360M was measured on three short prompts by the same procedure. Its
+five MPS runs were identical, and every generated and prompt top-1 ID matched CPU fp32. Its largest
+CPU/MPS margin and loss deltas were `4.3869019e-5` and `4.9591064e-5`. Scalar tolerances are
+`max(1e-6, 2 × measured delta)`. A token mismatch is accepted only when the corresponding CPU
+top-1/top-2 margin is no greater than the fixture's doubled measured CPU/MPS margin delta (or the
+`1e-6` resolution guard when larger); this yields decision epsilons of `1e-6` for the tiny fixture
+and `8.7738037e-5` for SmolLM2. The complete per-run observations, CPU references, environment,
+floor, and tolerance derivation are frozen in
+[`tests/standard_base_mps_tolerances.json`](../../tests/standard_base_mps_tolerances.json).
 
 Only these existing assertions encode behavior this ADR deliberately replaces and qualify for the
 test-rewrite exception:

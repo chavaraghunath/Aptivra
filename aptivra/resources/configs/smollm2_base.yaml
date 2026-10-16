@@ -1,0 +1,73 @@
+standard_base:
+  schema_version: aptivra.standard_base_config.v1
+  feature:
+    enabled: false
+  schema_boundary:
+    legacy_identity: v0-byte-level
+    legacy_evaluation_schema: aptivra.model_card_eval.v4
+    legacy_provenance_schema: aptivra.conversion_provenance.v1
+    new_identity: smollm2-standard-base-v1
+    new_fingerprint_schema: aptivra.standard_base_fingerprint.v1
+  source:
+    repository: HuggingFaceTB/SmolLM2-360M
+    revision: f8027fd0eaeea54caa13c31d31b9fdc459c38b49
+    config:
+      path: config.json
+      bytes: 689
+      sha256: 34f7801487078de7e434e19162c497e5cc6ff397080e40e8586627cb68a5168a
+    weights:
+      path: model.safetensors
+      bytes: 723674912
+      sha256: 7aaff6661428bed033abba9522bec81938678642cca3181fe752b6ca9e1e540f
+    tokenizer_assets:
+      - path: merges.txt
+        bytes: 466391
+        sha256: 0b54e8aa4e53d5383e2e4bc635a56b43f9647f7b13832d5d9ecd8f82dac4f510
+      - path: special_tokens_map.json
+        bytes: 831
+        sha256: e786b595b9a23148bf1630df78d9037a048ea671e48bfd3549a1e3c233742bb3
+      - path: tokenizer.json
+        bytes: 2104556
+        sha256: 9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c
+      - path: tokenizer_config.json
+        bytes: 3658
+        sha256: 4bb9af56a342753d39374f4016a16574cab299fe088e896f425ce3c433f61424
+      - path: vocab.json
+        bytes: 800662
+        sha256: 82b84012e3add4d01d12ba14442026e49b8cbbaead1f79ecf3d919784f82dc79
+  architecture:
+    architectures:
+      - LlamaForCausalLM
+    model_type: llama
+    hidden_size: 960
+    intermediate_size: 2560
+    num_hidden_layers: 32
+    num_attention_heads: 15
+    num_key_value_heads: 5
+    vocab_size: 49152
+    max_position_embeddings: 8192
+    bos_token_id: 0
+    eos_token_id: 0
+    tie_word_embeddings: true
+    unique_parameter_count: 361821120
+    tensor_count: 290
+    tensor_dtype: BF16
+    separate_lm_head_weight: false
+  tokenizer:
+    tokenizer_class: GPT2Tokenizer
+    bos_token: <|endoftext|>
+    eos_token: <|endoftext|>
+    unk_token: <|endoftext|>
+    pad_token: null
+    chat_template: null
+    standalone_chat_template: false
+    required_added_tokens:
+      0: <|endoftext|>
+      1: <|im_start|>
+      2: <|im_end|>
+  runtime:
+    dtype: float32
+    max_prompt_tokens: 8064
+    max_sequence_tokens: 8192
+    max_new_tokens: 128
+    stop_policy: eos_only

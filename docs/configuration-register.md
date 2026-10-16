@@ -9,7 +9,8 @@ A row is added in the **same commit** that introduces the setting. Removing a
 row requires the setting to be genuinely gone, not merely undocumented.
 
 The installed defaults for versioned task-stream evaluation, task-stream audit,
-GitHub issues stream building, model-card release gating, and verifier containment
+GitHub issues stream building, model-card release gating, the ADR-0011 standard base,
+and verifier containment
 are packaged under `aptivra/resources/configs/`.
 Their same-named files under `configs/` are byte-matched, editable copies used
 by repository commands and explicit path overrides. Backbone and inference
@@ -28,6 +29,14 @@ presets remain repository-only and must be supplied explicitly outside a clone.
 | `task_stream.family_roles` | per task family | mapping of family ID to role | T2 diagnostic; all other v2 families skill | exactly every known family ID; values must exist in `task_stream.roles` | researcher | yes | `v2` selection | `configs/task_stream_v2.yaml` | no |
 | `task_stream.headline_roles` | global | list of role names | `skill` | non-empty subset of `task_stream.roles`; must select at least one configured family | researcher | yes | `v2` selection | `configs/task_stream_v2.yaml` | no |
 | `evaluation.max_new_tokens` | global | integer | `128` | 1–512 | researcher | yes | — | `configs/task_stream.yaml` | no |
+| `standard_base.feature.enabled` | global | boolean | `false` | `true`, `false`; loading fails before cache resolution while false | owner | yes | self | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `standard_base.source.repository` | global | Hugging Face repository ID | `HuggingFaceTB/SmolLM2-360M` | non-empty `owner/name`; bytes remain fingerprint-bound and changing the production base requires an ADR | owner | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `standard_base.source.revision` | global | immutable commit | `f8027fd0eaeea54caa13c31d31b9fdc459c38b49` | exactly 40 lowercase hexadecimal characters; cache path and hashes must agree | owner | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `standard_base.runtime.dtype` | environment | enum | `float32` | exactly `float32` under ADR-0011 | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `standard_base.runtime.max_prompt_tokens` | environment | integer | `8064` | positive, less than max sequence, and prompt plus generation limit must fit | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `standard_base.runtime.max_sequence_tokens` | environment | integer | `8192` | positive and no greater than the fingerprinted model context | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `standard_base.runtime.max_new_tokens` | environment | integer | `128` | positive; prompt plus generation limit must fit max sequence | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `standard_base.runtime.stop_policy` | global | enum | `eos_only` | exactly `eos_only` in lane 1; decoded terminators are lane 2 | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
 | `task_stream_audit.baseline_sample_size` | global | integer | `25` | 1 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
 | `task_stream_audit.streams[].policy.max_target_overlap_count` | per stream version | integer | `v1: 107`; `v2: 0` | 0 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |
 | `task_stream_audit.streams[].policy.max_structural_overlap_count` | per stream version | integer | `v1: 14`; `v2: 0` | 0 or greater (validated) | researcher | yes | — | `configs/task_stream_audit.yaml` | no |

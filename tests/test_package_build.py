@@ -19,6 +19,7 @@ from aptivra.eval.model_card_eval import (
 )
 from aptivra.eval.task_stream_audit import load_audit_plan
 from aptivra.export.model_card import load_release_gate_settings
+from aptivra.inference.standard_base import load_standard_base_settings
 from aptivra.resources import aptivra_resource, require_resource
 from aptivra.tasks.code_sandbox import load_sandbox_config
 from aptivra.tasks.github_issues import load_github_issue_builder_config
@@ -156,6 +157,7 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
         "aptivra/eval/model_card_heldout_v1.json",
         "aptivra/eval/model_card_heldout_text_v1.txt",
         "aptivra/resources/configs/model_card_release_gate.yaml",
+        "aptivra/resources/configs/smollm2_base.yaml",
         "aptivra/resources/configs/github_issues_stream.yaml",
         "aptivra/resources/configs/task_stream.yaml",
         "aptivra/resources/configs/task_stream_audit.yaml",
@@ -246,6 +248,7 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
         aptivra_resource("configs", "task_stream_audit.yaml")
     )
     github_issues = load_github_issue_builder_config()
+    standard_base = load_standard_base_settings()
     heldout = load_prompt_answers(DEFAULT_HELDOUT_PROMPTS_PATH)
 
     assert release_gate.minimum_heldout_prompt_samples == len(heldout)
@@ -254,6 +257,8 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
     assert v2_experiment.task_stream.version == "v2"
     assert len(audit_plan.streams) == 2
     assert github_issues.source == "gh_archive_clickhouse"
+    assert standard_base.feature.enabled is False
+    assert standard_base.source.revision == "f8027fd0eaeea54caa13c31d31b9fdc459c38b49"
     assert len(DEFAULT_HELDOUT_TEXT_PATH.read_bytes()) >= 8192
 
 
@@ -267,6 +272,10 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
         (
             "configs/model_card_release_gate.yaml",
             ("configs", "model_card_release_gate.yaml"),
+        ),
+        (
+            "configs/smollm2_base.yaml",
+            ("configs", "smollm2_base.yaml"),
         ),
         ("configs/task_stream.yaml", ("configs", "task_stream.yaml")),
         (
