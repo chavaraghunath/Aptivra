@@ -1,0 +1,8 @@
+[mutation-gate]
+minimum-kill-rate = 90.0
+
+# An INCOMPETENT result is counted as not killed unless it matches both the
+# operator and full recorded reason of an explicitly documented category.
+# Add categories only after recording the runner defect and why no executable
+# mutant exists. ABNORMAL, EXCEPTION, NO_TEST, SKIPPED, and null outcomes can
+# never be excluded; re-run those work items to a NORMAL outcome.

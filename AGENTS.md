@@ -212,6 +212,8 @@ for config in mutation/cosmic-ray/*.toml; do
   fi
   scripts/run-project-tool cosmic-ray exec "$config" "$session"
   scripts/run-project-tool cr-rate "$session" --estimate --fail-over 10
+  scripts/run-project-tool python -m aptivra.mutation_gate "$session" \
+    --config mutation/strict-gate.toml
 done
 ```
 
@@ -238,7 +240,7 @@ Line coverage proves code was *executed*; mutation testing proves it was *verifi
 
 - **Threshold: mutation score ≥ 90%, repo-wide.** A surviving mutant is an untested behavior, and untested behavior is an unverified claim.
 - **JS/TS: Stryker.** Configured in `stryker.config.json` with `thresholds.break = 90` — the run itself fails below threshold; no separate check to forget.
-- **Python: mutmut for local iteration, cosmic-ray in CI.** The CI gate is `cr-rate --estimate --fail-over 10` (a survival rate above 10% — i.e. a kill rate below 90% — fails the build).
+- **Python: mutmut for local iteration, Cosmic Ray in CI.** Every session runs both `cr-rate --estimate --fail-over 10` and the fail-closed `python -m aptivra.mutation_gate ... --config mutation/strict-gate.toml` validator. The strict gate counts a kill only for `NORMAL` worker outcome plus `KILLED` test outcome, rejects unfinished/abnormal/exceptional/null work, and enforces the configured minimum kill rate. An `INCOMPETENT` result is excluded only when its operator and complete recorded reason match a documented configured category; otherwise it remains in the denominator as not killed.
 - **CI scope is change-driven.** The `.github/workflows/mutation-testing.yml` workflow is `paths:`-filtered to run only when mutable source, tests, or mutation configs change. It must not be deleted, de-scoped, or bypassed.
 - **Do not weaken mutants away.** Excluding files, operators, or directories merely to pass the gate hides the defect the mutant exposed. Fix the tests *(Jidoka)*.
 

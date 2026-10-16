@@ -6,6 +6,7 @@ on:
       - "aptivra/**/*.py"
       - "tests/**/*.py"
       - "mutation/**/*.toml"
+      - "docs/mutation-testing.md"
       - "scripts/run-project-tool"
       - "pyproject.toml"
       - "uv.lock"
@@ -15,6 +16,7 @@ on:
       - "aptivra/**/*.py"
       - "tests/**/*.py"
       - "mutation/**/*.toml"
+      - "docs/mutation-testing.md"
       - "scripts/run-project-tool"
       - "pyproject.toml"
       - "uv.lock"
@@ -50,6 +52,7 @@ jobs:
           - learning
           - memory
           - model
+          - mutation_gate
           - planning
           - research
           - resources
@@ -84,3 +87,5 @@ jobs:
           fi
           scripts/run-project-tool cosmic-ray exec mutation/cosmic-ray/${{ matrix.session }}.toml "$SESSION_FILE"
           scripts/run-project-tool cr-rate "$SESSION_FILE" --estimate --fail-over 10
+          scripts/run-project-tool python -m aptivra.mutation_gate "$SESSION_FILE" \
+            --config mutation/strict-gate.toml

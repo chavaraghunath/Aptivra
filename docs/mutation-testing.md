@@ -3,7 +3,7 @@
 Aptivra uses mutmut for local, coverage-directed mutation runs and Cosmic Ray
 for the repository-wide CI gate. Neither runner excludes mutable source or
 mutation operators. A passing run must kill at least 90% of non-equivalent
-mutants.
+mutants, and every Cosmic Ray work item must have a valid completed outcome.
 
 ## Local mutmut run
 
@@ -107,7 +107,41 @@ session:
 3. initializes and executes every generated mutant with its configured
    timeout; and
 4. runs `cr-rate --estimate --fail-over 10`, which fails when the estimated
-   survivor rate exceeds 10%.
+   survivor rate exceeds 10%; and
+5. runs `python -m aptivra.mutation_gate` with `mutation/strict-gate.toml`.
+
+The strict gate exists because Cosmic Ray's `WorkResult.is_killed` classifies
+every result other than `SURVIVED` as killed. That means a lost HTTP worker,
+local runner exception, or result with no test outcome can inflate the score.
+The strict gate reads the session database directly and applies these rules:
+
+- only `worker_outcome=NORMAL` plus `test_outcome=KILLED` is a kill;
+- any unexecuted item, `ABNORMAL`, `EXCEPTION`, `NO_TEST`, `SKIPPED`, null, or
+  unknown outcome invalidates the session; re-running overwrites the job's
+  result, after which the gate evaluates the normal replacement outcome;
+- every `INCOMPETENT` item is reported with its job, operators, and complete
+  recorded reason;
+- an incompetent item is excluded from the denominator only if a table in
+  `mutation/strict-gate.toml` documents the category and both its operator and
+  full reason match; unmatched incompetent items count as not killed; and
+- the actual kill rate must meet `minimum-kill-rate` from that configuration.
+
+The command emits one JSON report containing the score, denominator, all
+outcome counts, incompetent reasons, and invalid work. Exit status `0` means
+valid and above threshold, `1` means a validly read session failed, and `2`
+means the session or policy could not be read or validated. The existing
+`cr-rate` command remains mandatory so its estimate is still visible; the
+strict gate is an additional validity and actual-score boundary.
+
+Run both checks after every Cosmic Ray execution:
+
+```bash
+scripts/run-project-tool cr-rate "$SESSION_FILE" --estimate --fail-over 10
+scripts/run-project-tool python -m aptivra.mutation_gate "$SESSION_FILE" \
+  --config mutation/strict-gate.toml
+```
 
 The individual files under `mutation/cosmic-ray/` define only focused test
 commands and execution timeouts. Their `excluded-modules` lists are empty.
+The `mutation_gate` session mutates the strict validator itself, so the
+validity boundary is held to the same behavioral standard it enforces.
