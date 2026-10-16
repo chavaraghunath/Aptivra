@@ -326,7 +326,9 @@ def _artifact_content_sha256(adapter_dir: Path) -> str:
 def _read_json_mapping(path: Path, description: str) -> dict[str, object]:
     try:
         raw: object = json.loads(path.read_text(encoding="utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+    except UnicodeDecodeError as error:
+        raise ValueError(f"{description} is not valid UTF-8 JSON") from error
+    except json.JSONDecodeError as error:
         raise ValueError(f"{description} is not valid UTF-8 JSON") from error
     if not isinstance(raw, dict):
         raise ValueError(f"{description} must contain a JSON object")

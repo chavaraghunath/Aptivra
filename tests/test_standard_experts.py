@@ -55,6 +55,24 @@ def _inputs() -> tuple[torch.Tensor, torch.Tensor]:
     return input_ids, torch.ones_like(input_ids)
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [b"\xff", b"not-json"],
+    ids=["invalid-utf8", "invalid-json"],
+)
+def test_json_artifact_reader_rejects_decode_failures_with_chained_cause(
+    tmp_path: Path,
+    payload: bytes,
+) -> None:
+    artifact = tmp_path / "invalid.json"
+    artifact.write_bytes(payload)
+
+    with pytest.raises(ValueError, match="artifact is not valid UTF-8 JSON") as caught:
+        standard_experts._read_json_mapping(artifact, "artifact")
+
+    assert isinstance(caught.value.__cause__, UnicodeDecodeError | json.JSONDecodeError)
+
+
 def _logits(bank: PeftExpertBank) -> torch.Tensor:
     input_ids, attention_mask = _inputs()
     with torch.no_grad():
