@@ -289,7 +289,7 @@ requires-dist = [
     { name = "gradio", marker = "extra == 'chat'", specifier = ">=4.44.0" },
     { name = "huggingface-hub", specifier = ">=0.23.0" },
     { name = "mlx", marker = "extra == 'mlx'", specifier = ">=0.18.0" },
-    { name = "mutmut", marker = "extra == 'dev'", specifier = ">=3.3.1" },
+    { name = "mutmut", marker = "extra == 'dev'", specifier = ">=3.8.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8.0" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.3.0" },

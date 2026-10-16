@@ -399,6 +399,40 @@ def test_verifier_child_gets_sanitized_environment_and_temporary_cwd(
     assert not os.path.exists(child_cwd)
 
 
+def test_verifier_child_loads_mutmut_runtime_only_during_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MUTANT_UNDER_TEST", raising=False)
+    assert code_sandbox._mutation_runtime() is None
+
+    monkeypatch.setenv("MUTANT_UNDER_TEST", "stats")
+    mutation_runtime = code_sandbox._mutation_runtime()
+    assert mutation_runtime is not None
+
+    real_popen = subprocess.Popen
+    captured: dict[str, object] = {}
+
+    def recording_popen(*args: Any, **kwargs: Any) -> subprocess.Popen[str]:
+        captured["args"] = args[0]
+        captured["env"] = kwargs.get("env")
+        return real_popen(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", recording_popen)
+    result = verify_snippet_source(
+        "res = 1",
+        "1",
+        config=SandboxConfig(timeout_seconds=1.0, memory_limit_mb=512),
+    )
+
+    assert result.passed is True
+    child_args = captured["args"]
+    assert isinstance(child_args, list)
+    assert child_args[-1] == mutation_runtime
+    child_env = captured["env"]
+    assert isinstance(child_env, dict)
+    assert "MUTANT_UNDER_TEST" not in child_env
+
+
 def test_sandbox_batch_preserves_tuple_expectations_and_item_failures() -> None:
     results = verify_source_batch(
         [

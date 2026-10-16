@@ -52,6 +52,7 @@ jobs:
           - model
           - planning
           - research
+          - resources
           - root
           - tasks
           - versioning

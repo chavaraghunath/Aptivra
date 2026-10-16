@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,15 @@ from aptivra.tasks.github_issues import load_github_issue_builder_config
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _HUB_TEMPLATE_DIR = _PROJECT_ROOT / "aptivra" / "resources" / "huggingface_hub"
+
+
+def _mutation_runtime_path() -> str | None:
+    if "MUTANT_UNDER_TEST" not in os.environ:
+        return None
+
+    import mutmut
+
+    return str(Path(mutmut.__file__).resolve().parent.parent)
 
 
 def _stage_hub_templates_for_static_analysis(destination: Path) -> Path:
@@ -174,41 +184,51 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
     outside_dir.mkdir()
     with zipfile.ZipFile(wheels[0]) as wheel:
         wheel.extractall(installed_dir)
+    import_arguments = [
+        sys.executable,
+        "-I",
+        "-c",
+        (
+            "import importlib, os, pkgutil, sys; "
+            "from pathlib import Path; "
+            "outside = Path.cwd(); "
+            "sys.path.insert(0, sys.argv[1]) if len(sys.argv) > 1 else None; "
+            "os.chdir(sys.argv[2]) if len(sys.argv) > 2 else None; "
+            "importlib.import_module('mutmut.configuration').config() "
+            "if len(sys.argv) > 2 else None; "
+            "os.chdir(outside) if len(sys.argv) > 2 else None; "
+            f"installed = Path({str(installed_dir)!r}).resolve(); "
+            "sys.path.insert(0, str(installed)); "
+            "import aptivra; "
+            "package_file = Path(aptivra.__file__).resolve(); "
+            "assert installed in package_file.parents, package_file; "
+            "modules = sorted(info.name for info in "
+            "pkgutil.walk_packages(aptivra.__path__, aptivra.__name__ + '.')); "
+            "[importlib.import_module(name) for name in modules]; "
+            "from aptivra.resources import aptivra_resource; "
+            "from aptivra.eval.config import load_experiment_settings; "
+            "from aptivra.eval.task_stream_audit import load_audit_plan; "
+            "from aptivra.tasks.github_issues import "
+            "load_github_issue_builder_config; "
+            "assert load_experiment_settings(aptivra_resource('configs', "
+            "'task_stream_v2.yaml')).task_stream.version == 'v2'; "
+            "assert len(load_audit_plan(aptivra_resource('configs', "
+            "'task_stream_audit.yaml')).streams) == 2; "
+            "assert load_github_issue_builder_config().source == "
+            "'gh_archive_clickhouse'; "
+            f"assert len(modules) + 1 == {len(expected_python)}; "
+            "print(f'imported {len(modules) + 1} wheel modules')"
+        ),
+    ]
+    mutation_runtime = _mutation_runtime_path()
+    if mutation_runtime is not None:
+        import_arguments.extend([mutation_runtime, str(_PROJECT_ROOT)])
     import_sweep = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            "-c",
-            (
-                "import importlib, pkgutil, sys; "
-                "from pathlib import Path; "
-                f"installed = Path({str(installed_dir)!r}).resolve(); "
-                "sys.path.insert(0, str(installed)); "
-                "import aptivra; "
-                "package_file = Path(aptivra.__file__).resolve(); "
-                "assert installed in package_file.parents, package_file; "
-                "modules = sorted(info.name for info in "
-                "pkgutil.walk_packages(aptivra.__path__, aptivra.__name__ + '.')); "
-                "[importlib.import_module(name) for name in modules]; "
-                "from aptivra.resources import aptivra_resource; "
-                "from aptivra.eval.config import load_experiment_settings; "
-                "from aptivra.eval.task_stream_audit import load_audit_plan; "
-                "from aptivra.tasks.github_issues import "
-                "load_github_issue_builder_config; "
-                "assert load_experiment_settings(aptivra_resource('configs', "
-                "'task_stream_v2.yaml')).task_stream.version == 'v2'; "
-                "assert len(load_audit_plan(aptivra_resource('configs', "
-                "'task_stream_audit.yaml')).streams) == 2; "
-                "assert load_github_issue_builder_config().source == "
-                "'gh_archive_clickhouse'; "
-                f"assert len(modules) + 1 == {len(expected_python)}; "
-                "print(f'imported {len(modules) + 1} wheel modules')"
-            ),
-        ],
+        import_arguments,
         check=False,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=300,
         cwd=outside_dir,
     )
     assert import_sweep.returncode == 0, import_sweep.stdout + import_sweep.stderr

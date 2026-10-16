@@ -8,6 +8,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+mutants/
 
 # Model weights and export staging (published to the Hub, never to git)
 scratch/

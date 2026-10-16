@@ -32,6 +32,19 @@ _MAX_SOURCE_BYTES = 256 * 1024
 _MAX_RESPONSE_BYTES = 64 * 1024
 
 
+def _mutation_runtime() -> str | None:
+    """Locate mutmut for isolated workers without changing normal sandbox paths."""
+    try:
+        os.environ["MUTANT_UNDER_TEST"]
+    except KeyError:
+        return None
+
+    import mutmut
+
+    package_root = Path(mutmut.__file__).resolve().parent
+    return str(package_root.parent)
+
+
 @dataclass(frozen=True)
 class SandboxConfig:
     """Validated limits for one generated-code verification item."""
@@ -281,6 +294,23 @@ def _run_worker(payload: dict[str, object], config: SandboxConfig) -> SandboxRes
         "PYTHONHASHSEED": "0",
         "PYTHONIOENCODING": "utf-8",
     }
+    mutation_runtime = _mutation_runtime()
+    worker_arguments = [
+        sys.executable,
+        "-I",
+        "-S",
+        "-c",
+        (
+            "import runpy,sys;sys.path.insert(0,sys.argv[1]);"
+            "sys.path.insert(0,sys.argv[3]) "
+            "if len(sys.argv)>3 else None;"
+            "runpy.run_path(sys.argv[2],run_name='__main__')"
+        ),
+        str(_WORKER_PATH.parent),
+        str(_WORKER_PATH),
+    ]
+    if mutation_runtime is not None:
+        worker_arguments.append(mutation_runtime)
     try:
         temporary_directory = tempfile.TemporaryDirectory(prefix="aptivra-verifier-")
     except OSError as error:
@@ -292,18 +322,7 @@ def _run_worker(payload: dict[str, object], config: SandboxConfig) -> SandboxRes
     with temporary_directory as working_dir:
         try:
             process = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-I",
-                    "-S",
-                    "-c",
-                    (
-                        "import runpy,sys;sys.path.insert(0,sys.argv[1]);"
-                        "runpy.run_path(sys.argv[2],run_name='__main__')"
-                    ),
-                    str(_WORKER_PATH.parent),
-                    str(_WORKER_PATH),
-                ],
+                worker_arguments,
                 cwd=working_dir,
                 env=safe_env,
                 stdin=subprocess.PIPE,

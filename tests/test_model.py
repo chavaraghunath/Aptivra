@@ -1,5 +1,6 @@
 """Unit tests for backbone transformer and attention interface."""
 
+import pytest
 import torch
 
 from aptivra.model.attention import StandardCausalAttention
@@ -12,6 +13,15 @@ def test_model_config_device() -> None:
     dev = config.get_device()
     assert dev.type == "cpu"
     assert config.param_count_estimate > 0
+
+
+def test_model_config_auto_uses_mps_during_normal_tests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
+
+    assert ModelConfig(device="auto").get_device().type == "mps"
 
 
 def test_standard_causal_attention_kv_cache() -> None:

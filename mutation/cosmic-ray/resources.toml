@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/resources"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_package_build.py -k 'packaged_defaults or repository_config_copy or missing_packaged_resource'"
+
+[cosmic-ray.distributor]
+name = "local"

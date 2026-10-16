@@ -34,7 +34,7 @@ chat = [
 ]
 dev = [
     "cosmic-ray>=8.4.3",
-    "mutmut>=3.3.1",
+    "mutmut>=3.8.0",
     "pre-commit>=4.3.0",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
@@ -101,11 +101,33 @@ python_files = ["test_*.py"]
 [tool.mutmut]
 # Mutate the complete Python package. There are intentionally no source or operator exclusions.
 source_paths = ["aptivra"]
-also_copy = ["configs", "deploy", "experiments", "scripts"]
+also_copy = ["configs", "deploy", "experiments", "scripts", "README.md", "LICENSE"]
 pytest_add_cli_args = ["-q", "-p", "no:cacheprovider", "--no-cov"]
 pytest_add_cli_args_test_selection = ["tests"]
 mutate_only_covered_lines = false
 timeout_multiplier = 3.0
 timeout_constant = 10.0
-# Torch/MPS state is not safe to inherit from mutmut's test-collection process.
-process_isolation = "forkserver"
+# Mutation pytest disables accelerator discovery before torch can initialize MPS.
+# Direct fork mode keeps statistics in the original process; forkserver would first
+# fork the statistics process, which is itself unsafe for macOS torch autograd.
+process_isolation = "fork"
+on_dependency_change = "rerun"
+# Content hashes make interrupted runs resumable even in an intentionally dirty
+# worktree; comparing only with HEAD would rediscover the same local edits forever.
+use_git_change_detection = false
+cache_invalidation_files = [
+    "tests/**/*.py",
+    "tests/**/*.json",
+    "tests/**/*.yaml",
+    "tests/**/*.yml",
+    "tests/**/*.txt",
+    "configs/**/*",
+    "deploy/**/*",
+    "experiments/**/*",
+    "scripts/**/*",
+    "aptivra/**/*.json",
+    "aptivra/**/*.txt",
+    "aptivra/**/*.template",
+    "README.md",
+    "LICENSE",
+]
