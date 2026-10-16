@@ -1,0 +1,414 @@
+{
+  "assumptions": {
+    "fp32_bytes_per_value": 4,
+    "full_finetune_state_bytes_per_parameter": 16,
+    "lora_rank": 16,
+    "measured_projection_caveat": "Replay and online-EWC values add explicit persistent state to ADR-0008's measured full-fine-tuning peak; they are arithmetic projections, not measurements of those comparators.",
+    "online_ewc_extra_bytes_per_parameter": 8,
+    "replay_cache_upper_bound_bytes": 32768000,
+    "resident_experts": 12,
+    "static_lower_bound_caveat": "Static bounds omit activations, allocator state, kernels, and temporary tensors. A bound below the cap does not establish runtime fit; a bound above the cap establishes non-fit."
+  },
+  "candidates": [
+    {
+      "adr_0008_measured_peak": {
+        "bytes": 8553185280,
+        "record": "experiments/base_model_candidates/amendment-4c/candidates/gpt2-238f51b7c7.json",
+        "record_sha256": "8c3c3847f8848d25f3d7446a66cf250f7f3c3070ff31fdbb1e2a62f3ea9d3e4b"
+      },
+      "aptivra_static": {
+        "one_trainable_expert_bytes": 535507968,
+        "one_trainable_expert_fits_cap": true,
+        "twelve_resident_one_trainable_bytes": 639316992,
+        "twelve_resident_one_trainable_fits_cap": true
+      },
+      "comparators": {
+        "every_comparator_fits": true,
+        "naive_sequential_full_finetune": {
+          "bytes": 8553185280,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak"
+        },
+        "online_ewc_full_finetune": {
+          "bytes": 9548703744,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_fisher_and_anchor"
+        },
+        "replay_full_finetune": {
+          "bytes": 8585953280,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_replay_cache_bound"
+        }
+      },
+      "config_sha256": "0daed7749b4f02b8f76240d5444551d7b08712dab4d0adb8239c56ba823bb7b4",
+      "lora": {
+        "formula": "rank * sum(weight_shape[0] + weight_shape[1])",
+        "parameters_per_expert": 2359296,
+        "rank": 16,
+        "target_count": 48,
+        "target_suffixes": [
+          "attn.c_attn",
+          "attn.c_proj",
+          "mlp.c_fc",
+          "mlp.c_proj"
+        ],
+        "target_weight_shape_counts": {
+          "3072x768": 12,
+          "768x2304": 12,
+          "768x3072": 12,
+          "768x768": 12
+        }
+      },
+      "model_type": "gpt2",
+      "name": "GPT-2",
+      "parameters": 124439808,
+      "repository": "openai-community/gpt2",
+      "revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+      "status": "computed"
+    },
+    {
+      "adr_0008_measured_peak": {
+        "bytes": 9186476032,
+        "record": "experiments/base_model_candidates/amendment-4c/candidates/smollm2-135m-55985fae75.json",
+        "record_sha256": "fed5458c0f512775f737f913203770c9a081acbecccd5d94ec3839aebdf724bb"
+      },
+      "aptivra_static": {
+        "one_trainable_expert_bytes": 616211712,
+        "one_trainable_expert_fits_cap": true,
+        "twelve_resident_one_trainable_bytes": 831128832,
+        "twelve_resident_one_trainable_fits_cap": true
+      },
+      "comparators": {
+        "every_comparator_fits": true,
+        "naive_sequential_full_finetune": {
+          "bytes": 9186476032,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak"
+        },
+        "online_ewc_full_finetune": {
+          "bytes": 10262596096,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_fisher_and_anchor"
+        },
+        "replay_full_finetune": {
+          "bytes": 9219244032,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_replay_cache_bound"
+        }
+      },
+      "config_sha256": "1d556eab73b69c7f11f64c557a2f9c6f440bd4c6b89bb2584a6b498c92603843",
+      "lora": {
+        "formula": "rank * sum(weight_shape[0] + weight_shape[1])",
+        "parameters_per_expert": 4884480,
+        "rank": 16,
+        "target_count": 210,
+        "target_suffixes": [
+          "self_attn.q_proj",
+          "self_attn.k_proj",
+          "self_attn.v_proj",
+          "self_attn.o_proj",
+          "mlp.gate_proj",
+          "mlp.up_proj",
+          "mlp.down_proj"
+        ],
+        "target_weight_shape_counts": {
+          "1536x576": 60,
+          "192x576": 60,
+          "576x1536": 30,
+          "576x576": 60
+        }
+      },
+      "model_type": "llama",
+      "name": "SmolLM2-135M",
+      "parameters": 134515008,
+      "repository": "HuggingFaceTB/SmolLM2-135M",
+      "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+      "status": "computed"
+    },
+    {
+      "adr_0008_measured_peak": {
+        "bytes": 8538832896,
+        "record": "experiments/base_model_candidates/amendment-4c/candidates/pythia-160m-c01af38c88.json",
+        "record_sha256": "02f4d8cc4024e2c5847a4bff009ec63262f8dc5e570eaa1aa7c922670b33797e"
+      },
+      "aptivra_static": {
+        "one_trainable_expert_bytes": 687040512,
+        "one_trainable_expert_fits_cap": true,
+        "twelve_resident_one_trainable_bytes": 790849536,
+        "twelve_resident_one_trainable_fits_cap": true
+      },
+      "comparators": {
+        "every_comparator_fits": true,
+        "naive_sequential_full_finetune": {
+          "bytes": 8538832896,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak"
+        },
+        "online_ewc_full_finetune": {
+          "bytes": 9837416448,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_fisher_and_anchor"
+        },
+        "replay_full_finetune": {
+          "bytes": 8571600896,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_replay_cache_bound"
+        }
+      },
+      "config_sha256": "76eb275107220e450d31258f792a2efcbee109d8b62ae0088260057dec06362f",
+      "lora": {
+        "formula": "rank * sum(weight_shape[0] + weight_shape[1])",
+        "parameters_per_expert": 2359296,
+        "rank": 16,
+        "target_count": 48,
+        "target_suffixes": [
+          "attention.query_key_value",
+          "attention.dense",
+          "mlp.dense_h_to_4h",
+          "mlp.dense_4h_to_h"
+        ],
+        "target_weight_shape_counts": {
+          "2304x768": 12,
+          "3072x768": 12,
+          "768x3072": 12,
+          "768x768": 12
+        }
+      },
+      "model_type": "gpt_neox",
+      "name": "Pythia-160M",
+      "parameters": 162322944,
+      "repository": "EleutherAI/pythia-160m",
+      "revision": "50f5173d932e8e61f858120bcb800b97af589f46",
+      "status": "computed"
+    },
+    {
+      "adr_0008_measured_peak": {
+        "bytes": 18273697792,
+        "record": "experiments/base_model_candidates/amendment-4c/candidates/smollm2-360m-3156f262fc.json",
+        "record_sha256": "ff271d62fa8f760078c1c493b82e93f9c3aa71b8c282bc2018961bb7fa4d64cd"
+      },
+      "aptivra_static": {
+        "one_trainable_expert_bytes": 1586220800,
+        "one_trainable_expert_fits_cap": true,
+        "twelve_resident_one_trainable_bytes": 1968295680,
+        "twelve_resident_one_trainable_fits_cap": true
+      },
+      "comparators": {
+        "every_comparator_fits": true,
+        "naive_sequential_full_finetune": {
+          "bytes": 18273697792,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak"
+        },
+        "online_ewc_full_finetune": {
+          "bytes": 21168266752,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_fisher_and_anchor"
+        },
+        "replay_full_finetune": {
+          "bytes": 18306465792,
+          "fits_cap": true,
+          "source": "measured_adr_0008_peak_plus_replay_cache_bound"
+        }
+      },
+      "config_sha256": "34f7801487078de7e434e19162c497e5cc6ff397080e40e8586627cb68a5168a",
+      "lora": {
+        "formula": "rank * sum(weight_shape[0] + weight_shape[1])",
+        "parameters_per_expert": 8683520,
+        "rank": 16,
+        "target_count": 224,
+        "target_suffixes": [
+          "self_attn.q_proj",
+          "self_attn.k_proj",
+          "self_attn.v_proj",
+          "self_attn.o_proj",
+          "mlp.gate_proj",
+          "mlp.up_proj",
+          "mlp.down_proj"
+        ],
+        "target_weight_shape_counts": {
+          "2560x960": 64,
+          "320x960": 64,
+          "960x2560": 32,
+          "960x960": 64
+        }
+      },
+      "model_type": "llama",
+      "name": "SmolLM2-360M",
+      "parameters": 361821120,
+      "repository": "HuggingFaceTB/SmolLM2-360M",
+      "revision": "f8027fd0eaeea54caa13c31d31b9fdc459c38b49",
+      "status": "computed"
+    },
+    {
+      "adr_0008_measured_peak": {
+        "bytes": 37610258432,
+        "record": "experiments/base_model_candidates/amendment-4f/candidates/qwen2.5-0.5b-02d40d8e2a.json",
+        "record_sha256": "607d8878650c42ca69d0dea1352ca41f3b2f6d155558a1d2c9b48e2e6d8eed34"
+      },
+      "aptivra_static": {
+        "one_trainable_expert_bytes": 2116902400,
+        "one_trainable_expert_fits_cap": true,
+        "twelve_resident_one_trainable_bytes": 2504023552,
+        "twelve_resident_one_trainable_fits_cap": true
+      },
+      "comparators": {
+        "every_comparator_fits": false,
+        "naive_sequential_full_finetune": {
+          "bytes": 37610258432,
+          "fits_cap": false,
+          "source": "measured_adr_0008_peak"
+        },
+        "online_ewc_full_finetune": {
+          "bytes": 41562520576,
+          "fits_cap": false,
+          "source": "measured_adr_0008_peak_plus_fisher_and_anchor"
+        },
+        "replay_full_finetune": {
+          "bytes": 37643026432,
+          "fits_cap": false,
+          "source": "measured_adr_0008_peak_plus_replay_cache_bound"
+        }
+      },
+      "config_sha256": "479dcf0c5286339e41ad3992cd08ae88a467c4187587936248e2b7c96283484b",
+      "lora": {
+        "formula": "rank * sum(weight_shape[0] + weight_shape[1])",
+        "parameters_per_expert": 8798208,
+        "rank": 16,
+        "target_count": 168,
+        "target_suffixes": [
+          "self_attn.q_proj",
+          "self_attn.k_proj",
+          "self_attn.v_proj",
+          "self_attn.o_proj",
+          "mlp.gate_proj",
+          "mlp.up_proj",
+          "mlp.down_proj"
+        ],
+        "target_weight_shape_counts": {
+          "128x896": 48,
+          "4864x896": 48,
+          "896x4864": 24,
+          "896x896": 48
+        }
+      },
+      "model_type": "qwen2",
+      "name": "Qwen2.5-0.5B",
+      "parameters": 494032768,
+      "repository": "Qwen/Qwen2.5-0.5B",
+      "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+      "status": "computed"
+    },
+    {
+      "adr_0008_measured_peak": null,
+      "aptivra_static": {
+        "one_trainable_expert_bytes": 6470293504,
+        "one_trainable_expert_fits_cap": true,
+        "twelve_resident_one_trainable_bytes": 7282743296,
+        "twelve_resident_one_trainable_fits_cap": true
+      },
+      "comparators": {
+        "every_comparator_fits": false,
+        "naive_sequential_full_finetune": {
+          "fits_cap": null,
+          "source": "not_computed",
+          "static_lower_bound_bytes": 24699428864
+        },
+        "online_ewc_full_finetune": {
+          "fits_cap": false,
+          "source": "cached_config_static_lower_bound",
+          "static_lower_bound_bytes": 37049143296
+        },
+        "replay_full_finetune": {
+          "fits_cap": null,
+          "source": "not_computed",
+          "static_lower_bound_bytes": 24732196864
+        }
+      },
+      "config_sha256": "0e8c8aa86468aba09c9d32157ff4bc2301c7e6c50e4398960425b2ea71e66f77",
+      "lora": {
+        "formula": "rank * sum(weight_shape[0] + weight_shape[1])",
+        "parameters_per_expert": 18464768,
+        "rank": 16,
+        "target_count": 196,
+        "target_suffixes": [
+          "self_attn.q_proj",
+          "self_attn.k_proj",
+          "self_attn.v_proj",
+          "self_attn.o_proj",
+          "mlp.gate_proj",
+          "mlp.up_proj",
+          "mlp.down_proj"
+        ],
+        "target_weight_shape_counts": {
+          "1536x1536": 56,
+          "1536x8960": 28,
+          "256x1536": 56,
+          "8960x1536": 56
+        }
+      },
+      "model_type": "qwen2",
+      "name": "Qwen2.5-1.5B",
+      "parameters": 1543714304,
+      "repository": "Qwen/Qwen2.5-1.5B",
+      "revision": "8faed761d45a263340a0528343f099c05c9a4323",
+      "status": "computed"
+    },
+    {
+      "adr_0008_measured_peak": null,
+      "aptivra_static": {
+        "one_trainable_expert_bytes": 7134912512,
+        "one_trainable_expert_fits_cap": true,
+        "twelve_resident_one_trainable_bytes": 7930781696,
+        "twelve_resident_one_trainable_fits_cap": true
+      },
+      "comparators": {
+        "every_comparator_fits": false,
+        "naive_sequential_full_finetune": {
+          "fits_cap": null,
+          "source": "not_computed",
+          "static_lower_bound_bytes": 27382022144
+        },
+        "online_ewc_full_finetune": {
+          "fits_cap": false,
+          "source": "cached_config_static_lower_bound",
+          "static_lower_bound_bytes": 41073033216
+        },
+        "replay_full_finetune": {
+          "fits_cap": null,
+          "source": "not_computed",
+          "static_lower_bound_bytes": 27414790144
+        }
+      },
+      "config_sha256": "33397f6af8090f7290f27ce6fb1cd23a95fd0915a5c648dfd10b6002aaf7fc48",
+      "lora": {
+        "formula": "rank * sum(weight_shape[0] + weight_shape[1])",
+        "parameters_per_expert": 18087936,
+        "rank": 16,
+        "target_count": 168,
+        "target_suffixes": [
+          "self_attn.q_proj",
+          "self_attn.k_proj",
+          "self_attn.v_proj",
+          "self_attn.o_proj",
+          "mlp.gate_proj",
+          "mlp.up_proj",
+          "mlp.down_proj"
+        ],
+        "target_weight_shape_counts": {
+          "2048x2048": 96,
+          "2048x8192": 24,
+          "8192x2048": 48
+        }
+      },
+      "model_type": "llama",
+      "name": "SmolLM2-1.7B",
+      "parameters": 1711376384,
+      "repository": "HuggingFaceTB/SmolLM2-1.7B",
+      "revision": "effd688a12921b4cc83e3312b6feb579f70f9c71",
+      "status": "computed"
+    }
+  ],
+  "cap_bytes": 28991029248,
+  "schema_version": "adr-0011-candidate-matrix-arithmetic-v1"
+}
