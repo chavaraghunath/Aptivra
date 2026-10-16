@@ -72,8 +72,11 @@ source .venv/bin/activate
 python -m pip install .
 ```
 
-Transformers and GGUF support are core runtime dependencies. The legacy `.[hf]` extra remains an
-empty compatibility alias. For development, install the editable development environment instead:
+Transformers, GGUF, and PEFT support are core runtime dependencies. PEFT is exactly pinned to
+`0.21.2`; its Apache-2.0-compatible Apache license and its newly locked Accelerate (Apache) and
+psutil (BSD-3-Clause) transitives were reviewed for ADR-0011 lane 4. The legacy `.[hf]` extra
+remains an empty compatibility alias. For development, install the editable development
+environment instead:
 
 ```bash
 python -m venv .venv
@@ -82,12 +85,12 @@ pip install -e ".[dev]"
 ```
 
 The wheel embeds the versioned task-stream, task-stream audit, GitHub issues stream builder,
-model-card release-gate, and verifier-sandbox defaults, the versioned model-card evaluation
-corpora, and the self-contained Hub remote-code templates. Package APIs resolve these files with
-`importlib.resources`, so their defaults work outside a source clone. The same-named YAML files
-under `configs/` are byte-matched editable copies for repository commands and explicit overrides.
-Backbone and inference YAML files are repository-only experiment/operator presets; callers using
-them must pass their paths explicitly.
+model-card release-gate, standard-base, baseline, PEFT-expert, and verifier-sandbox defaults, the
+versioned model-card evaluation corpora, and the self-contained Hub remote-code templates. Package
+APIs resolve these files with `importlib.resources`, so their defaults work outside a source clone.
+The same-named YAML files under `configs/` are byte-matched editable copies for repository commands
+and explicit overrides. Backbone and inference YAML files are repository-only experiment/operator
+presets; callers using them must pass their paths explicitly.
 
 Use the locked project environment. The launcher also resolves the primary checkout's `.venv`
 when called from a linked Git worktree, so activation is not required:

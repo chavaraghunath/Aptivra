@@ -19,6 +19,7 @@ from aptivra.eval.model_card_eval import (
     load_prompt_answers,
 )
 from aptivra.eval.task_stream_audit import load_audit_plan
+from aptivra.experts.standard import load_standard_expert_settings
 from aptivra.export.model_card import load_release_gate_settings
 from aptivra.inference.standard_base import load_standard_base_settings
 from aptivra.resources import aptivra_resource, require_resource
@@ -160,6 +161,7 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
         "aptivra/resources/configs/model_card_release_gate.yaml",
         "aptivra/resources/configs/smollm2_base.yaml",
         "aptivra/resources/configs/smollm2_baselines.yaml",
+        "aptivra/resources/configs/smollm2_experts.yaml",
         "aptivra/resources/configs/github_issues_stream.yaml",
         "aptivra/resources/configs/task_stream.yaml",
         "aptivra/resources/configs/task_stream_audit.yaml",
@@ -176,6 +178,7 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
     assert "License-Expression: Apache-2.0" in metadata
     assert "License-File: LICENSE" in metadata
     assert "Requires-Python: >=3.11" in metadata
+    assert "Requires-Dist: peft==0.21.2" in metadata
     assert "Project-URL: Repository, https://github.com/chavaraghunath/Aptivra" in metadata
     assert (
         "Project-URL: Model checkpoint, "
@@ -213,6 +216,8 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
             "from aptivra.eval.config import load_experiment_settings; "
             "from aptivra.baselines.standard import "
             "load_standard_baseline_settings; "
+            "from aptivra.experts.standard import "
+            "load_standard_expert_settings; "
             "from aptivra.eval.task_stream_audit import load_audit_plan; "
             "from aptivra.tasks.github_issues import "
             "load_github_issue_builder_config; "
@@ -223,6 +228,7 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
             "assert load_github_issue_builder_config().source == "
             "'gh_archive_clickhouse'; "
             "assert not load_standard_baseline_settings().feature.enabled; "
+            "assert not load_standard_expert_settings().feature.enabled; "
             f"assert len(modules) + 1 == {len(expected_python)}; "
             "print(f'imported {len(modules) + 1} wheel modules')"
         ),
@@ -255,6 +261,7 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
     github_issues = load_github_issue_builder_config()
     standard_base = load_standard_base_settings()
     standard_baselines = load_standard_baseline_settings()
+    standard_experts = load_standard_expert_settings()
     heldout = load_prompt_answers(DEFAULT_HELDOUT_PROMPTS_PATH)
 
     assert release_gate.minimum_heldout_prompt_samples == len(heldout)
@@ -265,6 +272,7 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
     assert github_issues.source == "gh_archive_clickhouse"
     assert standard_base.feature.enabled is False
     assert standard_baselines.feature.enabled is False
+    assert standard_experts.feature.enabled is False
     assert len(standard_baselines.seeds) == 5
     assert standard_base.source.revision == "f8027fd0eaeea54caa13c31d31b9fdc459c38b49"
     assert len(DEFAULT_HELDOUT_TEXT_PATH.read_bytes()) >= 8192
@@ -288,6 +296,10 @@ def test_packaged_defaults_load_without_repository_relative_paths() -> None:
         (
             "configs/smollm2_baselines.yaml",
             ("configs", "smollm2_baselines.yaml"),
+        ),
+        (
+            "configs/smollm2_experts.yaml",
+            ("configs", "smollm2_experts.yaml"),
         ),
         ("configs/task_stream.yaml", ("configs", "task_stream.yaml")),
         (

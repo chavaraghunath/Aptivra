@@ -410,7 +410,11 @@ def test_manual_lora_wraps_all_targets_freezes_base_and_uses_no_peft(
             original_name = name.replace(".base_layer", "")
             assert torch.equal(parameter, original[original_name])
             assert parameter.requires_grad is False
-    assert "peft" not in Path("pyproject.toml").read_text(encoding="utf-8").lower()
+    assert type(base.model).__module__.startswith("transformers.models.llama")
+    assert all(
+        type(layer).__module__ == "aptivra.baselines.standard"
+        for layer in trainer.wrapped_layers
+    )
 
 
 @pytest.mark.parametrize(

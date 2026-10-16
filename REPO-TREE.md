@@ -183,7 +183,7 @@
 - `aptivra/` — Core Python package containing models, memory systems, experts, task stream, and eval harness.
   - `aptivra/model/` — Decoder-only backbone transformer architecture, RMSNorm, SwiGLU, and isolated AttentionInterface.
   - `aptivra/baselines/` — Continual learning baseline trainers (Naive Sequential, Replay-Only, EWC-Only, Joint Multitask).
-  - `aptivra/experts/` — Soft Top-2 routing, expert modules, and dynamic expert spawning.
+  - `aptivra/experts/` — Historical soft Top-2 modules plus the disabled ADR-0011 standard PEFT expert bank, content-addressed promotion, and fail-closed reload boundary.
   - `aptivra/gate/` — Promotion criteria and statistical decision helpers for continual-learning updates.
   - `aptivra/tasks/` — V1/v2 sequential task family generators, normalized-AST fingerprinting, subprocess-isolated mechanical verifiers, and versioned task stream manager.
   - `aptivra/eval/` — Continual learning evaluation harness, role-aware headline aggregates, deterministic task-stream audit gates, accuracy matrix logger, model-card measurement records, pretrained base-model comparison and selection logic, local/GCS artifact stores, the resumable Vertex worker/spec renderer, and the versioned held-out prompt set.

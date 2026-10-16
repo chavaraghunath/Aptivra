@@ -10,7 +10,7 @@ row requires the setting to be genuinely gone, not merely undocumented.
 
 The installed defaults for versioned task-stream evaluation, task-stream audit,
 GitHub issues stream building, model-card release gating, the ADR-0011 standard base,
-the ADR-0011 lane-3 baseline matrix, and verifier containment
+the ADR-0011 lane-3 baseline matrix, the ADR-0011 lane-4 PEFT expert, and verifier containment
 are packaged under `aptivra/resources/configs/`.
 Their same-named files under `configs/` are byte-matched, editable copies used
 by repository commands and explicit path overrides. Backbone and inference
@@ -38,6 +38,15 @@ presets remain repository-only and must be supplied explicitly outside a clone.
 | `standard_base.runtime.max_new_tokens` | environment | integer | `128` | positive; prompt plus generation limit must fit max sequence | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
 | `standard_base.runtime.stop_policy` | global | enum | `eos_only` | exactly `eos_only`; preserves the explicit raw/EOS-only call for diagnostics | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
 | `standard_base.runtime.task_stop_policy` | global | enum | `decoded_text` | exactly `decoded_text`; task-aware generation scans decoded UTF-8 across token boundaries and removes the matched terminator | researcher | yes | `standard_base.feature.enabled` | `configs/smollm2_base.yaml`; `load_standard_base_settings` | no |
+| `smollm2_experts.feature.enabled` | global | boolean | `false` | `true`, `false`; attachment and loading reject before PEFT use while false | owner | yes | self | `configs/smollm2_experts.yaml`; `load_standard_expert_settings` | no |
+| `smollm2_experts.peft.version` | global | exact version | `0.21.2` | exactly the reviewed lock-compatible PEFT release | owner | no | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `load_standard_expert_settings` | yes |
+| `smollm2_experts.peft.license` | global | SPDX license | `Apache-2.0` | exactly the reviewed Apache-2.0-compatible license | owner | no | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `load_standard_expert_settings` | yes |
+| `smollm2_experts.lora.rank` | experiment | integer | `16` | exactly 16 for the selected lane-4 expert; rank changes are ADR-required ablations | researcher | yes | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `PeftExpertBank` | no |
+| `smollm2_experts.lora.alpha` | experiment | integer | `16` | positive integer | researcher | yes | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `PeftExpertBank` | no |
+| `smollm2_experts.lora.dropout` | experiment | float | `0.0` | exactly 0.0 for deterministic lane-4 comparison | researcher | yes | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `PeftExpertBank` | no |
+| `smollm2_experts.lora.bias` | experiment | enum | `none` | exactly `none`; all selected projections are bias-free | researcher | yes | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `PeftExpertBank` | no |
+| `smollm2_experts.lora.target_modules` | experiment | enum list | all seven Llama projection families | exactly `q/k/v/o/gate/up/down_proj` in registered order | researcher | yes | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `PeftExpertBank` | no |
+| `smollm2_experts.lora.max_adapters` | environment | integer | `12` | positive; adding beyond the bound fails before attachment | researcher | yes | `smollm2_experts.feature.enabled` | `configs/smollm2_experts.yaml`; `PeftExpertBank` | no |
 | `smollm2_evaluation.feature.enabled` | global | boolean | `false` | `true`, `false`; v5 evaluation remains disabled until final local acceptance | owner | yes | self | `configs/smollm2_evaluation.yaml`; `load_standard_evaluation_settings` | no |
 | `smollm2_evaluation.bpb.protocol_id` | global | enum | `aptivra.subword_bpb.v1` | exactly the registered aggregate subword protocol | researcher | yes | `smollm2_evaluation.feature.enabled` | `configs/smollm2_evaluation.yaml`; `load_standard_evaluation_settings` | no |
 | `smollm2_evaluation.bpb.boundary_policy` | global | enum | `encode_prompt_and_scored_text_separately` | exactly this policy; prevents BPE merges across the scoring boundary | researcher | yes | `smollm2_evaluation.feature.enabled` | `configs/smollm2_evaluation.yaml`; `load_standard_evaluation_settings` | no |

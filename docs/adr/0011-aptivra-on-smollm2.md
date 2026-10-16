@@ -662,6 +662,38 @@ require identity/chat, v2 stream, replay, and chronological-issue inputs, valida
 hash first, and reject containment in either direction. Missing sources, stale hashes, or overlaps
 fail closed.
 
+### Lane 4 implementation notes
+
+The reviewed dependency is PEFT `0.21.2`, pinned exactly. It was selected because its declared
+runtime bounds include Torch 2.14.1, Transformers 5.18.0, Hugging Face Hub 1.33.0, and
+Safetensors 0.8.0 already locked by this repository, and an offline import plus tiny-Llama
+adapter save/load/reload test passes against that exact closure. Installed package metadata records
+PEFT and its newly locked Accelerate 1.15.0 transitive as Apache licensed, and psutil 7.2.2 as
+BSD-3-Clause; those terms are compatible with Aptivra's Apache-2.0 distribution. No other direct
+runtime dependency was added.
+
+The standard expert path remains disabled by default and is additive to the lane-3 manual-LoRA
+oracle comparator. A promoted artifact contains the standard PEFT adapter directory plus an
+`aptivra.peft_expert_manifest.v1` sidecar binding the base repository, revision, config and weight
+hashes, rank, target set, parameter count, PEFT identity, and the exact adapter config/weight bytes.
+Every field and content hash is verified before standard PEFT loading. Promotion stages the bytes
+on the destination filesystem, reuses an identical existing artifact, refuses replacement of a
+different artifact, and only then freezes the promoted adapter.
+
+A fresh Cosmic Ray run generated 630 mutants for `aptivra/experts/standard.py`: 539 were killed,
+90 survived, and one `ExceptionReplacer` mutant was incompetent because Cosmic Ray raised an
+`AttributeError` while applying it, before a mutated program or test result existed. The raw kill
+rate across all 629 executable mutants is therefore 85.69% (539/629); counting the incompetent
+operator failure conservatively in all 630 generated entries gives 85.56%. Of the 90 survivors,
+55 are equivalent binary-operator substitutions in the four PEP 604 annotations: 22 for
+`Path | str | Traversable`, and 11 each for `_LlamaArchitecture | ArchitectureFingerprint`,
+`Path | str` on promotion, and `Path | str` on reload. `from __future__ import annotations`
+postpones these annotations, and this module never evaluates them at runtime, so replacing their
+`|` tokens cannot change execution. Removing only those 55 equivalent mutants leaves 574
+executable, non-equivalent mutants and an equivalence-adjusted kill rate of 93.90% (539/574),
+which passes the 90% Lane 4 threshold. No source structure, lint suppression, mutation operator,
+or mutation configuration was changed to alter the generated universe.
+
 ## Consequences
 
 ### Positive
