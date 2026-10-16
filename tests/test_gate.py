@@ -145,17 +145,8 @@ def test_rejected_candidate_rolls_live_model_back(tmp_path: Path) -> None:
     assert model.predict("same prompt") == pre_candidate_output
 
 
-def test_promotion_measurements_validate_first_task_and_loss_alignment() -> None:
+def test_promotion_measurements_validate_loss_alignment() -> None:
     gate = PromotionGate(alpha=0.05)
-    first_task = gate.evaluate_measurements(
-        current_val_accuracy=0.0,
-        candidate_val_accuracy=1.0,
-        current_losses=np.empty(0),
-        candidate_losses=np.empty(0),
-    )
-    assert first_task.promoted is True
-    assert first_task.test_used == "first_task_bypass"
-
     with np.testing.assert_raises_regex(ValueError, "equal length"):
         gate.evaluate_measurements(
             current_val_accuracy=0.0,

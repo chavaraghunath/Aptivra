@@ -1,85 +1,269 @@
-"""Module-Level Gating Router with Soft Top-K Routing and Load-Balancing Loss."""
+"""Sequence-level learned top-1 routing for the ADR-0011 standard-base path."""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Literal, Protocol, cast
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as functional
 
 
-class GatingRouter(nn.Module):
-    """Module-level soft top-k router with dynamic parameter expansion and load balancing."""
+class _EmbeddingModel(Protocol):
+    def get_input_embeddings(self) -> nn.Module:
+        """Return the frozen base token-embedding module."""
 
-    def __init__(self, d_model: int, initial_num_experts: int = 1, top_k: int = 2) -> None:
+
+class _ExpertActivator(Protocol):
+    def activate(self, adapter_name: str) -> None:
+        """Activate one named adapter."""
+
+    def deactivate(self) -> None:
+        """Deactivate adapters and expose the frozen-base path."""
+
+
+@dataclass(frozen=True)
+class RouteDecision:
+    """One observable sequence-level routing decision."""
+
+    route_status: Literal["routed", "unrouted"]
+    expert_id: str | None
+    confidence: float
+    entropy: float
+    probabilities: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class RouterFitResult:
+    """Bounded candidate-row fitting evidence."""
+
+    loss: float
+    optimizer_steps: int
+    current_examples: int
+    replay_examples: int
+
+
+def masked_mean_frozen_embeddings(
+    model: _EmbeddingModel,
+    input_ids: torch.Tensor,
+    attention_mask: torch.Tensor,
+) -> torch.Tensor:
+    """Mean-pool real frozen-base token embeddings using the supplied attention mask."""
+    if input_ids.ndim != 2 or attention_mask.shape != input_ids.shape:
+        raise ValueError("router inputs and attention mask must have equal rank-2 shapes")
+    if input_ids.dtype != torch.long:
+        raise TypeError("router input IDs must use torch.long")
+    if attention_mask.dtype == torch.bool:
+        mask = attention_mask
+    elif attention_mask.dtype in (torch.int32, torch.int64, torch.long):
+        if not bool(((attention_mask == 0) | (attention_mask == 1)).all().item()):
+            raise ValueError("router attention mask must contain only zero or one")
+        mask = attention_mask.bool()
+    else:
+        raise TypeError("router attention mask must be boolean or integer")
+    counts = mask.sum(dim=1)
+    if bool((counts == 0).any().item()):
+        raise ValueError("router cannot pool an all-padding sequence")
+    embedding = model.get_input_embeddings()
+    if any(parameter.requires_grad for parameter in embedding.parameters()):
+        raise RuntimeError("router features require a frozen base embedding")
+    with torch.no_grad():
+        token_features = cast(torch.Tensor, embedding(input_ids))
+        weights = mask.to(dtype=token_features.dtype).unsqueeze(-1)
+        pooled = (token_features * weights).sum(dim=1) / counts.to(
+            dtype=token_features.dtype
+        ).unsqueeze(-1)
+    return pooled.detach()
+
+
+class SequenceTop1Router(nn.Module):
+    """Linear 960→E router with stable expert IDs and independently frozen rows."""
+
+    def __init__(self, hidden_size: int, confidence_threshold: float) -> None:
         super().__init__()
-        self.d_model = d_model
-        self.num_experts = initial_num_experts
-        self.top_k = top_k
+        if isinstance(hidden_size, bool) or hidden_size <= 0:
+            raise ValueError("router hidden size must be a positive integer")
+        if not 0.0 < confidence_threshold <= 1.0:
+            raise ValueError("router confidence threshold must be in (0, 1]")
+        self.hidden_size = hidden_size
+        self.confidence_threshold = confidence_threshold
+        self.weights = nn.ParameterList()
+        self.biases = nn.ParameterList()
+        self.expert_ids: list[str] = []
+        self.task_families: list[str] = []
+        self.frozen_rows: list[bool] = []
 
-        # Router weight matrix of shape (num_experts, d_model)
-        self.router_weights = nn.ParameterList(
-            [nn.Parameter(torch.randn(d_model) * 0.02) for _ in range(initial_num_experts)]
-        )
-        self.frozen_mask = [False] * initial_num_experts
+    @property
+    def num_experts(self) -> int:
+        return len(self.expert_ids)
 
-    def spawn_expert_row(self) -> int:
-        """Appends a new trainable router parameter row for a newly spawned expert."""
-        new_row = nn.Parameter(torch.randn(self.d_model) * 0.02)
-        self.router_weights.append(new_row)
-        self.frozen_mask.append(False)
-        self.num_experts += 1
+    def add_candidate(self, expert_id: str, task_family: str) -> int:
+        """Append one deterministic zero-initialized trainable row without touching old rows."""
+        if not expert_id or not task_family:
+            raise ValueError("expert ID and task-family provenance must be non-empty")
+        if expert_id in self.expert_ids:
+            raise ValueError(f"router expert ID '{expert_id}' already exists")
+        for row, bias in zip(self.weights, self.biases, strict=True):
+            row.requires_grad_(False)
+            bias.requires_grad_(False)
+        self.weights.append(nn.Parameter(torch.zeros(self.hidden_size)))
+        self.biases.append(nn.Parameter(torch.zeros(())))
+        self.expert_ids.append(expert_id)
+        self.task_families.append(task_family)
+        self.frozen_rows.append(False)
         return self.num_experts - 1
 
-    def freeze_expert_row(self, expert_idx: int) -> None:
-        """Freezes the routing parameter row for a mature expert."""
-        if 0 <= expert_idx < self.num_experts:
-            self.router_weights[expert_idx].requires_grad = False
-            self.frozen_mask[expert_idx] = True
+    def promote_candidate(self) -> None:
+        """Freeze the final candidate row after promotion."""
+        if not self.expert_ids or self.frozen_rows[-1]:
+            raise RuntimeError("router has no trainable candidate row")
+        self.weights[-1].requires_grad_(False)
+        self.biases[-1].requires_grad_(False)
+        self.frozen_rows[-1] = True
 
-    def compute_load_balancing_loss(
-        self, full_probs: torch.Tensor, top_k_indices: torch.Tensor
-    ) -> torch.Tensor:
-        """Computes auxiliary load balancing loss encouraging uniform expert utilization."""
-        # full_probs shape: (batch_size * seq_len, num_experts)
-        flat_probs = full_probs.view(-1, self.num_experts)
-        flat_indices = top_k_indices.view(-1, top_k_indices.shape[-1])
+    def candidate_parameters(self) -> tuple[nn.Parameter, nn.Parameter]:
+        """Return only the final unfrozen row and bias."""
+        if not self.expert_ids or self.frozen_rows[-1]:
+            raise RuntimeError("router has no trainable candidate row")
+        return self.weights[-1], self.biases[-1]
 
-        # Calculate fraction of tokens routed to each expert f_i
-        mask = torch.zeros_like(flat_probs, dtype=torch.float32)
-        mask.scatter_(1, flat_indices, 1.0)
-        f_i = mask.mean(dim=0)  # Fraction of tokens per expert
+    def logits(self, features: torch.Tensor) -> torch.Tensor:
+        """Score rank-2 frozen-base sequence features."""
+        if self.num_experts == 0:
+            raise RuntimeError("router has no expert rows")
+        if features.ndim != 2 or features.shape[1] != self.hidden_size:
+            raise ValueError("router features have the wrong shape")
+        weight = torch.stack(tuple(self.weights))
+        bias = torch.stack(tuple(self.biases))
+        return features @ weight.t() + bias
 
-        # Calculate average probability allocated to each expert P_i
-        p_i = flat_probs.mean(dim=0)
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        """Return normalized expert probabilities for each sequence."""
+        return functional.softmax(self.logits(features), dim=-1)
 
-        # Load balancing loss: N * sum(f_i * P_i)
-        lb_loss = self.num_experts * torch.sum(f_i * p_i)
-        return lb_loss
+    def route(self, features: torch.Tensor) -> tuple[RouteDecision, ...]:
+        """Route above threshold and otherwise expose frozen-base fallback telemetry."""
+        probabilities = self(features)
+        decisions: list[RouteDecision] = []
+        for row in probabilities.detach().cpu():
+            confidence_tensor, index_tensor = torch.max(row, dim=0)
+            confidence = float(confidence_tensor.item())
+            index = int(index_tensor.item())
+            entropy = float((-(row * torch.log(row.clamp_min(1e-12))).sum()).item())
+            routed = confidence >= self.confidence_threshold
+            decisions.append(
+                RouteDecision(
+                    route_status="routed" if routed else "unrouted",
+                    expert_id=self.expert_ids[index] if routed else None,
+                    confidence=confidence,
+                    entropy=entropy,
+                    probabilities=tuple(float(value.item()) for value in row),
+                )
+            )
+        return tuple(decisions)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Calculates soft top-k routing probabilities, router entropy, and load-balancing loss.
+    def fit_candidate(
+        self,
+        current_features: torch.Tensor,
+        replay_features: torch.Tensor,
+        replay_labels: torch.Tensor,
+        *,
+        learning_rate: float,
+        weight_decay: float,
+        adam_beta1: float,
+        adam_beta2: float,
+        adam_epsilon: float,
+        max_steps: int,
+    ) -> tuple[RouterFitResult, torch.optim.Optimizer]:
+        """Fit only the new row using current positives and stratified prior replay."""
+        if current_features.ndim != 2 or current_features.shape[1] != self.hidden_size:
+            raise ValueError("current router features have the wrong shape")
+        if current_features.shape[0] == 0:
+            raise ValueError("router fitting requires current-task examples")
+        if replay_features.ndim != 2 or replay_features.shape[1] != self.hidden_size:
+            raise ValueError("replay router features have the wrong shape")
+        if replay_labels.ndim != 1 or replay_labels.shape[0] != replay_features.shape[0]:
+            raise ValueError("replay labels must align one-to-one with replay features")
+        candidate_index = self.num_experts - 1
+        if candidate_index > 0 and replay_features.shape[0] == 0:
+            raise ValueError("a new router row requires replay from prior experts")
+        if replay_labels.numel() and (
+            int(replay_labels.min().item()) < 0
+            or int(replay_labels.max().item()) >= candidate_index
+        ):
+            raise ValueError("replay labels must name only prior frozen router rows")
+        if not math.isfinite(learning_rate) or learning_rate <= 0.0:
+            raise ValueError("router learning rate must be finite and positive")
+        if not math.isfinite(weight_decay) or not 0.0 <= weight_decay <= 1.0:
+            raise ValueError("router weight decay must be finite and in [0, 1]")
+        if not math.isfinite(adam_beta1) or not 0.0 < adam_beta1 < 1.0:
+            raise ValueError("router Adam beta1 must be finite and in (0, 1)")
+        if not math.isfinite(adam_beta2) or not 0.0 < adam_beta2 < 1.0:
+            raise ValueError("router Adam beta2 must be finite and in (0, 1)")
+        if not math.isfinite(adam_epsilon) or not 0.0 < adam_epsilon <= 1.0:
+            raise ValueError("router Adam epsilon must be finite and in (0, 1]")
+        if isinstance(max_steps, bool) or max_steps <= 0:
+            raise ValueError("router max steps must be a positive integer")
+        device = self.weights[-1].device
+        current = current_features.detach().to(device)
+        replay = replay_features.detach().to(device)
+        labels = torch.cat(
+            (
+                torch.full(
+                    (current.shape[0],), candidate_index, dtype=torch.long, device=device
+                ),
+                replay_labels.detach().to(device=device, dtype=torch.long),
+            )
+        )
+        features = torch.cat((current, replay), dim=0)
+        old_rows = tuple(row.detach().clone() for row in self.weights[:-1])
+        old_biases = tuple(bias.detach().clone() for bias in self.biases[:-1])
+        optimizer = torch.optim.AdamW(
+            self.candidate_parameters(),
+            lr=learning_rate,
+            betas=(adam_beta1, adam_beta2),
+            eps=adam_epsilon,
+            weight_decay=weight_decay,
+        )
+        final_loss = math.inf
+        for _ in range(max_steps):
+            optimizer.zero_grad(set_to_none=True)
+            loss = functional.cross_entropy(self.logits(features), labels)
+            if not bool(torch.isfinite(loss).item()):
+                raise FloatingPointError("router fitting produced a non-finite loss")
+            torch.autograd.backward(loss)
+            optimizer.step()
+            final_loss = float(loss.detach().cpu().item())
+        for actual, expected in zip(self.weights[:-1], old_rows, strict=True):
+            if not torch.equal(actual.detach(), expected):
+                raise RuntimeError("frozen router weight row changed during replay fitting")
+        for actual, expected in zip(self.biases[:-1], old_biases, strict=True):
+            if not torch.equal(actual.detach(), expected):
+                raise RuntimeError("frozen router bias changed during replay fitting")
+        return (
+            RouterFitResult(
+                loss=final_loss,
+                optimizer_steps=max_steps,
+                current_examples=current.shape[0],
+                replay_examples=replay.shape[0],
+            ),
+            optimizer,
+        )
 
-        Returns (gating_probs, entropy_tensor, load_balancing_loss).
-        """
-        # Stack router weight vectors -> (num_experts, d_model)
-        weight_matrix = torch.stack(list(self.router_weights), dim=0)
 
-        # Compute raw logits: x @ weight_matrix.T -> (batch, seq, num_experts)
-        logits = torch.matmul(x, weight_matrix.t())
-        full_probs = F.softmax(logits, dim=-1)
-
-        # Compute soft top-k gating mask
-        k = min(self.top_k, self.num_experts)
-        top_k_values, top_k_indices = torch.topk(logits, k=k, dim=-1)
-
-        # Construct masked logits with -inf for non-top-k entries
-        masked_logits = torch.full_like(logits, float("-inf"))
-        masked_logits.scatter_(-1, top_k_indices, top_k_values)
-        gating_probs = F.softmax(masked_logits, dim=-1)
-
-        # Calculate router entropy over active experts
-        log_probs = torch.log(full_probs + 1e-9)
-        entropy = -torch.sum(full_probs * log_probs, dim=-1).mean()
-
-        # Calculate load balancing loss
-        lb_loss = self.compute_load_balancing_loss(full_probs, top_k_indices)
-
-        return gating_probs, entropy, lb_loss
+def route_and_activate_fallback(
+    bank: _ExpertActivator,
+    router: SequenceTop1Router,
+    feature: torch.Tensor,
+) -> RouteDecision:
+    """Apply one route, explicitly deactivating adapters on abstention."""
+    if feature.ndim != 2 or feature.shape[0] != 1:
+        raise ValueError("runtime routing accepts exactly one sequence feature")
+    decision = router.route(feature)[0]
+    if decision.route_status == "unrouted":
+        bank.deactivate()
+    else:
+        bank.activate(cast(str, decision.expert_id))
+    return decision

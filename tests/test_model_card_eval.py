@@ -26,13 +26,13 @@ from aptivra.eval.model_card_eval import (
     unigram_bits_per_bytes,
     whole_text_bits_per_byte,
 )
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.export.hf_hub_artifacts import export_huggingface_hub_layout
 from aptivra.inference.chat_canonical import IDENTITY_CHAT_TEMPLATES
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
 from aptivra.tasks.identity import ModelIdentityTaskFamily
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 
 def test_baselines_on_known_strings() -> None:

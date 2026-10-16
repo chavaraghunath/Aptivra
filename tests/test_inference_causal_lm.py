@@ -5,12 +5,12 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.export.multitier import MultitierExporter
 from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 
 def _export_tiny(tmp_path: Path) -> Path:

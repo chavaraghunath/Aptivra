@@ -2,7 +2,7 @@
 
 import torch
 
-from aptivra.experts.router import GatingRouter
+from aptivra.v0.experts.router import GatingRouter
 
 
 def test_soft_gating_router_top_k_probs() -> None:

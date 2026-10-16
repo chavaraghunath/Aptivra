@@ -3,11 +3,11 @@
 import argparse
 from pathlib import Path
 
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.export.gguf_exporter import export_model_to_gguf
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 
 def main() -> None:

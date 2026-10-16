@@ -2,7 +2,7 @@
 module-path = "aptivra/consolidation"
 timeout = 180.0
 excluded-modules = []
-test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_consolidation.py tests/test_genesis_system_and_bench.py tests/test_smoke_e2e.py"
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_router_consolidation.py::test_rejected_cycle_restores_every_state_rng_and_hash tests/test_router_consolidation.py::test_row_and_mature_expert_freeze_during_real_candidate_training tests/test_router_consolidation.py::test_accepted_cycle_reloads_with_matching_hashes tests/test_router_consolidation.py::test_promotion_rejects_insufficient_evidence_and_propagates_failure tests/test_consolidation_lane5.py tests/test_sleep_cycle.py"
 
 [cosmic-ray.distributor]
 name = "local"

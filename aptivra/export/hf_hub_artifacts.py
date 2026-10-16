@@ -14,11 +14,11 @@ import torch.nn as nn
 from safetensors.torch import save_file
 
 from aptivra.eval.model_card_schema import PROVENANCE_FILENAME, PROVENANCE_SCHEMA_VERSION
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
 from aptivra.resources import aptivra_resource
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 HUB_LAYOUT_FILES = (
     "config.json",

@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 import torch
 
-from aptivra.experts.router import GatingRouter
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.router import GatingRouter
 from aptivra.versioning.checkpoint_manager import CheckpointManager
 
 

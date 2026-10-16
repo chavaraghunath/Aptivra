@@ -7,13 +7,13 @@ import torch
 import torch.nn as nn
 from safetensors.torch import load_file
 
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.export.multitier import MultitierLoader
 from aptivra.inference.hub_config import model_config_from_export_dir
 from aptivra.inference.tokenizer import ByteLevelTokenizer
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 
 def apply_top2_moe(

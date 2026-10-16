@@ -6,9 +6,9 @@ from typing import Any
 
 import yaml
 
-from aptivra.consolidation.cycle import ConsolidationConfig
 from aptivra.eval.config import load_experiment_settings
 from aptivra.model.config import ModelConfig
+from aptivra.v0.consolidation.cycle import ConsolidationConfig
 from scripts.run_aptivra import run_single_aptivra
 
 

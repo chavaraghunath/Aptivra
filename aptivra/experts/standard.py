@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from importlib.metadata import version
 from importlib.resources.abc import Traversable
 from pathlib import Path
-from typing import Annotated, Literal, Protocol, cast
+from typing import Annotated, Literal, Protocol, TypeAlias, cast
 
 import torch
 import yaml
@@ -42,6 +42,9 @@ _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 _ADAPTER_FILES = ("adapter_config.json", "adapter_model.safetensors")
 
 PositiveInt = Annotated[int, Field(strict=True, gt=0)]
+NonNegativeInt = Annotated[int, Field(strict=True, ge=0)]
+FilesystemPath: TypeAlias = Path | str
+ReadablePath: TypeAlias = FilesystemPath | Traversable
 
 
 class _StrictModel(BaseModel):
@@ -80,13 +83,65 @@ class ExpertLoRASettings(_StrictModel):
         return self
 
 
-class StandardExpertSettings(_StrictModel):
-    """Complete disabled-by-default lane-4 configuration."""
+class RouterSettings(_StrictModel):
+    """Registered sequence-level router fitting and abstention controls."""
 
-    schema_version: Literal["aptivra.standard_expert_config.v1"]
+    confidence_threshold: float = Field(strict=True, gt=0.0, le=1.0)
+    learning_rate: float = Field(strict=True, gt=0.0, le=1.0)
+    weight_decay: float = Field(strict=True, ge=0.0, le=1.0)
+    adam_beta1: float = Field(strict=True, gt=0.0, lt=1.0)
+    adam_beta2: float = Field(strict=True, gt=0.0, lt=1.0)
+    adam_epsilon: float = Field(strict=True, gt=0.0, le=1.0)
+    max_optimizer_steps: PositiveInt = Field(le=10_000)
+    replay_examples_per_expert: PositiveInt = Field(le=10_000)
+
+
+class GrowthPolicySettings(_StrictModel):
+    """Registered real-evidence expert-growth thresholds."""
+
+    verifier_failure_threshold: float = Field(strict=True, ge=0.0, le=1.0)
+    mean_entropy_threshold: float = Field(strict=True, ge=0.0)
+    minimum_observations: PositiveInt = Field(le=100_000)
+
+
+class ConsolidationSettings(_StrictModel):
+    """Bounded adapter/replay/promotion transaction controls."""
+
+    adapter_learning_rate: float = Field(strict=True, gt=0.0, le=1.0)
+    adapter_weight_decay: float = Field(strict=True, ge=0.0, le=1.0)
+    adapter_adam_beta1: float = Field(strict=True, gt=0.0, lt=1.0)
+    adapter_adam_beta2: float = Field(strict=True, gt=0.0, lt=1.0)
+    adapter_adam_epsilon: float = Field(strict=True, gt=0.0, le=1.0)
+    max_adapter_optimizer_steps: PositiveInt = Field(le=100_000)
+    max_target_tokens: PositiveInt
+    replay_capacity: PositiveInt = Field(le=50_000)
+    replay_ratio: float = Field(strict=True, gt=0.0, le=1.0)
+    replay_sampling_seed: NonNegativeInt = Field(le=2**31 - 1)
+    replay_per_family_minimum: PositiveInt
+    replay_byte_limit: PositiveInt
+    replay_eviction_policy: Literal["stratified_hash_reservoir"]
+    promotion_alpha: float = Field(strict=True, gt=0.0, lt=1.0)
+    minimum_regression_samples: PositiveInt = Field(ge=2)
+    minimum_validation_gain: float = Field(strict=True, ge=0.0, le=1.0)
+    loss_noninferiority_margin: float = Field(strict=True, ge=0.0)
+
+    @model_validator(mode="after")
+    def validate_replay_minimum(self) -> ConsolidationSettings:
+        if self.replay_per_family_minimum > self.replay_capacity:
+            raise ValueError("consolidation replay per-family minimum exceeds capacity")
+        return self
+
+
+class StandardExpertSettings(_StrictModel):
+    """Complete disabled-by-default lane-4/5 expert configuration."""
+
+    schema_version: Literal["aptivra.standard_expert_config.v2"]
     feature: ExpertFeatureSettings
     peft: PeftDependencySettings
     lora: ExpertLoRASettings
+    router: RouterSettings
+    growth: GrowthPolicySettings
+    consolidation: ConsolidationSettings
 
 
 class ExpertManifest(_StrictModel):
@@ -166,7 +221,7 @@ class _AdapterLayerController(Protocol):
 
 
 def load_standard_expert_settings(
-    path: Path | str | Traversable = DEFAULT_STANDARD_EXPERT_CONFIG,
+    path: ReadablePath = DEFAULT_STANDARD_EXPERT_CONFIG,
 ) -> StandardExpertSettings:
     """Load and strictly validate the packaged lane-4 expert configuration."""
     source = Path(path) if isinstance(path, str) else path
@@ -315,6 +370,8 @@ class PeftExpertBank:
         """Attach the first candidate only after the disabled flag and pin pass."""
         if not settings.feature.enabled:
             raise RuntimeError("ADR-0011 PEFT expert path is disabled by configuration")
+        if not isinstance(base, StandardBase):
+            raise TypeError("PEFT experts require the verified ADR-0011 StandardBase")
         if version("peft") != settings.peft.version:
             raise RuntimeError("installed PEFT version does not match the reviewed exact pin")
         name = _validate_adapter_name(adapter_name)
@@ -446,11 +503,13 @@ class PeftExpertBank:
             content_sha256=content_sha256,
         )
 
-    def promote_candidate(self, output_dir: Path | str) -> ExpertManifest:
-        """Atomically persist, content-address, and freeze the current candidate."""
-        if self.trainable_adapter is None:
-            raise RuntimeError("there is no trainable PEFT candidate to promote")
-        adapter_name = self.trainable_adapter
+    def persist_adapter(
+        self, adapter_name: str, output_dir: FilesystemPath
+    ) -> ExpertManifest:
+        """Atomically persist one attached adapter without changing bank lifecycle state."""
+        name = _validate_adapter_name(adapter_name)
+        if name not in self.model.peft_config:
+            raise KeyError(f"PEFT adapter '{name}' does not exist")
         output = Path(output_dir)
         output.parent.mkdir(parents=True, exist_ok=True)
         stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
@@ -458,13 +517,13 @@ class PeftExpertBank:
             self.model.save_pretrained(
                 str(stage),
                 safe_serialization=True,
-                selected_adapters=[adapter_name],
+                selected_adapters=[name],
                 save_embedding_layers=False,
             )
-            adapter_dir = stage / adapter_name
+            adapter_dir = stage / name
             _adapter_config_contract(adapter_dir, self.settings)
             manifest = self._manifest(
-                adapter_name,
+                name,
                 _artifact_content_sha256(adapter_dir),
             )
             manifest_path = stage / "expert_manifest.json"
@@ -485,13 +544,21 @@ class PeftExpertBank:
                     raise ValueError("existing promoted expert content SHA-256 mismatch")
             else:
                 os.replace(stage, output)
-            self.trainable_adapter = None
-            self.mature_adapters.add(adapter_name)
-            self.activate(adapter_name)
             return manifest
         finally:
             if stage.exists():
                 shutil.rmtree(stage)
+
+    def promote_candidate(self, output_dir: FilesystemPath) -> ExpertManifest:
+        """Atomically persist, content-address, and freeze the current candidate."""
+        if self.trainable_adapter is None:
+            raise RuntimeError("there is no trainable PEFT candidate to promote")
+        adapter_name = self.trainable_adapter
+        manifest = self.persist_adapter(adapter_name, output_dir)
+        self.trainable_adapter = None
+        self.mature_adapters.add(adapter_name)
+        self.activate(adapter_name)
+        return manifest
 
 
 def _load_expert_manifest(artifact_dir: Path) -> ExpertManifest:
@@ -538,7 +605,7 @@ def _validate_manifest_for_base(
 def load_promoted_expert(
     base: StandardBase,
     settings: StandardExpertSettings,
-    artifact_dir: Path | str,
+    artifact_dir: FilesystemPath,
 ) -> PeftExpertBank:
     """Validate every compatibility/hash boundary before standard PEFT loading."""
     if not settings.feature.enabled:
@@ -568,3 +635,28 @@ def load_promoted_expert(
     bank.activate(manifest.adapter_name)
     bank._verify_parameter_count(manifest.adapter_name)
     return bank
+
+
+def load_additional_promoted_expert(
+    bank: PeftExpertBank,
+    artifact_dir: FilesystemPath,
+) -> ExpertManifest:
+    """Validate and attach another frozen expert to an already-loaded expert bank."""
+    artifact = Path(artifact_dir)
+    manifest = _load_expert_manifest(artifact)
+    adapter_dir = artifact / manifest.adapter_subdir
+    _validate_manifest_for_base(manifest, bank.base, bank.settings, adapter_dir)
+    if manifest.adapter_name in bank.model.peft_config:
+        raise ValueError(f"PEFT adapter '{manifest.adapter_name}' is already loaded")
+    if len(bank.model.peft_config) >= bank.settings.lora.max_adapters:
+        raise RuntimeError("PEFT expert adapter-count bound exceeded")
+    bank.model.load_adapter(
+        adapter_dir,
+        adapter_name=manifest.adapter_name,
+        is_trainable=False,
+        local_files_only=True,
+    )
+    bank.mature_adapters.add(manifest.adapter_name)
+    bank.activate(manifest.adapter_name)
+    bank._verify_parameter_count(manifest.adapter_name)
+    return manifest

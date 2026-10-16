@@ -9,11 +9,11 @@ import numpy as np
 import pytest
 import torch
 
-from aptivra.consolidation.cycle import ConsolidationConfig, ConsolidationCycle
 from aptivra.eval.config import seed_experiment
 from aptivra.model.config import ModelConfig
 from aptivra.tasks.base import VerifierResult
 from aptivra.tasks.modular_arithmetic import ModularArithmeticTaskFamily
+from aptivra.v0.consolidation.cycle import ConsolidationConfig, ConsolidationCycle
 
 
 def test_consolidation_cycle_execution() -> None:

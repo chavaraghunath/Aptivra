@@ -2,9 +2,9 @@
 
 import torch
 
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
-from aptivra.experts.spawner import ExpertSpawner, SpawnerConfig
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.experts.spawner import ExpertSpawner, SpawnerConfig
 
 
 def test_expert_module_freezing() -> None:

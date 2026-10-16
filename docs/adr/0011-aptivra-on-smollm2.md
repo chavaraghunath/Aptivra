@@ -616,6 +616,17 @@ floor, and tolerance derivation are frozen in
 Only these existing assertions encode behavior this ADR deliberately replaces and qualify for the
 test-rewrite exception:
 
+**2026-10-16 owner/orchestrator ruling — relocate, do not rewrite.** The module-disposition table's
+requirement to re-implement `aptivra/experts/{expert,router,spawner}.py` and consolidation conflicted
+with this allowlist because the legacy tests also served as v0 reproducibility evidence. The
+resolution is to quarantine the unchanged implementations under `aptivra/v0/` and move their tests
+under `tests/v0/`, changing only import paths. Assertions remain unchanged. The v0 first-task
+promotion-bypass assertion is also quarantined with the v0 gate because it promotes without paired
+verifier/regression evidence; the active gate fails closed. V0 remains in repository-wide mutation
+scope, while `aptivra/experts` measures only the active standard-base implementation. This ruling
+adds relocation to the exception; it does not authorize weakening, deleting, or rewriting a v0
+assertion.
+
 - `test_model_identity_task_family`: replace expectations derived from fabricated v0 targets with
   evidence-manifest targets and explicit rejection of every forbidden claim;
 - `test_format_chat_prompt_multiturn` and the prompt-format assertions in

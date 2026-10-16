@@ -7,11 +7,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.export.multitier import MultitierExporter, MultitierLoader
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 
 def run_tmr_scaling_benchmark(

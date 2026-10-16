@@ -1,11 +1,19 @@
-"""Tier 2 Growable Expert Module Pool and Gating Router."""
+"""ADR-0011 standard-base PEFT expert, router, and evidence-growth APIs."""
 
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
-from aptivra.experts.spawner import ExpertSpawner
+from aptivra.experts.expert import PeftExpertBank, RoutedExpert
+from aptivra.experts.router import (
+    RouteDecision,
+    SequenceTop1Router,
+    route_and_activate_fallback,
+)
+from aptivra.experts.spawner import EvidenceGrowthPolicy, VerifierOutcome
 
 __all__ = [
-    "ExpertModule",
-    "GatingRouter",
-    "ExpertSpawner",
+    "EvidenceGrowthPolicy",
+    "PeftExpertBank",
+    "RouteDecision",
+    "RoutedExpert",
+    "SequenceTop1Router",
+    "VerifierOutcome",
+    "route_and_activate_fallback",
 ]

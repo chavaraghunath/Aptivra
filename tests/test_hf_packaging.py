@@ -32,8 +32,6 @@ from aptivra.eval.model_card_eval import (
     sha256_file,
 )
 from aptivra.eval.model_card_schema import PROVENANCE_FILENAME
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.export import hf_conversion, hf_push
 from aptivra.export.hf_conversion import convert_legacy_export_to_huggingface
 from aptivra.export.hf_hub_artifacts import HUB_LAYOUT_FILES, export_huggingface_hub_layout
@@ -47,6 +45,8 @@ from aptivra.export.multitier import MultitierExporter
 from aptivra.inference.causal_lm import AptivraCausalLM
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 
 def _tiny_components() -> tuple[

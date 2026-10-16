@@ -1,5 +1,5 @@
 smollm2_experts:
-  schema_version: aptivra.standard_expert_config.v1
+  schema_version: aptivra.standard_expert_config.v2
   feature:
     enabled: false
   peft:
@@ -19,3 +19,34 @@ smollm2_experts:
       - up_proj
       - down_proj
     max_adapters: 12
+  router:
+    confidence_threshold: 0.65
+    learning_rate: 0.01
+    weight_decay: 0.01
+    adam_beta1: 0.9
+    adam_beta2: 0.999
+    adam_epsilon: 0.00000001
+    max_optimizer_steps: 100
+    replay_examples_per_expert: 8
+  growth:
+    verifier_failure_threshold: 0.30
+    mean_entropy_threshold: 0.80
+    minimum_observations: 5
+  consolidation:
+    adapter_learning_rate: 0.0001
+    adapter_weight_decay: 0.01
+    adapter_adam_beta1: 0.9
+    adapter_adam_beta2: 0.999
+    adapter_adam_epsilon: 0.00000001
+    max_adapter_optimizer_steps: 100
+    max_target_tokens: 8192
+    replay_capacity: 500
+    replay_ratio: 0.5
+    replay_sampling_seed: 20261016
+    replay_per_family_minimum: 1
+    replay_byte_limit: 67108864
+    replay_eviction_policy: stratified_hash_reservoir
+    promotion_alpha: 0.05
+    minimum_regression_samples: 5
+    minimum_validation_gain: 0.0
+    loss_noninferiority_margin: 0.0

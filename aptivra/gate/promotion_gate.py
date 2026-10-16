@@ -1,19 +1,22 @@
-"""Verifiable Promotion Gate with Statistical Regression Guardrails."""
+"""Fail-closed paired promotion gate for ADR-0011 consolidation."""
 
+from __future__ import annotations
+
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+from scipy import stats
 
 from aptivra.eval.harness import PredictFunction
-from aptivra.gate.stats import StatisticalTester
 from aptivra.tasks.base import TaskInstance
 
 
-@dataclass
+@dataclass(frozen=True)
 class PromotionResult:
-    """Outcome and statistical diagnosis of candidate checkpoint promotion evaluation."""
+    """Outcome and complete pre-registered promotion diagnosis."""
 
     promoted: bool
     p_value: float
@@ -23,10 +26,28 @@ class PromotionResult:
 
 
 class PromotionGate:
-    """Promotion Gate evaluating validation gain and regression test over held-out suite."""
+    """Require verifier gain and paired loss non-inferiority with enough evidence."""
 
-    def __init__(self, alpha: float = 0.05) -> None:
+    def __init__(
+        self,
+        alpha: float = 0.05,
+        *,
+        minimum_regression_samples: int = 5,
+        minimum_validation_gain: float = 0.0,
+        loss_noninferiority_margin: float = 0.0,
+    ) -> None:
+        if not 0.0 < alpha < 1.0:
+            raise ValueError("promotion alpha must be in (0, 1)")
+        if isinstance(minimum_regression_samples, bool) or minimum_regression_samples < 2:
+            raise ValueError("promotion requires at least two paired regression samples")
+        if not math.isfinite(minimum_validation_gain) or minimum_validation_gain < 0.0:
+            raise ValueError("minimum validation gain must be finite and non-negative")
+        if not math.isfinite(loss_noninferiority_margin) or loss_noninferiority_margin < 0.0:
+            raise ValueError("loss non-inferiority margin must be finite and non-negative")
         self.alpha = alpha
+        self.minimum_regression_samples = minimum_regression_samples
+        self.minimum_validation_gain = minimum_validation_gain
+        self.loss_noninferiority_margin = loss_noninferiority_margin
 
     def evaluate_candidate(
         self,
@@ -37,19 +58,18 @@ class PromotionGate:
         verifier_eval_fn: Callable[[PredictFunction, list[TaskInstance]], float],
         loss_eval_fn: Callable[[PredictFunction, list[TaskInstance]], np.ndarray],
     ) -> PromotionResult:
-        """Evaluates candidate checkpoint against current baseline.
-
-        Rule: Promoted iff new-task gain > 0 AND p >= alpha on held-out regression suite.
-        """
-        curr_val_acc = verifier_eval_fn(curr_predict_fn, new_task_val_instances)
-        cand_val_acc = verifier_eval_fn(cand_predict_fn, new_task_val_instances)
-        curr_losses = loss_eval_fn(curr_predict_fn, held_out_regression_suite)
-        cand_losses = loss_eval_fn(cand_predict_fn, held_out_regression_suite)
+        """Measure current and candidate states through real verifier/loss functions."""
+        if not new_task_val_instances:
+            raise ValueError("promotion requires non-empty verifier validation evidence")
+        current_accuracy = verifier_eval_fn(curr_predict_fn, new_task_val_instances)
+        candidate_accuracy = verifier_eval_fn(cand_predict_fn, new_task_val_instances)
+        current_losses = loss_eval_fn(curr_predict_fn, held_out_regression_suite)
+        candidate_losses = loss_eval_fn(cand_predict_fn, held_out_regression_suite)
         return self.evaluate_measurements(
-            current_val_accuracy=curr_val_acc,
-            candidate_val_accuracy=cand_val_acc,
-            current_losses=curr_losses,
-            candidate_losses=cand_losses,
+            current_val_accuracy=current_accuracy,
+            candidate_val_accuracy=candidate_accuracy,
+            current_losses=current_losses,
+            candidate_losses=candidate_losses,
         )
 
     def evaluate_candidate_with_rollback(
@@ -63,19 +83,14 @@ class PromotionGate:
         loss_eval_fn: Callable[[PredictFunction, list[TaskInstance]], np.ndarray],
         rollback_fn: Callable[[], None],
     ) -> PromotionResult:
-        """Evaluate a live candidate against cached promoted-state measurements.
-
-        The caller captures the current measurements and a disk snapshot before
-        training mutates the live model.  A rejection invokes ``rollback_fn``
-        before this method returns, making rejection an actual state transition.
-        """
-        candidate_val_accuracy = verifier_eval_fn(
-            cand_predict_fn, new_task_val_instances
-        )
+        """Evaluate a live candidate and atomically invoke caller rollback on rejection."""
+        if not new_task_val_instances:
+            raise ValueError("promotion requires non-empty verifier validation evidence")
+        candidate_accuracy = verifier_eval_fn(cand_predict_fn, new_task_val_instances)
         candidate_losses = loss_eval_fn(cand_predict_fn, held_out_regression_suite)
         result = self.evaluate_measurements(
             current_val_accuracy=current_val_accuracy,
-            candidate_val_accuracy=candidate_val_accuracy,
+            candidate_val_accuracy=candidate_accuracy,
             current_losses=current_losses,
             candidate_losses=candidate_losses,
         )
@@ -90,64 +105,76 @@ class PromotionGate:
         current_losses: np.ndarray,
         candidate_losses: np.ndarray,
     ) -> PromotionResult:
-        """Apply the promotion rule to measurements from two distinct states."""
-        curr_val_acc = current_val_accuracy
-        cand_val_acc = candidate_val_accuracy
-        val_acc_gain = cand_val_acc - curr_val_acc
-
-        if val_acc_gain <= 0.0:
+        """Apply the registered gain and one-sided paired non-inferiority rule."""
+        for name, value in (
+            ("current validation accuracy", current_val_accuracy),
+            ("candidate validation accuracy", candidate_val_accuracy),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be finite and in [0, 1]")
+        current = np.asarray(current_losses, dtype=np.float64)
+        candidate = np.asarray(candidate_losses, dtype=np.float64)
+        if current.ndim != 1 or candidate.ndim != 1:
+            raise ValueError("Current and candidate loss arrays must be one-dimensional.")
+        if len(current) != len(candidate):
+            raise ValueError("Current and candidate loss arrays must have equal length.")
+        if not np.isfinite(current).all() or not np.isfinite(candidate).all():
+            raise ValueError("promotion losses must all be finite")
+        gain = candidate_val_accuracy - current_val_accuracy
+        if gain <= self.minimum_validation_gain:
             return PromotionResult(
-                promoted=False,
-                p_value=1.0,
-                test_used="val_gain_check",
-                val_acc_gain=val_acc_gain,
-                diagnostics={
-                    "reason": f"No positive val gain ({cand_val_acc:.3f} <= {curr_val_acc:.3f})",
-                    "curr_val_acc": curr_val_acc,
-                    "cand_val_acc": cand_val_acc,
+                False,
+                1.0,
+                "verifier_gain_check",
+                gain,
+                {
+                    "reason": "Rejected: verifier validation gain did not clear the margin",
+                    "curr_val_acc": current_val_accuracy,
+                    "cand_val_acc": candidate_val_accuracy,
                 },
             )
-
-        # 2. Condition 2: Statistical regression test on held-out suite
-        if len(current_losses) == 0:
-            # First task in stream: promote automatically if val gain > 0
+        if len(current) < self.minimum_regression_samples:
             return PromotionResult(
-                promoted=True,
-                p_value=1.0,
-                test_used="first_task_bypass",
-                val_acc_gain=val_acc_gain,
-                diagnostics={"reason": "First task in stream, no regression suite yet."},
+                False,
+                0.0,
+                "insufficient_paired_evidence",
+                gain,
+                {
+                    "reason": "Rejected: insufficient paired regression evidence",
+                    "num_regression_samples": len(current),
+                },
             )
-
-        if len(current_losses) != len(candidate_losses):
-            raise ValueError("Current and candidate loss arrays must have equal length.")
-
-        curr_losses = current_losses
-        cand_losses = candidate_losses
-
-        no_regression, p_val, test_used = StatisticalTester.evaluate_paired_regression(
-            current_losses=curr_losses,
-            candidate_losses=cand_losses,
-            alpha=self.alpha,
+        differences = candidate - current
+        mean_difference = float(np.mean(differences))
+        standard_error = float(stats.sem(differences))
+        if standard_error == 0.0 or not math.isfinite(standard_error):
+            upper_bound = mean_difference
+            p_value = 0.0 if mean_difference <= self.loss_noninferiority_margin else 1.0
+        else:
+            critical = float(stats.t.ppf(1.0 - self.alpha, df=len(differences) - 1))
+            upper_bound = mean_difference + critical * standard_error
+            statistic = (mean_difference - self.loss_noninferiority_margin) / standard_error
+            p_value = float(stats.t.cdf(statistic, df=len(differences) - 1))
+        promoted = upper_bound <= self.loss_noninferiority_margin
+        reason = (
+            "Promoted: verifier gain and paired non-inferiority passed"
+            if promoted
+            else "Rejected: paired loss non-inferiority bound exceeded"
         )
-
-        promoted = no_regression and (val_acc_gain > 0.0)
-
-        rej_msg = f"Rejected: Regression (p={p_val:.4f} < {self.alpha})"
-        diagnostics: dict[str, Any] = {
-            "curr_val_acc": curr_val_acc,
-            "cand_val_acc": cand_val_acc,
-            "mean_curr_loss": float(np.mean(curr_losses)),
-            "mean_cand_loss": float(np.mean(cand_losses)),
-            "loss_delta": float(np.mean(cand_losses) - np.mean(curr_losses)),
-            "num_regression_samples": len(current_losses),
-            "reason": ("Promoted: Positive gain and no regression" if promoted else rej_msg),
-        }
-
         return PromotionResult(
-            promoted=promoted,
-            p_value=p_val,
-            test_used=test_used,
-            val_acc_gain=val_acc_gain,
-            diagnostics=diagnostics,
+            promoted,
+            p_value,
+            "paired_noninferiority_t",
+            gain,
+            {
+                "reason": reason,
+                "curr_val_acc": current_val_accuracy,
+                "cand_val_acc": candidate_val_accuracy,
+                "mean_curr_loss": float(np.mean(current)),
+                "mean_cand_loss": float(np.mean(candidate)),
+                "loss_delta": mean_difference,
+                "loss_delta_upper_bound": upper_bound,
+                "loss_noninferiority_margin": self.loss_noninferiority_margin,
+                "num_regression_samples": len(current),
+            },
         )

@@ -2,7 +2,7 @@
 module-path = "aptivra/experts"
 timeout = 180.0
 excluded-modules = []
-test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_experts.py tests/test_standard_experts.py tests/test_soft_router.py tests/test_gguf_exporter.py tests/test_multitier_export.py tests/test_inference_causal_lm.py tests/test_hf_packaging.py tests/test_model_card_eval.py tests/test_versioning.py"
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_router_consolidation.py::test_router_uses_masked_real_frozen_embeddings_and_abstains tests/test_router_consolidation.py::test_router_replay_calibrates_only_new_row_and_exposes_misroute tests/test_router_consolidation.py::test_growth_propagates_real_verifier_infrastructure_failure tests/test_router_consolidation.py::test_router_input_and_configuration_guardrails tests/test_router_consolidation.py::test_router_topology_and_fit_guardrails tests/test_router_consolidation.py::test_growth_evidence_and_policy_guardrails tests/test_router_consolidation.py::test_lane5_expert_configuration_boundaries tests/test_router_consolidation.py::test_lane5_expert_configuration_accepts_registered_inclusive_bounds tests/test_router_consolidation.py::test_routed_expert_requires_manifest_identity_and_provenance tests/test_router_consolidation.py::test_standard_expert_path_rejects_historical_v0_model tests/test_standard_experts.py"
 
 [cosmic-ray.distributor]
 name = "local"

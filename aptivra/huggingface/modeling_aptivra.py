@@ -7,12 +7,12 @@ import torch.nn as nn
 from transformers import GenerationMixin, PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
-from aptivra.experts.expert import ExpertModule
-from aptivra.experts.router import GatingRouter
 from aptivra.huggingface.configuration_aptivra import AptivraConfig
 from aptivra.inference.causal_lm import apply_top2_moe
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
 
 
 class AptivraForCausalLM(PreTrainedModel, GenerationMixin):

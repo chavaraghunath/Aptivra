@@ -55,6 +55,7 @@ jobs:
           - resources
           - root
           - tasks
+          - v0
           - versioning
           - world_model
     steps:

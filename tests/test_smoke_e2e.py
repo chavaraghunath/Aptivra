@@ -5,11 +5,11 @@ from pathlib import Path
 
 from aptivra.baselines.replay import ReplayBaselineTrainer
 from aptivra.baselines.sequential import SequentialBaselineTrainer
-from aptivra.consolidation.cycle import ConsolidationConfig, ConsolidationCycle
 from aptivra.eval.harness import ContinualEvalHarness
-from aptivra.gate.promotion_gate import PromotionGate
 from aptivra.model.config import ModelConfig
 from aptivra.tasks.stream import ContinualTaskStream
+from aptivra.v0.consolidation.cycle import ConsolidationConfig, ConsolidationCycle
+from aptivra.v0.gate.promotion_gate import PromotionGate
 from scripts.run_aptivra import run_single_aptivra
 
 

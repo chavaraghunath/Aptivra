@@ -183,7 +183,7 @@
 - `aptivra/` — Core Python package containing models, memory systems, experts, task stream, and eval harness.
   - `aptivra/model/` — Decoder-only backbone transformer architecture, RMSNorm, SwiGLU, and isolated AttentionInterface.
   - `aptivra/baselines/` — Continual learning baseline trainers (Naive Sequential, Replay-Only, EWC-Only, Joint Multitask).
-  - `aptivra/experts/` — Historical soft Top-2 modules plus the disabled ADR-0011 standard PEFT expert bank, content-addressed promotion, and fail-closed reload boundary.
+  - `aptivra/experts/` — Disabled ADR-0011 standard PEFT expert bank, learned sequence-level top-1 router, real-evidence growth policy, content-addressed promotion, and fail-closed reload boundary.
   - `aptivra/gate/` — Promotion criteria and statistical decision helpers for continual-learning updates.
   - `aptivra/tasks/` — V1/v2 sequential task family generators, normalized-AST fingerprinting, subprocess-isolated mechanical verifiers, and versioned task stream manager.
   - `aptivra/eval/` — Continual learning evaluation harness, role-aware headline aggregates, deterministic task-stream audit gates, accuracy matrix logger, model-card measurement records, pretrained base-model comparison and selection logic, local/GCS artifact stores, the resumable Vertex worker/spec renderer, and the versioned held-out prompt set.
@@ -194,7 +194,8 @@
   - `aptivra/agents/` — Dynamic tool synthesis and sandboxed execution engine (Phase 3).
   - `aptivra/ambient/` — Theory-of-Mind modeling, P2P sync, and lifelong narrative keeper (Phases 2 & 4).
   - `aptivra/benchmarks/` — 4-Phase Developmental Benchmark Suite (AID-Bench).
-  - `aptivra/consolidation/` — Generative sleep and REM counterfactual dream consolidation engine with synaptic pruning.
+  - `aptivra/consolidation/` — ADR-0011 bounded PEFT/router replay fitting, verifier-evidence promotion, hash-verified atomic rollback, and restart persistence.
+  - `aptivra/v0/` — Explicit historical byte-level namespace containing quarantined expert, dense consolidation, and promotion-gate implementations; never selectable by the SmolLM2 path.
   - `aptivra/embodied/` — Sensorimotor tokenizer and closed-loop SE(3) kinematic actuator (Phase 2).
   - `aptivra/federation/` — Decentralized collective intelligence and federated mind node (Phase 4).
   - `aptivra/governance/` — Dual-Boundary Constitutional Governor, Merkle audit kernel, and drift auditor.
@@ -211,3 +212,4 @@
 - `scripts/` — Execution, benchmarking, evaluation, task-stream audit, base-model evaluation, Vertex dry-run rendering, and export scripts.
   - `scripts/run-project-tool` — Portable `uv` launcher for locked development tools in primary checkouts, linked worktrees, and CI.
 - `tests/` — Pytest unit and integration suite; its task-stream audit check is the repository's CI-time policy gate.
+  - `tests/v0/` — Relocated historical assertions for quarantined v0 implementations; only import paths differ from their pre-quarantine form.

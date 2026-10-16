@@ -1,8 +1,8 @@
 [cosmic-ray]
-module-path = "aptivra/gate"
+module-path = "aptivra/gate/promotion_gate.py"
 timeout = 180.0
 excluded-modules = []
-test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_gate.py tests/test_smoke_e2e.py"
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_gate.py tests/test_promotion_gate_lane5.py"
 
 [cosmic-ray.distributor]
 name = "local"

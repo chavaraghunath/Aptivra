@@ -21,6 +21,7 @@ import aptivra.experts.standard as standard_experts
 from aptivra.experts.standard import (
     PeftExpertBank,
     expected_lora_parameter_count,
+    load_additional_promoted_expert,
     load_promoted_expert,
     load_standard_expert_settings,
 )
@@ -364,6 +365,14 @@ def test_config_arithmetic_and_adapter_guardrails_fail_closed(tmp_path: Path) ->
     assert expected_lora_parameter_count(valid, rank=16) == 4_096
     assert type(expected_lora_parameter_count(valid, rank=1)) is int
     assert expected_lora_parameter_count(valid, rank=1) == 256
+    divisible_with_overlapping_bits = SimpleNamespace(
+        hidden_size=6,
+        intermediate_size=12,
+        num_hidden_layers=1,
+        num_attention_heads=3,
+        num_key_value_heads=1,
+    )
+    assert expected_lora_parameter_count(divisible_with_overlapping_bits, rank=1) == 94
     with pytest.raises(ValueError, match="positive integer"):
         expected_lora_parameter_count(valid, rank=0)
     with pytest.raises(ValueError, match="positive integer"):
@@ -416,6 +425,10 @@ def test_config_arithmetic_and_adapter_guardrails_fail_closed(tmp_path: Path) ->
         ("max_adapters", True),
         ("target_modules", ["q_proj"] * 6),
         ("target_modules", ["q_proj"] * 8),
+        (
+            "target_modules",
+            ["a_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        ),
     ],
 )
 def test_lora_configuration_boundaries_are_strict(
@@ -447,6 +460,20 @@ def test_configuration_models_reject_extras_and_mutation() -> None:
         ("r", 32, "rank"),
         ("target_modules", ["q_proj"], "target modules"),
         ("target_modules", ["q_proj"] * 7, "target modules"),
+        (
+            "target_modules",
+            [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+                "extra_proj",
+            ],
+            "target modules",
+        ),
         ("lora_alpha", 8, "alpha"),
         ("lora_alpha", 32, "alpha"),
         ("lora_dropout", -1.0, "dropout"),
@@ -481,6 +508,31 @@ def test_saved_peft_configuration_contract_rejects_each_wrong_field(
     )
     with pytest.raises(ValueError, match=message):
         standard_experts._adapter_config_contract(adapter_dir, settings)
+
+
+def test_saved_peft_configuration_accepts_noninterned_valid_alpha(tmp_path: Path) -> None:
+    settings = _enabled_settings().model_copy(
+        update={
+            "lora": _enabled_settings().lora.model_copy(update={"alpha": 1_000})
+        }
+    )
+    adapter_dir = tmp_path / "valid-alpha"
+    adapter_dir.mkdir()
+    (adapter_dir / "adapter_config.json").write_text(
+        json.dumps(
+            {
+                "r": settings.lora.rank,
+                "target_modules": settings.lora.target_modules,
+                "lora_alpha": 1_000,
+                "lora_dropout": settings.lora.dropout,
+                "bias": settings.lora.bias,
+                "peft_type": "LORA",
+                "task_type": "CAUSAL_LM",
+            }
+        ),
+        encoding="utf-8",
+    )
+    standard_experts._adapter_config_contract(adapter_dir, settings)
 
 
 def test_manifest_validators_reject_every_malformed_identity(tmp_path: Path) -> None:
@@ -626,6 +678,57 @@ def test_promotion_manifest_is_exact_and_retry_is_idempotent(
     bank.trainable_adapter = "skill"
     with pytest.raises(FileExistsError, match="different promoted expert"):
         bank.promote_candidate(artifact)
+
+
+def test_persist_adapter_does_not_change_lifecycle_state(tmp_path: Path) -> None:
+    bank = PeftExpertBank.start_candidate(
+        _tiny_base(tmp_path / "base"), _enabled_settings(), "skill"
+    )
+    manifest = bank.persist_adapter("skill", tmp_path / "artifact")
+    assert manifest.adapter_name == "skill"
+    assert bank.trainable_adapter == "skill"
+    assert bank.mature_adapters == set()
+    assert all(parameter.requires_grad for parameter in bank.adapter_parameters("skill"))
+    with pytest.raises(KeyError, match="does not exist"):
+        bank.persist_adapter("missing", tmp_path / "missing")
+
+
+def test_load_additional_promoted_expert_is_validated_frozen_and_bounded(
+    tmp_path: Path,
+) -> None:
+    settings = _enabled_settings()
+    source = PeftExpertBank.start_candidate(
+        _tiny_base(tmp_path / "source"), settings, "old"
+    )
+    old_manifest = source.promote_candidate(tmp_path / "old")
+    source.add_candidate("new")
+    new_manifest = source.promote_candidate(tmp_path / "new")
+
+    loaded = load_promoted_expert(
+        _tiny_base(tmp_path / "target"), settings, tmp_path / "old"
+    )
+    assert load_additional_promoted_expert(loaded, tmp_path / "new") == new_manifest
+    assert loaded.adapter_names == ("new", "old")
+    assert loaded.mature_adapters == {"old", "new"}
+    assert all(not parameter.requires_grad for parameter in loaded.model.parameters())
+    assert old_manifest.adapter_name == "old"
+    assert loaded.adapter_parameter_sha256("old") == source.adapter_parameter_sha256(
+        "old"
+    )
+    assert loaded.adapter_parameter_sha256("new") == source.adapter_parameter_sha256(
+        "new"
+    )
+    with pytest.raises(ValueError, match="already loaded"):
+        load_additional_promoted_expert(loaded, tmp_path / "new")
+
+    limited = load_promoted_expert(
+        _tiny_base(tmp_path / "limited"), settings, tmp_path / "old"
+    )
+    limited.settings = settings.model_copy(
+        update={"lora": settings.lora.model_copy(update={"max_adapters": 1})}
+    )
+    with pytest.raises(RuntimeError, match="adapter-count"):
+        load_additional_promoted_expert(limited, tmp_path / "new")
 
 
 def test_digest_framing_is_exact(tmp_path: Path) -> None:

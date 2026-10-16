@@ -8,13 +8,13 @@ from typing import Any
 import numpy as np
 import yaml
 
-from aptivra.consolidation.cycle import ConsolidationConfig, ConsolidationCycle
 from aptivra.eval.config import load_experiment_settings, seed_experiment
 from aptivra.eval.harness import ContinualEvalHarness, PredictFunction
-from aptivra.gate.promotion_gate import PromotionGate
 from aptivra.model.config import ModelConfig
 from aptivra.tasks.base import TaskInstance
 from aptivra.tasks.stream import ContinualTaskStream
+from aptivra.v0.consolidation.cycle import ConsolidationConfig, ConsolidationCycle
+from aptivra.v0.gate.promotion_gate import PromotionGate
 
 
 def verifier_eval_wrapper(
