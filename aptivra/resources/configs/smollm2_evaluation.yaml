@@ -1,0 +1,23 @@
+smollm2_evaluation:
+  schema_version: aptivra.smollm2_evaluation_config.v1
+  feature:
+    enabled: false
+  bpb:
+    protocol_id: aptivra.subword_bpb.v1
+    boundary_policy: encode_prompt_and_scored_text_separately
+    special_token_policy: context_only_not_scored
+    byte_encoding: utf-8
+  byte_unigram:
+    smoothing: add_k
+    add_k: 1.0
+  release_gate:
+    margin_bits_per_byte: 0.0
+    required_cells:
+      - heldout_answers
+      - heldout_text
+  contamination:
+    required_training_sources:
+      - identity_chat
+      - task_stream_v2
+      - replay
+      - chronological_issue_stream

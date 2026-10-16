@@ -639,6 +639,29 @@ prior verified SmolLM2 base+adapter+router manifest, never v0. Because the base 
 adapters are separate, rollback is pointer replacement after hash verification, followed by the
 release smoke/evaluation subset. Training candidates are never promoted in place.
 
+### Lane 2 implementation notes
+
+Lane 2 keeps the immutable v0 `aptivra.model_card_eval.v4` implementation intact and introduces
+the standard-base evidence boundary as `aptivra.model_card_eval.v5`. A v5 metric is independently
+tagged `aptivra.bpb_metric.v5`; release comparison validates both tags and exact corpus hash and
+UTF-8 byte count before comparing values, so a v0 dictionary cannot enter a v5 comparison.
+
+The lane-1 EOS-only generator call remains available for diagnostics. Task-aware generation is an
+additive entry point that receives the task instance's existing decoded terminators, scans the
+decoded generated UTF-8 after every token across token boundaries, and removes the earliest
+complete terminator before returning text. This choice avoids changing any v1/v2 serialized task
+field or audit hash while making LF/NUL semantics independent of token IDs.
+
+The open byte-unigram smoothing choice is add-k over all 256 byte values with `k = 1.0`. It is
+fitted once from the ordered, declared training-target texts, records the canonical JSON corpus
+hash and raw training byte count, and is frozen before held-out scoring. Both held-out answers and
+held-out whole text must strictly beat their like-for-like training-fitted baseline; equality is a
+failure. Corpus evidence hashes ordered UTF-8 text arrays as compact JSON, while BPB denominators
+remain the sum of the raw text payload bytes rather than serialization bytes. Contamination audits
+require identity/chat, v2 stream, replay, and chronological-issue inputs, validate every supplied
+hash first, and reject containment in either direction. Missing sources, stale hashes, or overlaps
+fail closed.
+
 ## Consequences
 
 ### Positive

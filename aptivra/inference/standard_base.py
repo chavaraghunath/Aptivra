@@ -23,6 +23,8 @@ from transformers import (
     LlamaConfig,
     LlamaForCausalLM,
     PreTrainedTokenizerBase,
+    StoppingCriteria,
+    StoppingCriteriaList,
 )
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
@@ -58,6 +60,9 @@ class SchemaBoundary(_StrictModel):
     legacy_provenance_schema: Literal["aptivra.conversion_provenance.v1"]
     new_identity: Literal["smollm2-standard-base-v1"]
     new_fingerprint_schema: Literal["aptivra.standard_base_fingerprint.v1"]
+    new_evaluation_schema: Literal["aptivra.model_card_eval.v5"] = (
+        "aptivra.model_card_eval.v5"
+    )
 
 
 class FileFingerprint(_StrictModel):
@@ -177,6 +182,7 @@ class RuntimeSettings(_StrictModel):
     max_sequence_tokens: PositiveInt
     max_new_tokens: PositiveInt
     stop_policy: Literal["eos_only"]
+    task_stop_policy: Literal["decoded_text"] = "decoded_text"
 
     @model_validator(mode="after")
     def validate_lengths(self) -> RuntimeSettings:
@@ -245,7 +251,70 @@ class GenerationResult:
 
     text: str
     generated_token_ids: tuple[int, ...]
-    stop_reason: Literal["eos", "length"]
+    stop_reason: Literal["eos", "terminator", "length"]
+    matched_terminator: str | None = None
+
+
+def _validated_stop_sequences(stop_sequences: tuple[str, ...]) -> tuple[str, ...]:
+    if any(not sequence for sequence in stop_sequences):
+        raise ValueError("decoded stop sequences must be non-empty")
+    if len(stop_sequences) != len(set(stop_sequences)):
+        raise ValueError("decoded stop sequences must be unique")
+    return stop_sequences
+
+
+def _first_decoded_terminator(
+    text: str, stop_sequences: tuple[str, ...]
+) -> tuple[int, str] | None:
+    payload = text.encode("utf-8")
+    matches = (
+        (payload.find(sequence.encode("utf-8")), index, sequence)
+        for index, sequence in enumerate(stop_sequences)
+    )
+    present = [match for match in matches if match[0] >= 0]
+    if not present:
+        return None
+    byte_offset, _, sequence = min(present)
+    return byte_offset, sequence
+
+
+class DecodedTextStoppingCriteria(StoppingCriteria):
+    """Stop after a complete decoded terminator, independent of token boundaries."""
+
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizerBase,
+        *,
+        prompt_length: int,
+        stop_sequences: tuple[str, ...],
+    ) -> None:
+        if prompt_length < 0:
+            raise ValueError("prompt_length must be non-negative")
+        self._tokenizer = tokenizer
+        self._prompt_length = prompt_length
+        self._stop_sequences = _validated_stop_sequences(stop_sequences)
+
+    def __call__(
+        self,
+        input_ids: torch.LongTensor,
+        scores: tuple[torch.FloatTensor, ...] | None,
+        **kwargs: object,
+    ) -> torch.BoolTensor:
+        del scores, kwargs
+        decisions: list[bool] = []
+        for row in input_ids:
+            generated_ids = [int(token_id) for token_id in row[self._prompt_length :]]
+            decoded = cast(
+                str,
+                self._tokenizer.decode(generated_ids, skip_special_tokens=False),
+            )
+            decisions.append(
+                _first_decoded_terminator(decoded, self._stop_sequences) is not None
+            )
+        return cast(
+            torch.BoolTensor,
+            torch.tensor(decisions, dtype=torch.bool, device=input_ids.device),
+        )
 
 
 class _GreedyGenerator(Protocol):
@@ -619,8 +688,9 @@ def generate_task_answer(
     prompt: str,
     *,
     max_new_tokens: int | None = None,
+    stop_sequences: tuple[str, ...] = (),
 ) -> GenerationResult:
-    """Greedily generate until tokenizer EOS or the configured length limit."""
+    """Greedily generate until EOS, a complete decoded terminator, or the limit."""
     prompt_ids = _encode(base.tokenizer, prompt)
     if not prompt_ids:
         raise ValueError("generation prompt tokenized to zero tokens")
@@ -651,28 +721,68 @@ def generate_task_answer(
         raise ValueError("standard-base tokenizer must define an integer EOS ID")
     input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=base.device)
     attention_mask = torch.ones_like(input_ids)
+    validated_stops = _validated_stop_sequences(stop_sequences)
+    stopping_criteria = (
+        StoppingCriteriaList(
+            [
+                DecodedTextStoppingCriteria(
+                    base.tokenizer,
+                    prompt_length=prompt_length,
+                    stop_sequences=validated_stops,
+                )
+            ]
+        )
+        if validated_stops
+        else None
+    )
+    generation_options: dict[str, object] = {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "do_sample": False,
+        "max_new_tokens": requested_tokens,
+        "eos_token_id": eos_id,
+        "pad_token_id": eos_id,
+        "use_cache": True,
+    }
+    if stopping_criteria is not None:
+        generation_options["stopping_criteria"] = stopping_criteria
     with torch.inference_mode():
         generator = cast(_GreedyGenerator, base.model)
-        output = generator.generate(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            do_sample=False,
-            max_new_tokens=requested_tokens,
-            eos_token_id=eos_id,
-            pad_token_id=eos_id,
-            use_cache=True,
-        )
+        output = generator.generate(**generation_options)
     generated = tuple(int(token_id) for token_id in output[0, prompt_length:].tolist())
-    stop_reason: Literal["eos", "length"] = (
-        "eos" if generated and generated[-1] == eos_id else "length"
-    )
-    text_ids = generated[:-1] if stop_reason == "eos" else generated
-    text = cast(
+    ended_with_eos = bool(generated and generated[-1] == eos_id)
+    text_ids = generated[:-1] if ended_with_eos else generated
+    decoded = cast(
         str,
         base.tokenizer.decode(list(text_ids), skip_special_tokens=False),
     )
+    terminator = _first_decoded_terminator(decoded, validated_stops)
+    matched_terminator: str | None = None
+    if terminator is not None:
+        byte_offset, matched_terminator = terminator
+        text = decoded.encode("utf-8")[:byte_offset].decode("utf-8")
+        stop_reason: Literal["eos", "terminator", "length"] = "terminator"
+    else:
+        text = decoded
+        stop_reason = "eos" if ended_with_eos else "length"
     return GenerationResult(
         text=text,
         generated_token_ids=generated,
         stop_reason=stop_reason,
+        matched_terminator=matched_terminator,
+    )
+
+
+def generate_task_instance_answer(
+    base: StandardBase,
+    instance: TaskInstance,
+    *,
+    max_new_tokens: int | None = None,
+) -> GenerationResult:
+    """Generate one task answer with that task family's decoded-text stop contract."""
+    return generate_task_answer(
+        base,
+        instance.prompt,
+        max_new_tokens=max_new_tokens,
+        stop_sequences=instance.answer_stop_characters,
     )

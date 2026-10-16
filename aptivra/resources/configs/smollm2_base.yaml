@@ -8,6 +8,7 @@ standard_base:
     legacy_provenance_schema: aptivra.conversion_provenance.v1
     new_identity: smollm2-standard-base-v1
     new_fingerprint_schema: aptivra.standard_base_fingerprint.v1
+    new_evaluation_schema: aptivra.model_card_eval.v5
   source:
     repository: HuggingFaceTB/SmolLM2-360M
     revision: f8027fd0eaeea54caa13c31d31b9fdc459c38b49
@@ -71,3 +72,4 @@ standard_base:
     max_sequence_tokens: 8192
     max_new_tokens: 128
     stop_policy: eos_only
+    task_stop_policy: decoded_text

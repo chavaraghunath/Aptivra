@@ -1,9 +1,10 @@
-"""Offline acceptance tests for ADR-0011 lanes 0 and 1."""
+"""Offline acceptance tests for ADR-0011 lanes 0 through 2."""
 
 from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import json
 import math
 import os
@@ -13,7 +14,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, get_type_hints
 
 import pytest
 import torch
@@ -765,6 +766,63 @@ def test_generation_removes_only_the_terminal_eos(tiny_base: StandardBase) -> No
     assert result.text == "answer"
 
 
+def test_generation_recognizes_large_eos_and_keeps_all_preceding_tokens(
+    tiny_base: StandardBase,
+) -> None:
+    class LargeEosTokenizer:
+        eos_token_id = 1000
+
+        def encode(self, text: str, *, add_special_tokens: bool) -> list[int]:
+            del text
+            assert add_special_tokens is False
+            return [1]
+
+        def decode(
+            self, token_ids: list[int], *, skip_special_tokens: bool
+        ) -> str:
+            assert skip_special_tokens is False
+            return { (5,): "partial", (5, 6): "complete"}[tuple(token_ids)]
+
+    class AnswerThenEosGenerator:
+        def generate(self, **kwargs: object) -> torch.Tensor:
+            input_ids = cast(torch.Tensor, kwargs["input_ids"])
+            suffix = torch.tensor(
+                [[5, 6, 1000]], dtype=torch.long, device=input_ids.device
+            )
+            return torch.cat((input_ids, suffix), dim=1)
+
+    result = generate_task_answer(
+        replace(
+            tiny_base,
+            model=cast(Any, AnswerThenEosGenerator()),
+            tokenizer=cast(Any, LargeEosTokenizer()),
+        ),
+        "prompt",
+        max_new_tokens=3,
+    )
+
+    assert result.stop_reason == "eos"
+    assert result.text == "complete"
+
+    class NoEosGenerator:
+        def generate(self, **kwargs: object) -> torch.Tensor:
+            input_ids = cast(torch.Tensor, kwargs["input_ids"])
+            suffix = torch.tensor([[5, 6]], dtype=torch.long, device=input_ids.device)
+            return torch.cat((input_ids, suffix), dim=1)
+
+    no_eos = generate_task_answer(
+        replace(
+            tiny_base,
+            model=cast(Any, NoEosGenerator()),
+            tokenizer=cast(Any, LargeEosTokenizer()),
+        ),
+        "prompt",
+        max_new_tokens=2,
+    )
+    assert no_eos.stop_reason == "length"
+    assert no_eos.text == "complete"
+
+
 def test_generation_passes_strict_greedy_contract_and_reports_length(
     tiny_base: StandardBase,
 ) -> None:
@@ -852,6 +910,113 @@ def test_generation_accepts_exact_length_boundaries_and_rejects_each_overrun(
     )
     with pytest.raises(ValueError, match="requested_new=2"):
         generate_task_answer(sequence_only, "one two three four", max_new_tokens=2)
+
+    bitwise_blind_spot = replace(
+        exact,
+        settings=exact.settings.model_copy(
+            update={
+                "runtime": RuntimeSettings.model_construct(
+                    dtype="float32",
+                    max_prompt_tokens=3,
+                    max_sequence_tokens=3,
+                    max_new_tokens=1,
+                    stop_policy="eos_only",
+                    task_stop_policy="decoded_text",
+                )
+            }
+        ),
+    )
+    with pytest.raises(ValueError, match="requested_new=1"):
+        generate_task_answer(bitwise_blind_spot, "one two three", max_new_tokens=1)
+
+
+def test_decoded_stopping_boundaries_and_runtime_contracts(
+    tiny_base: StandardBase,
+) -> None:
+    calls: list[tuple[list[int], bool]] = []
+
+    class RecordingTokenizer:
+        def decode(
+            self, token_ids: list[int], *, skip_special_tokens: bool
+        ) -> str:
+            calls.append((token_ids, skip_special_tokens))
+            return "\nanswer"
+
+    with pytest.raises(ValueError, match="non-negative"):
+        standard_base.DecodedTextStoppingCriteria(
+            cast(Any, RecordingTokenizer()),
+            prompt_length=-1,
+            stop_sequences=("\n",),
+        )
+    criterion = standard_base.DecodedTextStoppingCriteria(
+        cast(Any, RecordingTokenizer()),
+        prompt_length=0,
+        stop_sequences=("\n",),
+    )
+    decision = criterion(torch.tensor([[5, 6]]), None)
+    assert decision.tolist() == [True]
+    assert calls == [([5, 6], False)]
+    assert standard_base._first_decoded_terminator("\nanswer", ("\n",)) == (
+        0,
+        "\n",
+    )
+
+    many_unique = tuple(f"stop-{index}" for index in range(300))
+    assert standard_base._validated_stop_sequences(many_unique) == many_unique
+
+    result = standard_base.GenerationResult("answer", (5,), "length")
+    with pytest.raises(AttributeError):
+        result.text = "changed"  # type: ignore[misc]
+
+    batch = collate_task_instances(tiny_base, [_task("frozen", "prompt", "answer")])
+    with pytest.raises(AttributeError):
+        batch.task_ids = ()  # type: ignore[misc]
+    with pytest.raises(AttributeError):
+        tiny_base.device = torch.device("cpu")  # type: ignore[misc]
+    with pytest.raises(AttributeError):
+        tiny_base.snapshot.revision = "b" * 40  # type: ignore[misc]
+
+
+def test_file_fingerprint_accepts_one_character_and_rejects_empty_path() -> None:
+    fingerprint = standard_base.FileFingerprint(
+        path="x", bytes=1, sha256="a" * 64
+    )
+    assert fingerprint.path == "x"
+    with pytest.raises(ValueError):
+        standard_base.FileFingerprint(path="", bytes=1, sha256="a" * 64)
+
+
+def test_standard_base_runtime_annotations_and_keyword_only_contracts() -> None:
+    for value in vars(standard_base).values():
+        if getattr(value, "__module__", None) != standard_base.__name__:
+            continue
+        if inspect.isfunction(value):
+            get_type_hints(value)
+        elif inspect.isclass(value):
+            get_type_hints(value)
+            for member in vars(value).values():
+                candidate = (
+                    member.__func__
+                    if isinstance(member, classmethod | staticmethod)
+                    else member
+                )
+                if inspect.isfunction(candidate):
+                    get_type_hints(candidate)
+
+    keyword_only = {
+        standard_base.DecodedTextStoppingCriteria.__init__: {
+            "prompt_length",
+            "stop_sequences",
+        },
+        standard_base.generate_task_answer: {"max_new_tokens", "stop_sequences"},
+        standard_base.generate_task_instance_answer: {"max_new_tokens"},
+    }
+    for function, expected_names in keyword_only.items():
+        assert {
+            name
+            for name, parameter in inspect.signature(function).parameters.items()
+            if parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        } == expected_names
 
 
 @pytest.mark.parametrize("value", [True, 0, 9, 1.5, "2"])
