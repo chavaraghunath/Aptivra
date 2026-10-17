@@ -1,0 +1,93 @@
+h3_mps_pilot:
+  schema_version: aptivra.h3_mps_pilot_config.v1
+  feature:
+    enabled: false
+  output_dir: docs/adr/0012-evidence
+  base_config: configs/smollm2_base.yaml
+  baseline_config: configs/smollm2_baselines.yaml
+  expert_config: configs/smollm2_experts.yaml
+  streams:
+    synthetic_v2:
+      config: configs/task_stream_v2.yaml
+      audit_plan: configs/task_stream_audit.yaml
+      audit_record: experiments/task_stream_v2_audit.json
+      config_sha256: 4450d9747dcfbc64992fc51aedc2464b5e95a609230ef78cf0b7d91b4067bd73
+      audit_plan_sha256: 0eedacb933504a7a33b4a6a55cbef4f277a0ed1fa6e1038c4e32ac23a62821ae
+      audit_sha256: e83c0763188250698885573798673b61b0dc35602eb1335e0d03d913c110a391
+      pair_task_indices: [0, 2]
+    chronological_issues:
+      config: configs/github_issues_stream.yaml
+      raw_data: scratch/github_issues_stream/issues.jsonl
+      manifest: docs/github-issues-stream/manifest.json
+      audit_record: docs/github-issues-stream/audit.json
+      raw_sha256: 2f4d6f6554f4e762ff7a779fb81ca579d0a38db119952f67786e52997d3ab9ec
+      config_sha256: 67724254eb66394644e210a321c18163678a5278855b22ff021a7aaf9c8feba7
+      manifest_sha256: ae6c964920bd6cd99158ec352d70920c7d0ea6d6ed4ef961911625fd3ef0bed2
+      audit_sha256: fac1744f0c8e9fae752e9fb24fa8986406b4c21c08cd18bcb9ba8da21343f45d
+      pair_task_indices: [0, 1]
+  quiet_machine:
+    minimum_free_memory_percent: 70.0
+    maximum_foreign_process_rss_bytes: 2147483648
+    maximum_foreign_process_cpu_percent: 100.0
+    timeout_seconds: 900.0
+    initial_backoff_seconds: 5.0
+    maximum_backoff_seconds: 60.0
+  calibration:
+    frozen_base_mode: forward_only
+    frozen_generation_path: max_answer_length
+    worst_case_example_policy: longest_distinct_pad_to_stream_max
+    gradient_checkpointing_fallback: micro_batch_1_only
+    resident_adapter_count: 12
+    methods:
+      - frozen_base
+      - naive_sequential
+      - replay
+      - online_ewc
+      - manual_lora
+      - aptivra_full
+    micro_batches: [8, 4, 2, 1]
+    effective_batch_size: 8
+    warmup_steps: 1
+    measured_steps: 3
+    memory_cap_bytes: 28991029248
+    memory_sample_interval_seconds: 0.02
+    swap_throughput_reporting_threshold_bytes: 1073741824
+  repeatability:
+    methods: [naive_sequential, aptivra_full]
+    seeds: [20261017, 20261017, 20261018, 20261019]
+    optimizer_steps_per_task: 2
+    training_examples_per_task: 16
+    evaluation_examples_per_task: 8
+    micro_batch_size: 4
+    max_new_tokens: 32
+    checkpoint_after_each_run: true
+  h3_estimate:
+    main_method_count: 6
+    main_seed_count: 5
+    claim_stream_count: 2
+    v1_config: configs/task_stream.yaml
+    v1_regression_method_count: 6
+    v1_regression_seed_count: 1
+    ablation_stream_count: 2
+    ablations:
+      - {name: lora_rank_8, seeds: 3}
+      - {name: lora_rank_32, seeds: 3}
+      - {name: mlp_only_projections, seeds: 3}
+      - {name: task_id_oracle_routing, seeds: 3}
+      - {name: router_without_replay, seeds: 3}
+      - {name: no_replay, seeds: 3}
+      - {name: no_expert_freezing, seeds: 3}
+      - {name: fixed_one_adapter_capacity, seeds: 3}
+      - {name: no_promotion_gate, seeds: 3}
+      - {name: no_verifier_gated_memory, seeds: 3}
+      - {name: no_growth_trigger, seeds: 3}
+  cycle_caps:
+    adapter_optimizer_steps: 100
+    adapter_target_tokens: 8192
+    router_optimizer_steps: 100
+    router_replay_examples_per_expert: 8
+    evaluation_examples_per_seen_task: 363
+  execution:
+    device: mps
+    offline: true
+    wall_time_limit_seconds: 21600.0
