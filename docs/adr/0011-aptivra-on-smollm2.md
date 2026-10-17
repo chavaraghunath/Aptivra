@@ -510,8 +510,12 @@ power are intentionally not chosen after this design review; the H3 ADR must pre
 
 ### 7. Hub packaging and attribution
 
-The new model goes to a new repository whose exact name remains an owner decision. That missing
-name blocks every create/push/tag operation but does not block local implementation or evaluation.
+The new model goes to a new repository whose exact name is an owner decision. While the name is
+missing, it blocks every create/push/tag operation but not local implementation or evaluation.
+On 2026-10-17 the owner approved `raghunath1/aptivra-360m-continual`: the Aptivra name only, with
+the base credited in the model card rather than the repository name, and without the historical
+"tiered-memory" label, because ADR-0011 retires TMR from the standard path. Naming the repository
+does not authorise creating or pushing it; each outward operation still needs separate approval.
 The historical byte-level repository is immutable and is never repurposed.
 
 The package is a standard PEFT multi-adapter bundle, not remote code:

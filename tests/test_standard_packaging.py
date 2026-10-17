@@ -242,10 +242,11 @@ def test_manifest_binds_base_versions_adapters_router_identity_and_absent_evalua
     assert recorded == hub_artifacts.canonical_sha256(manifest)
 
 
-def test_standard_release_config_is_disabled_null_and_byte_identical() -> None:
+def test_standard_release_config_is_disabled_owner_named_and_byte_identical() -> None:
     settings = load_release_gate_settings()
     assert settings.feature.enabled is False
-    assert settings.repository.repository_id is None
+    # Owner-approved new repository name (2026-10-17, ADR-0011 §7).
+    assert settings.repository.repository_id == "raghunath1/aptivra-360m-continual"
     assert settings.publication.allowed_adapter_kinds == ("synthetic", "identity")
     assert Path("configs/model_card_release_gate.yaml").read_bytes() == Path(
         "aptivra/resources/configs/model_card_release_gate.yaml"

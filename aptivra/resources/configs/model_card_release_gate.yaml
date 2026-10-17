@@ -4,7 +4,7 @@ model_card_release_gate:
   feature:
     enabled: false
   repository:
-    repository_id: null
+    repository_id: raghunath1/aptivra-360m-continual
   publication:
     allowed_adapter_kinds:
       - synthetic
