@@ -1,0 +1,2 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 5284.61it/s]
+Pilot completed: 7438.015 seconds; evidence=docs/adr/0012-evidence/pilot-evidence.json

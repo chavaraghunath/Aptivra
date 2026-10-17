@@ -1,0 +1,167 @@
+{
+  "cell": {
+    "method": "naive_sequential",
+    "micro_batch": 4,
+    "stream": "chronological_issues"
+  },
+  "index": 29,
+  "quiet_machine": {
+    "quiet": true,
+    "samples": [
+      {
+        "foreign_process_count": 904,
+        "other_processes_above_cpu_threshold": [],
+        "other_processes_above_rss_threshold": [],
+        "quiet": true,
+        "system_free_memory_percent": 86.0,
+        "system_swap_used_bytes": 14675743866,
+        "timestamp_unix": 1792230197.5657449,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 85.1,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 197459968
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.3,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 61276160
+          },
+          {
+            "command": "/Applications/ShukraGhadiyaApp.app/Contents/MacOS/ShukraGhadiyaApp",
+            "cpu_percent": 7.3,
+            "parent_pid": 1,
+            "pid": 78538,
+            "rss_bytes": 54247424
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.2,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 49446912
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.2,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 48807936
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.2,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 44040192
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.1,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 39747584
+          },
+          {
+            "command": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 601,
+            "rss_bytes": 38076416
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.3,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 34832384
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 80.6,
+            "parent_pid": 1,
+            "pid": 57566,
+            "rss_bytes": 31473664
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 57574,
+            "rss_bytes": 26722304
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 57570,
+            "rss_bytes": 26329088
+          },
+          {
+            "command": "com.apple.weather.menu",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1156,
+            "rss_bytes": 26050560
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper.app/Contents/MacOS/Microsoft Teams WebView Helper",
+            "cpu_percent": 0.3,
+            "parent_pid": 66956,
+            "pid": 66987,
+            "rss_bytes": 23445504
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.1,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 22396928
+          },
+          {
+            "command": "/Applications/Visual Studio Code.app/Contents/MacOS/Code",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 13622,
+            "rss_bytes": 22036480
+          },
+          {
+            "command": "/Applications/Cisco/Cisco Secure Client.app/Contents/MacOS/Cisco Secure Client",
+            "cpu_percent": 0.6,
+            "parent_pid": 1,
+            "pid": 86042,
+            "rss_bytes": 20234240
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 19890176
+          },
+          {
+            "command": "/opt/homebrew/Cellar/python@3.11/3.11.17/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python",
+            "cpu_percent": 0.1,
+            "parent_pid": 6991,
+            "pid": 7554,
+            "rss_bytes": 19857408
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer",
+            "cpu_percent": 0.9,
+            "parent_pid": 1,
+            "pid": 416,
+            "rss_bytes": 18972672
+          }
+        ]
+      }
+    ],
+    "wait_seconds": 0.17271750001236796
+  },
+  "schema_version": "aptivra.h3_mps_pilot_archive.v1",
+  "section": "calibration"
+}
