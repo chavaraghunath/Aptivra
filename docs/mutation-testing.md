@@ -64,7 +64,7 @@ the sweep, in order:
 | --- | --- | ---: | ---: |
 | 1 | `agents`, `baselines`, `benchmarks`, `embodied`, `experts`, `federation`, `governance`, `research`, `versioning` | 1,888 | 1.0-1.2 h |
 | 2 | `ambient`, `consolidation`, `gate`, `inference`, `learning`, `memory`, `model`, `planning`, `world_model` | 2,941 | 1.5-1.8 h |
-| 3 | `export`, `huggingface`, `resources`, and package-root modules | 2,586 | 1.3-1.6 h |
+| 3 | `export`, historical `v0/huggingface`, `resources`, and package-root modules | 2,586 | 1.3-1.6 h |
 | 4 | `tasks` | 6,797 | 3.5-4.0 h |
 | 5 | `eval` | 20,919 | 10.5-11.5 h |
 

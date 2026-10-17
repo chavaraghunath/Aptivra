@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from aptivra.export.hf_conversion import convert_legacy_export_to_huggingface
+from aptivra.v0.export.hf_conversion import convert_legacy_export_to_huggingface
 
 
 def main() -> None:

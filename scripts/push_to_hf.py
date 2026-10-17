@@ -3,8 +3,8 @@
 import argparse
 from pathlib import Path
 
-from aptivra.export.hf_conversion import convert_legacy_export_to_huggingface
-from aptivra.export.hf_push import prepare_hf_publication, push_aptivra_model_to_hf
+from aptivra.v0.export.hf_conversion import convert_legacy_export_to_huggingface
+from aptivra.v0.export.hf_push import prepare_hf_publication, push_aptivra_model_to_hf
 
 
 def main() -> None:

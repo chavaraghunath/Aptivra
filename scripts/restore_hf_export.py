@@ -7,7 +7,7 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
-from aptivra.export.hf_hub_artifacts import HUB_LAYOUT_FILES
+from aptivra.v0.export.hf_hub_artifacts import HUB_LAYOUT_FILES
 
 
 def main() -> None:

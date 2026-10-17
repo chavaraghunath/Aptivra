@@ -169,7 +169,8 @@
 - `pyproject.toml` — Build system, dependency specification, and tool configuration for ruff, mypy, pytest, and mutmut.
 - `.claude/` — Repository-local Claude Code automation.
   - `.claude/hooks/` — Stop hooks that regenerate the protected `REPO-TREE.md` structure block.
-- `configs/` — Editable YAML copies for versioned task streams, task-stream audit policy, GitHub issues stream building, measured-results release gates, and verifier sandbox limits, plus repository-only model architecture, ablation, inference/chat, pretrained base-model candidate, decision-threshold, Vertex spot-execution, and GCS artifact-lifecycle presets; installed canonical runtime defaults live under `aptivra/resources/configs/`.
+- `configs/` — Editable YAML copies for versioned task streams, task-stream audit policy, GitHub issues stream building, standard PEFT release gates, and verifier sandbox limits, plus repository-only model architecture, ablation, inference/chat, pretrained base-model candidate, decision-threshold, Vertex spot-execution, and GCS artifact-lifecycle presets; installed canonical runtime defaults live under `aptivra/resources/configs/`.
+  - `configs/v0/` — Byte-identical editable mirror of the quarantined historical model-card gate.
 - `mutation/` — Repo-wide Cosmic Ray configurations partitioned into focused, parallelizable source sessions, plus the fail-closed strict-gate policy.
 - `deploy/` — Deployment bridges for Docker CUDA/CPU and Ollama/LM Studio run options.
   - `deploy/docker/` — CPU and CUDA container deployment definitions.
@@ -188,15 +189,14 @@
   - `aptivra/gate/` — Promotion criteria and statistical decision helpers for continual-learning updates.
   - `aptivra/tasks/` — V1/v2 sequential task family generators, normalized-AST fingerprinting, subprocess-isolated mechanical verifiers, and versioned task stream manager.
   - `aptivra/eval/` — Continual learning evaluation harness, role-aware headline aggregates, deterministic task-stream audit gates, accuracy matrix logger, model-card measurement records, pretrained base-model comparison and selection logic, local/GCS artifact stores, the resumable Vertex worker/spec renderer, and the versioned held-out prompt set.
-  - `aptivra/export/` — Self-contained Transformers packaging and legacy conversion, Tiered C and local-format export utilities, and measured-results model-card rendering.
+  - `aptivra/export/` — Standard PEFT adapter/router staging, evidence-bound model-card rendering, exact allowlist/hash verification, and fail-closed publication boundaries.
   - `aptivra/inference/` — Verified stock-Llama inference, versioned Aptivra chat formatting/stopping, evidence-bound identity records, and target-only PEFT identity-adapter training.
-  - `aptivra/huggingface/` — In-package Transformers config, model, and tokenizer wrappers.
-  - `aptivra/resources/` — Installed YAML defaults and non-importable, self-contained Hugging Face remote-code templates consumed by package APIs through `importlib.resources`.
+  - `aptivra/resources/` — Installed standard-path YAML defaults consumed by package APIs through `importlib.resources`.
   - `aptivra/agents/` — Dynamic tool synthesis and sandboxed execution engine (Phase 3).
   - `aptivra/ambient/` — Theory-of-Mind modeling, P2P sync, and lifelong narrative keeper (Phases 2 & 4).
   - `aptivra/benchmarks/` — 4-Phase Developmental Benchmark Suite (AID-Bench).
   - `aptivra/consolidation/` — ADR-0011 bounded PEFT/router replay fitting, verifier-evidence promotion, hash-verified atomic rollback, and restart persistence.
-  - `aptivra/v0/` — Explicit historical byte-level namespace containing quarantined expert, dense consolidation, promotion-gate, inference/chat, tokenizer, and identity/conversation task implementations; never selectable by the SmolLM2 path.
+  - `aptivra/v0/` — Explicit historical byte-level namespace containing quarantined exporters, Hub remote-code wrappers/templates, model-card gate, experts, dense consolidation, promotion gate, inference/chat, tokenizer, and identity/conversation task implementations; never selectable by the SmolLM2 path.
   - `aptivra/embodied/` — Sensorimotor tokenizer and closed-loop SE(3) kinematic actuator (Phase 2).
   - `aptivra/federation/` — Decentralized collective intelligence and federated mind node (Phase 4).
   - `aptivra/governance/` — Dual-Boundary Constitutional Governor, Merkle audit kernel, and drift auditor.
@@ -213,4 +213,4 @@
 - `scripts/` — Execution, benchmarking, evaluation, task-stream audit, base-model evaluation, Vertex dry-run rendering, and export scripts.
   - `scripts/run-project-tool` — Portable `uv` launcher for locked development tools in primary checkouts, linked worktrees, and CI.
 - `tests/` — Pytest unit and integration suite; its task-stream audit check is the repository's CI-time policy gate.
-  - `tests/v0/` — Relocated historical assertions for quarantined v0 implementations; only import paths differ from their pre-quarantine form.
+  - `tests/v0/` — Relocated historical assertions for quarantined v0 implementations, packaging, model-card, and wheel resources; only file locations, import paths, and moved-path literals differ from their pre-quarantine form.

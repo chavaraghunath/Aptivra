@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from aptivra.export.multitier import MultitierLoader
 from aptivra.model.config import ModelConfig
+from aptivra.v0.export.multitier import MultitierLoader
 
 
 def model_config_from_export_dir(

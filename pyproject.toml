@@ -57,7 +57,8 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "aptivra.eval" = ["*.json", "*.txt"]
-"aptivra.resources" = ["configs/*.yaml", "huggingface_hub/*.py.template"]
+"aptivra.resources" = ["configs/*.yaml"]
+"aptivra.v0.resources" = ["configs/*.yaml", "huggingface_hub/*.py.template"]
 
 [tool.ruff]
 line-length = 100
@@ -89,7 +90,7 @@ module = ["scipy.*", "transformers.*", "mlx.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["aptivra.huggingface.*"]
+module = ["aptivra.v0.huggingface.*"]
 disable_error_code = ["no-untyped-call"]
 
 

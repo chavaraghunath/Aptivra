@@ -20,14 +20,13 @@ from aptivra.eval.model_card_eval import (
 )
 from aptivra.eval.task_stream_audit import load_audit_plan
 from aptivra.experts.standard import load_standard_expert_settings
-from aptivra.export.model_card import load_release_gate_settings
 from aptivra.inference.standard_base import load_standard_base_settings
 from aptivra.resources import aptivra_resource, require_resource
 from aptivra.tasks.code_sandbox import load_sandbox_config
 from aptivra.tasks.github_issues import load_github_issue_builder_config
+from aptivra.v0.export.model_card import load_release_gate_settings
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_HUB_TEMPLATE_DIR = _PROJECT_ROOT / "aptivra" / "resources" / "huggingface_hub"
 
 
 def _mutation_runtime_path() -> str | None:
@@ -37,78 +36,6 @@ def _mutation_runtime_path() -> str | None:
     import mutmut
 
     return str(Path(mutmut.__file__).resolve().parent.parent)
-
-
-def _stage_hub_templates_for_static_analysis(destination: Path) -> Path:
-    package_dir = destination / "aptivra_hub_remote_code"
-    package_dir.mkdir()
-    (package_dir / "__init__.py").touch()
-    for source in sorted(_HUB_TEMPLATE_DIR.glob("*.py.template")):
-        shutil.copy2(source, package_dir / source.name.removesuffix(".template"))
-    return package_dir
-
-
-def _run_static_analysis(
-    package_dir: Path,
-    cache_dir: Path,
-) -> tuple[subprocess.CompletedProcess[str], subprocess.CompletedProcess[str]]:
-    ruff = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", "--no-cache", str(package_dir)],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        cwd=_PROJECT_ROOT,
-    )
-    mypy = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "mypy",
-            "--strict",
-            "--config-file",
-            str(_PROJECT_ROOT / "pyproject.toml"),
-            "--cache-dir",
-            str(cache_dir),
-            str(package_dir),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-        cwd=_PROJECT_ROOT,
-    )
-    return ruff, mypy
-
-
-def test_hub_remote_code_templates_pass_ruff_and_strict_mypy(tmp_path: Path) -> None:
-    package_dir = _stage_hub_templates_for_static_analysis(tmp_path)
-
-    ruff, mypy = _run_static_analysis(package_dir, tmp_path / "mypy-cache")
-
-    assert ruff.returncode == 0, ruff.stdout + ruff.stderr
-    assert mypy.returncode == 0, mypy.stdout + mypy.stderr
-
-
-def test_hub_remote_code_static_analysis_rejects_lint_and_type_errors(
-    tmp_path: Path,
-) -> None:
-    package_dir = _stage_hub_templates_for_static_analysis(tmp_path)
-    configuration = package_dir / "configuration_aptivra.py"
-    configuration.write_text(
-        configuration.read_text(encoding="utf-8")
-        + '\ninvalid_remote_type: int = "not-an-int"\nundefined_remote_name\n',
-        encoding="utf-8",
-    )
-
-    ruff, mypy = _run_static_analysis(package_dir, tmp_path / "mypy-cache")
-
-    assert ruff.returncode != 0
-    assert "F821" in ruff.stdout
-    assert "undefined_remote_name" in ruff.stdout
-    assert mypy.returncode != 0
-    assert "Incompatible types in assignment" in mypy.stdout
-    assert "[assignment]" in mypy.stdout
 
 
 def test_wheel_contains_only_aptivra_packages_and_required_resources(
@@ -167,9 +94,10 @@ def test_wheel_contains_only_aptivra_packages_and_required_resources(
         "aptivra/resources/configs/task_stream_audit.yaml",
         "aptivra/resources/configs/task_stream_v2.yaml",
         "aptivra/resources/configs/verifier_sandbox.yaml",
-        "aptivra/resources/huggingface_hub/configuration_aptivra.py.template",
-        "aptivra/resources/huggingface_hub/modeling_aptivra.py.template",
-        "aptivra/resources/huggingface_hub/tokenization_aptivra.py.template",
+        "aptivra/v0/resources/huggingface_hub/configuration_aptivra.py.template",
+        "aptivra/v0/resources/huggingface_hub/modeling_aptivra.py.template",
+        "aptivra/v0/resources/huggingface_hub/tokenization_aptivra.py.template",
+        "aptivra/v0/resources/configs/model_card_release_gate.yaml",
     } <= members
     assert any(name.endswith(".dist-info/licenses/LICENSE") for name in members)
     for forbidden_prefix in ("configs/", "deploy/", "experiments/", "multitier_c/"):
@@ -325,23 +253,3 @@ def test_repository_config_copy_matches_packaged_default(
 def test_missing_packaged_resource_names_the_required_file() -> None:
     with pytest.raises(FileNotFoundError, match="missing-default.yaml"):
         require_resource("aptivra.resources", "configs", "missing-default.yaml")
-
-
-def test_gguf_export_module_import_is_lazy_when_dependency_is_unavailable() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            (
-                "import sys; "
-                "sys.modules['gguf'] = None; "
-                "import aptivra.export.gguf_exporter"
-            ),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        cwd=_PROJECT_ROOT,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr

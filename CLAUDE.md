@@ -408,15 +408,17 @@ If `tree` is not installed, the hook skips silently (Structure zone goes stale) 
 > the folder layout, service names, ports, hostnames, deployment topology,
 > and other details unique to **Aptivra**.
 
-### Tiered Memory Runtime (TMR) & AI Memory Multitiering (`ADR-0006`)
+### Historical Tiered Memory Runtime (TMR) & AI Memory Multitiering (`ADR-0006`)
 
-Aptivra supports **Tiered Memory Runtime (TMR)** as an optional multi-tier execution platform for $T_2$ expert modules:
+The v0-byte-level namespace preserves **Tiered Memory Runtime (TMR)** as a historical multi-tier
+execution platform. ADR-0011 retires it from the standard SmolLM2 path:
 
 1. **Memory Multitiering ($VRAM \to RAM \to NVMe$):** Dense components ($T_0$ attention, embeddings, $T_3$ backbone) remain resident in VRAM/RAM. Frozen mature $T_2$ expert modules live on NVMe storage and are read on demand.
 2. **Usage-Heat Expert Pinning:** High-frequency experts are auto-pinned in RAM/VRAM via `.expert_usage` routing heat logs.
 3. **1-Layer Lookahead Prefetching:** Layer $L$ router top-$k$ assignments trigger asynchronous prefetching of layer $L+1$ expert parameters.
-4. **Pure C Engine Exporter:** PyTorch checkpoints and expert pools serialize to Tiered `.safetensors` structure via `MultitierExporter` (`aptivra.export.multitier`) for zero-dependency C execution.
-5. **Configurability:** Multi-tier execution is enabled via `execution.platform: "tiered_c"` and registered in `docs/configuration-register.md`.
+4. **Historical Exporter:** V0 PyTorch checkpoints and expert pools serialize through
+   `MultitierExporter` (`aptivra.v0.export.multitier`); this is not a SmolLM2 execution claim.
+5. **Isolation:** V0 configuration remains historical and cannot select the standard SmolLM2 path.
 
 ---
 

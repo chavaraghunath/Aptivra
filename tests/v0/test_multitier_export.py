@@ -6,11 +6,11 @@ import pytest
 import torch
 import torch.nn as nn
 
-from aptivra.export.multitier import MultitierExporter, MultitierLoader
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
 from aptivra.v0.experts.expert import ExpertModule
 from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.export.multitier import MultitierExporter, MultitierLoader
 
 
 def test_multitier_export_and_loader_roundtrip(tmp_path: Path) -> None:

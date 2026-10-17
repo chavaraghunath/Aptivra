@@ -85,9 +85,10 @@ pip install -e ".[dev]"
 ```
 
 The wheel embeds the versioned task-stream, task-stream audit, GitHub issues stream builder,
-model-card release-gate, standard-base, baseline, PEFT-expert, and verifier-sandbox defaults, the
-versioned model-card evaluation corpora, and the self-contained Hub remote-code templates. Package
-APIs resolve these files with `importlib.resources`, so their defaults work outside a source clone.
+standard PEFT release-gate, standard-base, baseline, PEFT-expert, and verifier-sandbox defaults,
+plus the versioned model-card evaluation corpora. Historical remote-code templates remain packaged
+only below `aptivra.v0.resources` so v0 is reproducible without entering the standard release path.
+Package APIs resolve these files with `importlib.resources`, so their defaults work outside a source clone.
 The same-named YAML files under `configs/` are byte-matched editable copies for repository commands
 and explicit overrides. Backbone and inference YAML files are repository-only experiment/operator
 presets; callers using them must pass their paths explicitly.
@@ -119,7 +120,16 @@ all installed mutation operators. The GitHub Actions matrix runs four sessions c
 enforces at most 10% surviving mutants with `cr-rate --estimate --fail-over 10`. There are no
 source or operator exclusions. See `AGENTS.md` for the exact repo-wide local command loop.
 
-## Model-Card Evaluation
+## Standard PEFT Packaging
+
+ADR-0011 lane 7 stages standard PEFT adapter directories, a router safetensors/JSON sidecar, the
+`aptivra-chat-v1` template, an evidence-bound model card, and an exact allowlist/hash manifest.
+The base weights are referenced by their pinned upstream repository and revision and are not
+re-uploaded. The destination repository is owner-controlled configuration with a `null` default;
+local staging is independent of that value, while create, push, and tag operations fail before a
+network client is constructed until the owner supplies it. The feature remains disabled by default.
+
+## Historical v0 Model-Card Evaluation
 
 Model weights are expected in a Hub-layout directory such as `scratch/hf_export`, containing
 `model.safetensors`, `config.json`, `conversion-provenance.json`, tokenizer metadata, and the
@@ -133,10 +143,9 @@ PYTHONPATH=$PWD python -m scripts.evaluate_model_card \
   --hub-revision f55718d
 ```
 
-Render the Hugging Face README from that record through
-`aptivra.export.model_card.generate_model_card_readme`. The installed release-gate default is
-packaged under `aptivra/resources/configs/`; `configs/model_card_release_gate.yaml` is its editable
-repository copy, and the settings are registered in `docs/configuration-register.md`.
+Render the historical README from that record through
+`aptivra.v0.export.model_card.generate_model_card_readme`. Its installed gate is packaged under
+`aptivra/v0/resources/configs/` and mirrored at `configs/v0/model_card_release_gate.yaml`.
 The recorded losses establish byte prediction only on the named, hashed prompt and text sets.
 They do not establish factual accuracy, generated-answer correctness, instruction following,
 safety, or performance on other inputs. Whole-text scoring uses fixed-context chunks and retains

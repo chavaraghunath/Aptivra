@@ -1,480 +1,276 @@
-"""Measured-results model card renderer for Aptivra Hub exports."""
+"""Configuration and evidence-bound model cards for standard PEFT releases."""
 
 from __future__ import annotations
 
 import json
-from contextlib import suppress
+import re
 from dataclasses import dataclass
 from importlib.resources.abc import Traversable
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, Optional, Union, cast
 
 import yaml
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from aptivra.eval.model_card_schema import EvaluationRecord, validate_evaluation_record
-from aptivra.model.config import ModelConfig
 from aptivra.resources import aptivra_resource
 
 DEFAULT_RELEASE_GATE_CONFIG = aptivra_resource(
     "configs", "model_card_release_gate.yaml"
 )
 
-ConfigSource = Path | str | Traversable
+ConfigSource = Union[Path, str, Traversable]  # noqa: UP007
+
+
+class _StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+
+class ReleaseFeatureSettings(_StrictModel):
+    """Fail-closed switch for the unaccepted standard publication path."""
+
+    enabled: bool
+
+
+class RepositorySettings(_StrictModel):
+    """Owner-controlled destination; null deliberately has no fallback."""
+
+    repository_id: Optional[str]  # noqa: UP045
+
+    @field_validator("repository_id")
+    @classmethod
+    def validate_repository_id(cls, value: Optional[str]) -> Optional[str]:  # noqa: UP045
+        if value is None:
+            return None
+        if re.fullmatch(r"[^/\s]+/[^/\s]+", value) is None:
+            raise ValueError("repository_id must be null or an owner/name identifier")
+        return value
+
+
+class PublicationSettings(_StrictModel):
+    """Closed public-adapter provenance allowlist."""
+
+    allowed_adapter_kinds: tuple[Literal["synthetic", "identity"], ...]
+
+    @field_validator("allowed_adapter_kinds", mode="before")
+    @classmethod
+    def normalize_kinds(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
+
+    @model_validator(mode="after")
+    def validate_kinds(self) -> PublicationSettings:
+        if self.allowed_adapter_kinds != ("synthetic", "identity"):
+            raise ValueError(
+                "allowed_adapter_kinds must be exactly synthetic then identity"
+            )
+        return self
+
+
+class ReleaseGateSettings(_StrictModel):
+    """Complete lane-7 staging and publication policy."""
+
+    schema_version: Literal["aptivra.model_card_release_gate.v1"]
+    feature: ReleaseFeatureSettings
+    repository: RepositorySettings
+    publication: PublicationSettings
+    forbidden_references: tuple[str, ...]
+
+    @field_validator("forbidden_references", mode="before")
+    @classmethod
+    def normalize_references(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
+
+    @field_validator("forbidden_references")
+    @classmethod
+    def validate_references(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if not value or any(not item.strip() for item in value):
+            raise ValueError("forbidden references must be non-empty strings")
+        folded = tuple(item.casefold() for item in value)
+        if len(set(folded)) < len(folded):
+            raise ValueError("forbidden references must be unique case-insensitively")
+        return value
 
 
 def _read_text(source: ConfigSource) -> str:
-    return (
-        Path(source).read_text(encoding="utf-8")
-        if isinstance(source, str)
-        else source.read_text(encoding="utf-8")
-    )
-
-
-def load_results_record(results_path: Path | str) -> dict[str, Any]:
-    """Loads one machine-readable model-card evaluation record."""
-    with open(results_path, encoding="utf-8") as f:
-        data = json.load(f)
-    if not isinstance(data, dict):
-        raise ValueError("model-card results record must be a JSON object")
-    return data
-
-
-@dataclass(frozen=True)
-class ReleaseGateSettings:
-    """Validated operator settings for release evidence and comparison."""
-
-    heldout_bpb_unigram_margin_bits: float
-    minimum_trained_prompt_samples: int
-    minimum_heldout_prompt_samples: int
-    minimum_heldout_text_bytes: int
-    supplied_record_metric_tolerance: float
-    status_note: str | None
-    archive_tag_note: str | None
-    forbidden_hub_references: tuple[str, ...]
+    if isinstance(source, str):
+        return Path(source).read_text(encoding="utf-8")
+    return source.read_text(encoding="utf-8")
 
 
 def load_release_gate_settings(
     config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG,
 ) -> ReleaseGateSettings:
-    """Load and validate all model-card release-gate settings."""
-    data = yaml.safe_load(_read_text(config_path))
-    if not isinstance(data, dict):
-        raise ValueError("release gate config must be a YAML mapping")
-    section = data.get("model_card_release_gate")
-    if not isinstance(section, dict):
-        raise ValueError("release gate config missing model_card_release_gate")
-    raw_margin = section.get("heldout_bpb_unigram_margin_bits")
-    if not isinstance(raw_margin, int | float) or isinstance(raw_margin, bool):
-        raise ValueError("heldout_bpb_unigram_margin_bits must be numeric")
-    if raw_margin < 0:
-        raise ValueError("heldout_bpb_unigram_margin_bits must be non-negative")
-    trained_minimum = _positive_config_int(section, "minimum_trained_prompt_samples")
-    heldout_minimum = _positive_config_int(section, "minimum_heldout_prompt_samples")
-    text_minimum = _positive_config_int(section, "minimum_heldout_text_bytes")
-    raw_tolerance = section.get("supplied_record_metric_tolerance")
-    if not isinstance(raw_tolerance, int | float) or isinstance(raw_tolerance, bool):
-        raise ValueError("supplied_record_metric_tolerance must be numeric")
-    if not 0.0 <= raw_tolerance <= 0.001:
+    """Load the strict disabled-by-default standard publication policy."""
+    raw: object = yaml.safe_load(_read_text(config_path))
+    if not isinstance(raw, dict) or set(raw) != {"model_card_release_gate"}:
         raise ValueError(
-            "supplied_record_metric_tolerance must be between 0.0 and 0.001"
+            "release gate config root must contain only 'model_card_release_gate'"
         )
-    status_note = _optional_config_text(section, "status_note")
-    archive_tag_note = _optional_config_text(section, "archive_tag_note")
-    forbidden_hub_references = _required_config_text_tuple(
-        section, "forbidden_hub_references"
+    return ReleaseGateSettings.model_validate(raw["model_card_release_gate"])
+
+
+@dataclass(frozen=True)
+class ModelCardData:
+    """Validated immutable release facts consumed by the renderer."""
+
+    model_name: str
+    creator_name: str
+    creator_approval: str
+    base_repository: str
+    base_revision: str
+    research_status: str
+    limitations: tuple[str, ...]
+    adapters: tuple[dict[str, Any], ...]
+    evaluation: dict[str, Any]
+
+
+def _mapping(value: object, field: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"staging manifest {field} must be an object")
+    return cast(dict[str, Any], value)
+
+
+def _text(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"staging manifest {field} must be non-empty text")
+    return value
+
+
+def _card_data(manifest: dict[str, Any]) -> ModelCardData:
+    identity = _mapping(manifest.get("identity"), "identity")
+    creator = _mapping(identity.get("creator"), "identity.creator")
+    base = _mapping(manifest.get("base"), "base")
+    raw_adapters = manifest.get("adapters")
+    if not isinstance(raw_adapters, list) or not raw_adapters:
+        raise ValueError("staging manifest adapters must be a non-empty list")
+    adapters = tuple(_mapping(item, "adapters[]") for item in raw_adapters)
+    raw_limitations = identity.get("limitations")
+    if not isinstance(raw_limitations, list) or not raw_limitations:
+        raise ValueError("staging manifest identity limitations must be a non-empty list")
+    limitations = tuple(_text(item, "identity.limitations[]") for item in raw_limitations)
+    return ModelCardData(
+        model_name=_text(identity.get("model_name"), "identity.model_name"),
+        creator_name=_text(creator.get("name"), "identity.creator.name"),
+        creator_approval=_text(creator.get("approval"), "identity.creator.approval"),
+        base_repository=_text(base.get("repository"), "base.repository"),
+        base_revision=_text(base.get("revision"), "base.revision"),
+        research_status=_text(identity.get("research_status"), "identity.research_status"),
+        limitations=limitations,
+        adapters=adapters,
+        evaluation=_mapping(manifest.get("evaluation"), "evaluation"),
     )
-    return ReleaseGateSettings(
-        heldout_bpb_unigram_margin_bits=float(raw_margin),
-        minimum_trained_prompt_samples=trained_minimum,
-        minimum_heldout_prompt_samples=heldout_minimum,
-        minimum_heldout_text_bytes=text_minimum,
-        supplied_record_metric_tolerance=float(raw_tolerance),
-        status_note=status_note,
-        archive_tag_note=archive_tag_note,
-        forbidden_hub_references=forbidden_hub_references,
-    )
 
 
-def load_release_gate_config(config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG) -> float:
-    """Return the configured held-out BpB margin for backward-compatible callers."""
-    return load_release_gate_settings(config_path).heldout_bpb_unigram_margin_bits
-
-
-def release_gate_allows_general_language_model(
-    results_record: dict[str, Any],
-    config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG,
-    *,
-    fresh_evaluation: EvaluationRecord | None = None,
-) -> bool:
-    """Return true only for freshly measured evidence that beats the configured gate."""
-    try:
-        settings = load_release_gate_settings(config_path)
-        validated = validate_evaluation_record(
-            results_record,
-            minimum_trained_samples=settings.minimum_trained_prompt_samples,
-            minimum_heldout_samples=settings.minimum_heldout_prompt_samples,
-            minimum_heldout_text_bytes=settings.minimum_heldout_text_bytes,
+def _adapter_rows(adapters: tuple[dict[str, Any], ...]) -> str:
+    rows: list[str] = []
+    for adapter in adapters:
+        adapter_id = _text(adapter.get("adapter_id"), "adapters[].adapter_id")
+        kind = _text(adapter.get("kind"), "adapters[].kind")
+        task_family = _text(adapter.get("task_family"), "adapters[].task_family")
+        rows.append(
+            f"| `{adapter_id}` | {kind} | {task_family} | Derivative of the pinned base |"
         )
-    except (OSError, ValueError):
-        return False
-    if fresh_evaluation is None or fresh_evaluation != validated:
-        return False
-    heldout = validated.evaluation.heldout_prompt_answer_bpb
+    return "\n".join(rows)
+
+
+def _capability_section(evaluation: dict[str, Any]) -> str:
+    record = evaluation.get("record")
+    if record is None:
+        absence = _text(evaluation.get("absence"), "evaluation.absence")
+        return (
+            "No capability is claimed because no bound release-evaluation record is "
+            f"available. {absence}"
+        )
+    record_mapping = _mapping(record, "evaluation.record")
+    metric = _mapping(record_mapping.get("metric"), "evaluation.record.metric")
+    seeds = record_mapping.get("seed_set")
+    if not isinstance(seeds, list) or not seeds:
+        raise ValueError("evaluation record seed_set must be a non-empty list")
     return (
-        heldout.mean + settings.heldout_bpb_unigram_margin_bits
-        < heldout.baselines.unigram_bpb.mean
+        "The only release capability statement is the bound record: "
+        f"`{_text(metric.get('name'), 'evaluation.record.metric.name')}` = "
+        f"`{metric.get('value')}` `{_text(metric.get('unit'), 'evaluation.record.metric.unit')}` "
+        "on stream `"
+        f"{_text(record_mapping.get('stream_version'), 'evaluation.record.stream_version')}`, "
+        f"seeds `{json.dumps(seeds)}`, denominator `{record_mapping.get('denominator')}`, "
+        f"dated `{record_mapping.get('date')}`. No broader capability follows from it."
     )
 
 
-def generate_model_card_readme(
-    repo_id: str,
-    model_config: ModelConfig,
-    num_experts: int,
-    *,
-    results_record: dict[str, Any] | None = None,
-    results_path: Path | str | None = None,
-    fresh_evaluation: EvaluationRecord | None = None,
-    release_gate_config_path: ConfigSource = DEFAULT_RELEASE_GATE_CONFIG,
-) -> str:
-    """Render a card; only publication's fresh validated evidence may clear its notice."""
-    _ = (model_config, num_experts)
-    record = results_record if results_record is not None else {}
-    if results_path is not None:
-        record = load_results_record(results_path)
-
-    settings = load_release_gate_settings(release_gate_config_path)
-    validated: EvaluationRecord | None = None
-    with suppress(ValueError):
-        validated = validate_evaluation_record(
-            record,
-            minimum_trained_samples=settings.minimum_trained_prompt_samples,
-            minimum_heldout_samples=settings.minimum_heldout_prompt_samples,
-            minimum_heldout_text_bytes=settings.minimum_heldout_text_bytes,
-        )
-    display_record = (
-        validated.model_dump(mode="json", by_alias=True) if validated is not None else {}
-    )
-    gate_passed = (
-        validated is not None
-        and fresh_evaluation is not None
-        and fresh_evaluation == validated
-        and release_gate_allows_general_language_model(
-            record,
-            release_gate_config_path,
-            fresh_evaluation=fresh_evaluation,
-        )
-    )
-    trained_bpb = _bpb_range_summary(
-        display_record, ("evaluation", "trained_prompt_answer_bpb")
-    )
-    heldout_bpb = _bpb_summary(
-        display_record, ("evaluation", "heldout_prompt_answer_bpb")
-    )
-    prompt_set_name = _text_at(
-        display_record, ("evaluation", "heldout_prompt_set", "name")
-    )
-    prompt_set_sha256 = _text_at(
-        display_record, ("evaluation", "heldout_prompt_set", "sha256")
-    )
-    prompt_set_samples = _number_text_at(
-        display_record, ("evaluation", "heldout_prompt_set", "samples")
-    )
-    text_set_name = _text_at(display_record, ("evaluation", "heldout_text_set", "name"))
-    text_set_sha256 = _text_at(
-        display_record, ("evaluation", "heldout_text_set", "sha256")
-    )
-    text_set_bytes = _number_text_at(
-        display_record, ("evaluation", "heldout_text_set", "bytes")
-    )
-    trained_uniform = _bpb_summary(
-        display_record,
-        ("evaluation", "trained_prompt_answer_bpb", "baselines", "uniform_bpb"),
-    )
-    trained_unigram = _bpb_summary(
-        display_record,
-        ("evaluation", "trained_prompt_answer_bpb", "baselines", "unigram_bpb"),
-    )
-    heldout_uniform = _bpb_summary(
-        display_record,
-        ("evaluation", "heldout_prompt_answer_bpb", "baselines", "uniform_bpb"),
-    )
-    heldout_unigram = _bpb_summary(
-        display_record,
-        ("evaluation", "heldout_prompt_answer_bpb", "baselines", "unigram_bpb"),
-    )
-    total_parameters = _number_at(display_record, ("model", "total_parameters"))
-    weights_hash = _text_at(
-        display_record, ("checkpoint", "model_safetensors_sha256")
-    )
-    whole_text_bpb = _number_text_at(
-        display_record, ("evaluation", "heldout_text_bpb", "value")
-    )
-    whole_text_uniform = _number_text_at(
-        display_record,
-        ("evaluation", "heldout_text_bpb", "baselines", "uniform_bpb"),
-    )
-    whole_text_unigram = _number_text_at(
-        display_record,
-        ("evaluation", "heldout_text_bpb", "baselines", "unigram_bpb"),
-    )
-    context_length = _number_text_at(display_record, ("model", "context_length"))
-    padding_token = _number_text_at(
-        display_record, ("tokenizer", "padding_token_id")
-    )
-    newline_token = _number_text_at(
-        display_record, ("tokenizer", "newline_stop_token_id")
-    )
-    generation_note = (
-        "Generation does not stop by itself because this checkpoint did not learn to emit an "
-        "end byte. Always set `max_new_tokens`. "
-        f"Byte {padding_token} doubles as padding and end-of-sequence, while byte "
-        f"{newline_token} (newline) is also a stop. Package and Transformers generation both "
-        "retain the first emitted stop byte in the returned suffix; no trailing whitespace "
-        "is stripped."
-    )
-    repository_note = ""
-    if "200m" in repo_id.lower() and total_parameters is not None:
-        repository_note = (
-            f"\nThe repository name predates the measured {int(total_parameters):,}-parameter "
-            "checkpoint.\n"
-        )
-    notice = ""
-    if not gate_passed:
-        notice = (
-            "> **Not a usable language model:** held-out answer-span bits per byte "
-            "does not beat the unigram byte baseline, or that comparison was not measured. "
-            "This checkpoint must not be described as a general language model."
-        )
-    configured_notes = "\n".join(
-        note
-        for note in (settings.status_note, settings.archive_tag_note)
-        if note is not None
-    )
-    top_notes = "\n\n".join(item for item in (notice, configured_notes) if item)
-    top_section = f"\n{top_notes}\n" if top_notes else "\n"
-
+def generate_model_card_readme(manifest: dict[str, Any]) -> str:
+    """Render only facts present in the immutable package and identity manifests."""
+    data = _card_data(manifest)
+    first_adapter = _text(data.adapters[0].get("adapter_id"), "adapters[0].adapter_id")
+    limitations = "\n".join(f"- {item}" for item in data.limitations)
     return f"""---
 license: apache-2.0
-library_name: transformers
+library_name: peft
+base_model: {data.base_repository}
 pipeline_tag: text-generation
 tags:
 - aptivra
-- research-prototype
-- byte-level
-- pytorch
-- continual-learning-research
+- peft
+- research
 ---
 
-# Aptivra Research Prototype Model Card
-{top_section}
-## What This Artefact Is
+# {data.model_name}
 
-This repository contains an Aptivra byte-level causal-model research checkpoint and
-supporting export artefacts. The checkpoint is intended for auditing and research into this
-codebase only. It is not evidence of instruction following, tool use, embodied action,
-function calling, code synthesis skill, or continual-learning retention.
-{repository_note}
+## Status and evidence
 
-## Measured Facts
+{data.research_status}
 
-| Field | Value |
-|---|---|
-| Repository | `{repo_id}` |
-| Evaluation timestamp | {_text_at(display_record, ("timestamp_utc",))} |
-| Source Hub revision | {_text_at(display_record, ("checkpoint", "source_hub_revision"))} |
-| `model.safetensors` SHA-256 | {weights_hash} |
-| Legacy backbone SHA-256 | {_text_at(display_record, ("checkpoint", "backbone_sha256"))} |
-| Backbone parameters | {_number_text_at(display_record, ("model", "backbone_parameters"))} |
-| Router parameters | {_number_text_at(display_record, ("model", "router_parameters"))} |
-| Expert parameters | {_number_text_at(display_record, ("model", "expert_parameters"))} |
-| Total parameters | {_number_text_at(display_record, ("model", "total_parameters"))} |
-| Position embedding | {_text_at(display_record, ("model", "position_embedding"))} |
-| MoE enabled during evaluation | {_text_at(display_record, ("evaluation", "moe_enabled"))} |
-| Held-out prompt set | {prompt_set_name} |
-| Held-out prompt set SHA-256 | {prompt_set_sha256} |
-| Held-out prompt samples | {prompt_set_samples} |
-| Held-out text set | {text_set_name} |
-| Held-out text set SHA-256 | {text_set_sha256} |
-| Held-out text bytes | {text_set_bytes} |
-| Trained-prompt answer-span BpB | {trained_bpb} |
-| Trained-answer uniform baseline BpB | {trained_uniform} |
-| Trained-answer fitted unigram baseline BpB | {trained_unigram} |
-| Held-out answer-span BpB | {heldout_bpb} |
-| Held-out-answer uniform baseline BpB | {heldout_uniform} |
-| Held-out-answer fitted unigram baseline BpB | {heldout_unigram} |
-| Held-out whole-text BpB | {whole_text_bpb} |
-| Held-out-text uniform baseline BpB | {whole_text_uniform} |
-| Held-out-text fitted unigram baseline BpB | {whole_text_unigram} |
+{_capability_section(data.evaluation)}
 
-Each baseline is computed on exactly the bytes scored by the metric beside it. The empirical
-unigram distribution is fitted and evaluated on those same bytes, so it is an optimistic
-baseline bound rather than an independently fitted estimate.
+## Stock loading with an explicit adapter
 
-Publication recomputes these loss metrics from the exact local export immediately before upload.
-The whole-text metric processes fixed-context chunks, retaining the preceding byte at each chunk
-boundary. The metrics establish byte-prediction loss only on the named, hashed prompt and text
-sets. They do not establish factual accuracy, answer correctness, instruction following, safety,
-or performance on other inputs. A supplied record is only a reproducibility cross-check and never
-controls this card or its usability notice.
-
-## What It Cannot Do
-
-- It has not been measured as a usable general language model.
-- It has not been measured for external tool invocation, API-call planning, physical-action
-  control, or autonomous agent behavior.
-- It has not been measured to prevent catastrophic forgetting.
-- Held-out byte prediction must beat the unigram baseline before any general-language claim is made.
-
-## How It Was Produced
-
-The repository includes identity fine-tuning prompts in `aptivra/tasks/identity.py` and
-canonical chat targets in `aptivra/inference/chat_canonical.py`. Those training strings include
-claims that the audit found unsupported. This card reports that provenance but does not change
-training data.
-
-## Loading
-
-This repository loads through the stock Transformers auto classes with remote code enabled:
+The base weights are not included in this repository. Load the exact upstream base and revision,
+then select one standard PEFT adapter explicitly:
 
 ```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+from transformers import AutoModelForCausalLM
 
-tokenizer = AutoTokenizer.from_pretrained("{repo_id}", trust_remote_code=True)
-model = AutoModelForCausalLM.from_pretrained("{repo_id}", trust_remote_code=True)
+base = AutoModelForCausalLM.from_pretrained(
+    "{data.base_repository}",
+    revision="{data.base_revision}",
+)
+model = PeftModel.from_pretrained(
+    base,
+    ".",
+    subfolder="adapters/{first_adapter}",
+    adapter_name="{first_adapter}",
+)
+model.set_adapter("{first_adapter}")
 ```
 
-Tokenizer: byte-level. Context length: {context_length}.
+Automatic routing is separate from stock base and PEFT loading. Automatic routing requires the
+installed Aptivra orchestrator to read the router sidecar and select an adapter. The router is not
+a built-in Llama layer, and the bundle does not claim that stock Transformers performs automatic
+routing.
 
-{generation_note}
+## Adapters
 
-## Intended Use
+| Adapter | Publication kind | Task family | Relationship |
+|---|---|---|---|
+{_adapter_rows(data.adapters)}
 
-Use this artefact only to inspect, reproduce, or audit the Aptivra codebase and export pipeline.
-Do not use it for production language tasks, user-facing assistants, safety-critical systems, or
-capability claims not backed by a fresh results record.
+Every listed adapter is an Aptivra modification and a derivative of
+`{data.base_repository}` at `{data.base_revision}`. The router sidecar and `aptivra-chat-v1`
+template are also Aptivra modifications. Base weights are referenced, not redistributed.
+
+## Provenance, attribution, and licence
+
+Owner-approved creator attribution: **{data.creator_name}** ({data.creator_approval}). Legal
+approval for publication remains with the repository owner and is an explicit provenance state.
+
+SmolLM2 is licensed under Apache-2.0. Redistribution must include the licence, retain applicable
+upstream copyright, patent, trademark, and attribution notices, mark Aptivra-modified files, and
+retain any readable attribution notices from an upstream NOTICE if one is supplied. The staged
+NOTICE identifies the exact base, revision, Aptivra modifications, and derivative adapters. No
+copyright holder or year is invented where the offline source evidence supplies none.
 
 ## Limitations
 
-If a value above says "not measured", the generator did not receive that field in its results
-record and deliberately did not invent it.
+{limitations}
+
+The model may be wrong. Results outside a named, bound release-evaluation record are unmeasured.
 """
-
-
-def _mapping_at(record: dict[str, Any], path: tuple[str, ...]) -> dict[str, Any] | None:
-    value: Any = record
-    for key in path:
-        if not isinstance(value, dict):
-            return None
-        value = value.get(key)
-    return value if isinstance(value, dict) else None
-
-
-def _positive_config_int(section: dict[str, Any], key: str) -> int:
-    value = section.get(key)
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise ValueError(f"{key} must be an integer")
-    if value <= 0:
-        raise ValueError(f"{key} must be positive")
-    return value
-
-
-def _optional_config_text(section: dict[str, Any], key: str) -> str | None:
-    value = section.get(key)
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise ValueError(f"{key} must be a string")
-    if value.strip() == "":
-        raise ValueError(f"{key} must not be empty")
-    return value
-
-
-def _required_config_text_tuple(section: dict[str, Any], key: str) -> tuple[str, ...]:
-    value = section.get(key)
-    if not isinstance(value, list) or not value:
-        raise ValueError(f"{key} must be a non-empty list")
-    normalized: list[str] = []
-    for index, item in enumerate(value):
-        if not isinstance(item, str) or item.strip() == "":
-            raise ValueError(f"{key}[{index}] must be a non-empty string")
-        normalized.append(item)
-    return tuple(normalized)
-
-
-def _value_at(record: dict[str, Any], path: tuple[str, ...]) -> Any:
-    value: Any = record
-    for key in path:
-        if not isinstance(value, dict):
-            return None
-        value = value.get(key)
-    return value
-
-
-def _number_at(record: dict[str, Any], path: tuple[str, ...]) -> float | None:
-    value = _value_at(record, path)
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    return float(value)
-
-
-def _text_at(record: dict[str, Any], path: tuple[str, ...]) -> str:
-    value = _value_at(record, path)
-    if value is None:
-        return "not measured"
-    if isinstance(value, bool):
-        return "yes" if value else "no"
-    if isinstance(value, int | float | str):
-        return str(value)
-    return "not measured"
-
-
-def _number_text_at(record: dict[str, Any], path: tuple[str, ...]) -> str:
-    value = _value_at(record, path)
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return "not measured"
-    if isinstance(value, int):
-        return f"{value:,}"
-    return f"{value:.4g}"
-
-
-def _bpb_summary(record: dict[str, Any], path: tuple[str, ...]) -> str:
-    data = _mapping_at(record, path)
-    if data is None:
-        return "not measured"
-    mean = data.get("mean")
-    min_value = data.get("min")
-    max_value = data.get("max")
-    samples = data.get("samples")
-    if not all(
-        isinstance(item, int | float) and not isinstance(item, bool)
-        for item in (mean, min_value, max_value)
-    ):
-        return "not measured"
-    if not isinstance(samples, int) or isinstance(samples, bool):
-        return "not measured"
-    mean_number = cast(int | float, mean)
-    min_number = cast(int | float, min_value)
-    max_number = cast(int | float, max_value)
-    return (
-        f"mean {float(mean_number):.4g}; range "
-        f"{float(min_number):.4g}-{float(max_number):.4g}; samples {samples}"
-    )
-
-
-def _bpb_range_summary(record: dict[str, Any], path: tuple[str, ...]) -> str:
-    data = _mapping_at(record, path)
-    if data is None:
-        return "not measured"
-    min_value = data.get("min")
-    max_value = data.get("max")
-    samples = data.get("samples")
-    if not all(
-        isinstance(item, int | float) and not isinstance(item, bool)
-        for item in (min_value, max_value)
-    ):
-        return "not measured"
-    if not isinstance(samples, int) or isinstance(samples, bool):
-        return "not measured"
-    min_number = cast(int | float, min_value)
-    max_number = cast(int | float, max_value)
-    return f"range {float(min_number):.4g}-{float(max_number):.4g}; samples {samples}"

@@ -72,7 +72,7 @@ tagged release exists.
   multitasking, and MCP-skill training pipeline. Later audit found the MCP portion used five
   placeholder skill task families and did not demonstrate skill capability.
 - **Local GGUF Export:** Added the GGUF v3 exporter
-  (`aptivra/export/gguf_exporter.py` and `scripts/export_gguf.py`). The maintained exporter
+  (`aptivra/v0/export/gguf_exporter.py` and `scripts/export_gguf.py`). The historical exporter
   supports FP32 and FP16; it does not implement quantized export.
 - **Local C-Engine GGUF CLI (`aptivra-cli`):** High-performance C inference CLI (`multitier_c/gguf_cli.c`) with zero external dependencies to parse GGUF magic headers, versioning, tensor metadata (172 tensors), and execution parameters.
 - **Initial Hugging Face Hub Release:** Published a legacy artifact layout. The current Hub

@@ -7,11 +7,11 @@ import torch
 import torch.nn as nn
 from safetensors.torch import load_file
 
-from aptivra.export.multitier import MultitierLoader
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
 from aptivra.v0.experts.expert import ExpertModule
 from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.export.multitier import MultitierLoader
 from aptivra.v0.inference.hub_config import model_config_from_export_dir
 from aptivra.v0.inference.tokenizer import ByteLevelTokenizer
 

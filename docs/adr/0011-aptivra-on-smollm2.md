@@ -627,6 +627,17 @@ scope, while `aptivra/experts` measures only the active standard-base implementa
 adds relocation to the exception; it does not authorize weakening, deleting, or rewriting a v0
 assertion.
 
+**2026-10-17 owner/orchestrator ruling — path-reference extension.** Lane 7 established that the
+same conflict also applies to remote-code templates, the v0 card generator, and retired exporters,
+including the GGUF exporter. They move unchanged into `aptivra/v0/` and remain wheel resources;
+their tests move into `tests/v0/`. Existing tests may change only file location, import paths, and
+path/module string literals that name the relocated copy of the same artifact. This extension is
+necessary because leaving historical path assertions on the standard namespace would either keep
+retired packaging active or force a false in-place conversion. Assertion logic, operators, values,
+counts, and messages remain immutable. The interim historical card gate and its archive/status
+notes continue through the v0 path. New standard staging, card, allowlist, and stock-loading proofs
+are separate lane-7 tests.
+
 - `test_model_identity_task_family`: replace expectations derived from fabricated v0 targets with
   evidence-manifest targets and explicit rejection of every forbidden claim;
 - `test_format_chat_prompt_multiturn` and the prompt-format assertions in
@@ -640,8 +651,8 @@ The generic SQL-drift, first-sentence, identity-bundle, held-out contamination, 
 assertions remain. Their fixtures/hashes may be versioned to the new identity corpus, including in
 `test_versioned_heldout_sets_have_required_coverage_and_no_training_strings` and
 `test_audit_detects_identity_training_string_contamination`, but their safety assertions may not be
-weakened. V0 compatibility assertions in `tests/test_multitier_export.py`,
-`tests/test_hf_packaging.py`, and `tests/test_inference_causal_lm.py` remain under an explicit
+weakened. V0 compatibility assertions in `tests/v0/test_multitier_export.py`,
+`tests/v0/test_hf_packaging.py`, and `tests/v0/test_inference_causal_lm.py` remain under an explicit
 legacy path; new SmolLM2 tests are added rather than disguising v0 as the new model.
 
 Before final acceptance there is no production promotion to roll back: disable the new feature and

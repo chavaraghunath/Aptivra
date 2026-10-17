@@ -26,7 +26,7 @@ def test_phase_pipeline_requires_results_record_before_any_subprocess(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    script = Path(__file__).resolve().parents[1] / "scripts" / "run_phase_a_then_b.py"
+    script = Path(__file__).resolve().parents[1] / "../scripts" / "run_phase_a_then_b.py"
     monkeypatch.setattr(sys, "argv", [str(script), "--skip-restore", "--skip-a"])
 
     with pytest.raises(SystemExit) as error:

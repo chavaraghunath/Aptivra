@@ -29,7 +29,7 @@ We adopt the **Tiered Memory Runtime (TMR)** AI Memory Multitiering architecture
    - Uses layer $L$ top-$k$ router probability vectors to asynchronously prefetch layer $L+1$ expert parameters from NVMe into memory while layer $L$ is computing.
 
 4. **Pure C Export & Native Execution Engine:**
-   - Aptivra provides an export module (`aptivra.export.multitier`) that serializes PyTorch models and $T_2$ expert pools into `.safetensors` structures for zero-dependency standalone execution via the pure C `tmr` binary.
+   - Historical Aptivra provides an export module (`aptivra.v0.export.multitier`) that serializes PyTorch models and $T_2$ expert pools into `.safetensors` structures for zero-dependency standalone execution via the pure C `tmr` binary.
 
 ---
 

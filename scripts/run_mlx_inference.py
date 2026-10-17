@@ -8,8 +8,8 @@ from pathlib import Path
 
 import yaml
 
-from aptivra.export.mlx_export import export_mlx_npz
 from aptivra.model.config import ModelConfig
+from aptivra.v0.export.mlx_export import export_mlx_npz
 from aptivra.v0.inference.causal_lm import AptivraCausalLM
 
 

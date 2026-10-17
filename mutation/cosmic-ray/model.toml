@@ -2,7 +2,7 @@
 module-path = "aptivra/model"
 timeout = 180.0
 excluded-modules = []
-test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_model.py tests/test_embeddings.py tests/test_gguf_exporter.py tests/test_multitier_export.py tests/test_inference_causal_lm.py tests/test_hf_packaging.py tests/test_model_card_eval.py tests/test_versioning.py"
+test-command = "scripts/run-project-tool pytest -q -p no:cacheprovider --no-cov tests/test_model.py tests/test_embeddings.py tests/v0/test_gguf_exporter.py tests/v0/test_multitier_export.py tests/v0/test_inference_causal_lm.py tests/v0/test_hf_packaging.py tests/v0/test_model_card_eval.py tests/test_versioning.py"
 
 [cosmic-ray.distributor]
 name = "local"

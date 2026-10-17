@@ -15,14 +15,14 @@ from aptivra.eval.model_card_eval import (
     sha256_file,
 )
 from aptivra.eval.model_card_schema import validate_evaluation_record
-from aptivra.export.model_card import (
+from aptivra.model.config import ModelConfig
+from aptivra.v0.export.model_card import (
     generate_model_card_readme,
     load_release_gate_config,
     load_release_gate_settings,
     load_results_record,
     release_gate_allows_general_language_model,
 )
-from aptivra.model.config import ModelConfig
 
 DENIED_CARD_TEXT = (
     "89.4% average accuracy",
@@ -410,7 +410,7 @@ def test_strict_record_schema_rejects_cross_field_inconsistencies() -> None:
 
 
 def test_model_card_source_has_no_result_literal_regressions() -> None:
-    source = Path("aptivra/export/model_card.py").read_text(encoding="utf-8")
+    source = Path("aptivra/v0/export/model_card.py").read_text(encoding="utf-8")
     forbidden_patterns = (
         r"\b\d+(?:\.\d+)?\s*%\b",
         r"[+-]\d+\.\d+\s*BWT",

@@ -11,7 +11,8 @@ row requires the setting to be genuinely gone, not merely undocumented.
 The installed defaults for versioned task-stream evaluation, task-stream audit,
 GitHub issues stream building, model-card release gating, the ADR-0011 standard base,
 the ADR-0011 lane-3 baseline matrix, the ADR-0011 lane-4/5 PEFT expert and consolidation path,
-the ADR-0011 lane-6 identity/chat path, and verifier containment
+the ADR-0011 lane-6 identity/chat path, the ADR-0011 lane-7 standard PEFT publication path,
+and verifier containment
 are packaged under `aptivra/resources/configs/`.
 Their same-named files under `configs/` are byte-matched, editable copies used
 by repository commands and explicit path overrides. Backbone and inference
@@ -183,14 +184,10 @@ presets remain repository-only and must be supplied explicitly outside a clone.
 | `inference.chat.single_turn` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.sanitize_replies` | service | boolean | `true` | `true`, `false` | operator | yes | — | `configs/inference.yaml` | no |
 | `inference.chat.max_reply_chars` | service | integer | `280` | 32–2048 | operator | yes | — | `configs/inference.yaml` | no |
-| `model_card_release_gate.heldout_bpb_unigram_margin_bits` | global | float | `0.0` | ≥ 0.0 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `model_card_release_gate.minimum_trained_prompt_samples` | global | integer | `7` | ≥ 1 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `model_card_release_gate.minimum_heldout_prompt_samples` | global | integer | `24` | ≥ 1 (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `model_card_release_gate.minimum_heldout_text_bytes` | global | integer | `8192` | ≥ 1 (validated; bundled corpus is larger) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `model_card_release_gate.supplied_record_metric_tolerance` | global | float | `0.000001` | 0.0–0.001 inclusive (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `model_card_release_gate.status_note` | global | optional string | archive-status note | absent or non-empty string (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `model_card_release_gate.archive_tag_note` | global | optional string | `v0-byte-level` archive note | absent or non-empty string (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
-| `model_card_release_gate.forbidden_hub_references` | global | string list | `github` | non-empty list of non-empty strings; matched case-insensitively against staged Hub text files (validated) | researcher | yes | — | `configs/model_card_release_gate.yaml` | no |
+| `model_card_release_gate.feature.enabled` | release | boolean | `false` | `true`, `false`; local standard staging and every outward operation fail before work while false | owner | yes | self | `configs/model_card_release_gate.yaml`; `load_release_gate_settings` | no |
+| `model_card_release_gate.repository.repository_id` | release | nullable repository ID | `null` | null or one validated `owner/name`; null permits local staging but blocks create, push, and tag before client construction | owner | yes | `model_card_release_gate.feature.enabled` | `configs/model_card_release_gate.yaml`; publication API | no |
+| `model_card_release_gate.publication.allowed_adapter_kinds` | release | ordered enum list | `synthetic`, `identity` | exactly the two publishable provenance classes; chronological-stream adapters and auxiliary inputs fail closed | owner | no | `model_card_release_gate.feature.enabled` | `configs/model_card_release_gate.yaml`; `stage_huggingface_hub_artifacts` | no |
+| `model_card_release_gate.forbidden_references` | release | string list | `github` | non-empty, case-insensitively unique strings; scanned across every staged path, text/structured field, template, card field, and safetensors metadata | owner | yes | `model_card_release_gate.feature.enabled` | `configs/model_card_release_gate.yaml`; `verify_staged_repository` | no |
 | `verifier_sandbox.timeout_seconds` | service | float | `1.0` | 0.05–30.0 seconds (validated); bounds generated-code hangs in a child process, not a security boundary against hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
 | `verifier_sandbox.memory_limit_mb` | service | integer | `512` | 64–2048 MiB (validated; applied where supported); contains accidental resource use, not hostile code | researcher | yes | — | `configs/verifier_sandbox.yaml` | no |
 | `base_model_evaluation.candidates[]` | global | object list | eight pinned records (seven selectable, one reference); Amendment 4g fixes the five measured selection records | unique non-empty id/source; immutable revision preferred; licence/architecture optional fallback metadata; `reference_only` boolean; loader is `transformers` or `aptivra_legacy`; Amendment 4g rejects any candidate set other than its pre-registered five | researcher | yes | — | `configs/base_model_candidates.yaml`, `configs/base_model_candidates_amendment_4g.yaml` | no |

@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "aptivra/export/model_card.py"
+timeout = 180.0
+excluded-modules = []
+test-command = "scripts/run-project-tool pytest -q -x -p no:cacheprovider --no-cov tests/test_standard_model_card.py tests/test_standard_packaging.py tests/test_standard_publication.py"
+
+[cosmic-ray.distributor]
+name = "local"

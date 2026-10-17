@@ -13,11 +13,11 @@ import torch.optim as optim
 
 from aptivra.baselines.base import BaselineTrainer
 from aptivra.eval.model_card_eval import evaluate_export_dir, write_evaluation_record
-from aptivra.export.hf_hub_artifacts import export_huggingface_hub_layout
-from aptivra.export.hf_push import push_aptivra_model_to_hf
 from aptivra.memory.hybrid_store import HybridMemoryStore
 from aptivra.tasks.multitasking import MultiTaskingTaskFamily
 from aptivra.tasks.skill_dataset import MCPSkillRepositoryLoader
+from aptivra.v0.export.hf_hub_artifacts import export_huggingface_hub_layout
+from aptivra.v0.export.hf_push import push_aptivra_model_to_hf
 from aptivra.v0.inference.hub_config import model_config_from_export_dir
 from aptivra.v0.tasks.conversational import ConversationalTaskFamily
 from aptivra.v0.tasks.identity import ModelIdentityTaskFamily
@@ -53,7 +53,7 @@ def train_multidomain_conversational(
     model_config = model_config_from_export_dir(export_dir, device="auto")
     dev = model_config.get_device()
 
-    from aptivra.export.multitier import MultitierLoader
+    from aptivra.v0.export.multitier import MultitierLoader
 
     loader = MultitierLoader(export_dir)
     backbone, router, experts = loader.load_model(model_config)
@@ -207,8 +207,8 @@ def train_multidomain_conversational(
     print("==========================================================================")
 
     from aptivra.consolidation.sleep_cycle import GenerativeSleepEngine
-    from aptivra.export.multitier import MultitierExporter
     from aptivra.memory.hexa_store import HexaTierMemoryStore
+    from aptivra.v0.export.multitier import MultitierExporter
 
     if run_sleep_cycle:
         hexa = HexaTierMemoryStore(embedding_dim=model_config.d_model)

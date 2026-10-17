@@ -32,20 +32,20 @@ from aptivra.eval.model_card_eval import (
     sha256_file,
 )
 from aptivra.eval.model_card_schema import PROVENANCE_FILENAME
-from aptivra.export import hf_conversion, hf_push
-from aptivra.export.hf_conversion import convert_legacy_export_to_huggingface
-from aptivra.export.hf_hub_artifacts import HUB_LAYOUT_FILES, export_huggingface_hub_layout
-from aptivra.export.hf_push import (
+from aptivra.model.config import ModelConfig
+from aptivra.model.transformer import BackboneTransformer
+from aptivra.v0.experts.expert import ExpertModule
+from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.export import hf_conversion, hf_push
+from aptivra.v0.export.hf_conversion import convert_legacy_export_to_huggingface
+from aptivra.v0.export.hf_hub_artifacts import HUB_LAYOUT_FILES, export_huggingface_hub_layout
+from aptivra.v0.export.hf_push import (
     HUB_PUBLICATION_FILES,
     LEGACY_HUB_DELETE_PATTERNS,
     prepare_hf_publication,
     push_aptivra_model_to_hf,
 )
-from aptivra.export.multitier import MultitierExporter
-from aptivra.model.config import ModelConfig
-from aptivra.model.transformer import BackboneTransformer
-from aptivra.v0.experts.expert import ExpertModule
-from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.export.multitier import MultitierExporter
 from aptivra.v0.inference.causal_lm import AptivraCausalLM
 
 
@@ -815,7 +815,7 @@ def test_push_cli_dry_run_prints_exact_plan_without_network(
         return fresh_record
 
     monkeypatch.setattr(hf_push, "evaluate_export_dir", evaluate)
-    script = Path(__file__).resolve().parents[1] / "scripts" / "push_to_hf.py"
+    script = Path(__file__).resolve().parents[1] / "../scripts" / "push_to_hf.py"
     monkeypatch.setattr(
         sys,
         "argv",

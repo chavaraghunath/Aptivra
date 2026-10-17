@@ -5,11 +5,11 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from aptivra.export.multitier import MultitierExporter
 from aptivra.model.config import ModelConfig
 from aptivra.model.transformer import BackboneTransformer
 from aptivra.v0.experts.expert import ExpertModule
 from aptivra.v0.experts.router import GatingRouter
+from aptivra.v0.export.multitier import MultitierExporter
 from aptivra.v0.inference.causal_lm import AptivraCausalLM
 
 
@@ -39,7 +39,7 @@ def test_causal_lm_forward_and_generate(tmp_path: Path) -> None:
 
 
 def test_hf_hub_artifacts_stage(tmp_path: Path) -> None:
-    from aptivra.export.hf_hub_artifacts import stage_huggingface_hub_artifacts
+    from aptivra.v0.export.hf_hub_artifacts import stage_huggingface_hub_artifacts
 
     cfg = ModelConfig(d_model=32, n_layers=2, n_heads=2, d_ff=64)
     stage_huggingface_hub_artifacts(tmp_path, cfg, num_experts=2)

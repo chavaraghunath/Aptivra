@@ -50,12 +50,12 @@ from transformers import (
 
 from aptivra.eval.harness import ContinualEvalHarness
 from aptivra.eval.model_card_eval import load_prompt_answers, unigram_bits_per_bytes
-from aptivra.export.hf_conversion import convert_legacy_export_to_huggingface
-from aptivra.huggingface.configuration_aptivra import AptivraConfig
-from aptivra.huggingface.modeling_aptivra import AptivraForCausalLM
-from aptivra.huggingface.tokenization_aptivra import AptivraByteTokenizer
 from aptivra.tasks.base import TaskFamily, TaskInstance
 from aptivra.tasks.stream import ContinualTaskStream
+from aptivra.v0.export.hf_conversion import convert_legacy_export_to_huggingface
+from aptivra.v0.huggingface.configuration_aptivra import AptivraConfig
+from aptivra.v0.huggingface.modeling_aptivra import AptivraForCausalLM
+from aptivra.v0.huggingface.tokenization_aptivra import AptivraByteTokenizer
 
 EVALUATION_SCHEMA_VERSION = "pretrained-base-evaluation-v6"
 SEED_EVALUATION_SCHEMA_VERSION = "pretrained-base-seed-evaluation-v1"

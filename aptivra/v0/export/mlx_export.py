@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from aptivra.export.multitier import MultitierLoader
 from aptivra.model.config import ModelConfig
+from aptivra.v0.export.multitier import MultitierLoader
 
 
 def export_mlx_npz(export_dir: Path | str, output_dir: Path | str) -> Path:
