@@ -33,6 +33,7 @@ class RouteDecision:
     confidence: float
     entropy: float
     probabilities: tuple[float, ...]
+    fallback_probability: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -140,19 +141,42 @@ class SequenceTop1Router(nn.Module):
         return features @ weight.t() + bias
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        """Return normalized expert probabilities for each sequence."""
-        return functional.softmax(self.logits(features), dim=-1)
+        """Return open-set expert probabilities; residual mass is frozen fallback."""
+        probabilities = functional.softmax(self.classification_logits(features), dim=-1)
+        return probabilities[:, 1:]
+
+    def classification_logits(self, features: torch.Tensor) -> torch.Tensor:
+        """Prepend a fixed reject logit so one-expert routing remains calibratable."""
+        expert_logits = self.logits(features)
+        fallback = torch.zeros(
+            (features.shape[0], 1),
+            dtype=expert_logits.dtype,
+            device=expert_logits.device,
+        )
+        return torch.cat((fallback, expert_logits), dim=1)
 
     def route(self, features: torch.Tensor) -> tuple[RouteDecision, ...]:
         """Route above threshold and otherwise expose frozen-base fallback telemetry."""
         probabilities = self(features)
+        fallback_probabilities = 1.0 - probabilities.sum(dim=1)
         decisions: list[RouteDecision] = []
-        for row in probabilities.detach().cpu():
+        for row, fallback_tensor in zip(
+            probabilities.detach().cpu(),
+            fallback_probabilities.detach().cpu(),
+            strict=True,
+        ):
             confidence_tensor, index_tensor = torch.max(row, dim=0)
             confidence = float(confidence_tensor.item())
+            fallback_probability = float(fallback_tensor.item())
             index = int(index_tensor.item())
-            entropy = float((-(row * torch.log(row.clamp_min(1e-12))).sum()).item())
-            routed = confidence >= self.confidence_threshold
+            all_probabilities = torch.cat((fallback_tensor.reshape(1), row))
+            entropy = float(
+                (-(all_probabilities * torch.log(all_probabilities.clamp_min(1e-12))).sum()).item()
+            )
+            routed = (
+                confidence >= self.confidence_threshold
+                and confidence > fallback_probability
+            )
             decisions.append(
                 RouteDecision(
                     route_status="routed" if routed else "unrouted",
@@ -160,6 +184,7 @@ class SequenceTop1Router(nn.Module):
                     confidence=confidence,
                     entropy=entropy,
                     probabilities=tuple(float(value.item()) for value in row),
+                    fallback_probability=fallback_probability,
                 )
             )
         return tuple(decisions)
@@ -230,7 +255,10 @@ class SequenceTop1Router(nn.Module):
         final_loss = math.inf
         for _ in range(max_steps):
             optimizer.zero_grad(set_to_none=True)
-            loss = functional.cross_entropy(self.logits(features), labels)
+            loss = functional.cross_entropy(
+                self.classification_logits(features),
+                labels + 1,
+            )
             if not bool(torch.isfinite(loss).item()):
                 raise FloatingPointError("router fitting produced a non-finite loss")
             torch.autograd.backward(loss)

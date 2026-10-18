@@ -1,4 +1,4 @@
-"""Losslessly shard large lane-8a quiet records for repository storage."""
+"""Losslessly shard large lane-8 pilot quiet records for repository storage."""
 
 from __future__ import annotations
 
@@ -8,7 +8,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
-from aptivra.eval.mps_pilot import PILOT_SCHEMA, _json_mapping, _write_json_atomic
+from aptivra.eval.mps_pilot import (
+    AMENDMENT_SCHEMA,
+    PILOT_SCHEMA,
+    _json_mapping,
+    _write_json_atomic,
+)
 
 ARCHIVE_SCHEMA = "aptivra.h3_mps_pilot_archive.v1"
 
@@ -21,13 +26,21 @@ def _canonical_json(payload: Mapping[str, Any]) -> bytes:
     return (json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
 
 
+def _evidence_sections(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    return (
+        ("evaluation_profiles", "calibration", "repeatability")
+        if payload.get("schema_version") == AMENDMENT_SCHEMA
+        else ("calibration", "repeatability")
+    )
+
+
 def _verify_existing_archive(payload: Mapping[str, Any], output_dir: Path) -> None:
     archive = payload.get("archive")
     if not isinstance(archive, Mapping) or archive.get("schema_version") != ARCHIVE_SCHEMA:
         raise ValueError("pilot evidence has an invalid archive record")
     expected_count = archive.get("quiet_record_count")
     references = 0
-    for section in ("calibration", "repeatability"):
+    for section in _evidence_sections(payload):
         rows = payload.get(section)
         if not isinstance(rows, list):
             raise ValueError(f"archived pilot evidence has invalid {section} rows")
@@ -64,12 +77,14 @@ def archive_pilot_evidence(source: Path, destination: Path) -> dict[str, Any]:
             raise ValueError("an existing pilot archive can only verify itself in place")
         _verify_existing_archive(payload, output_dir)
         return payload
-    if payload.get("schema_version") != PILOT_SCHEMA or payload.get("status") != "completed":
-        raise ValueError("only completed lane-8a pilot evidence can be archived")
+    schema = payload.get("schema_version")
+    if schema not in {PILOT_SCHEMA, AMENDMENT_SCHEMA} or payload.get("status") != "completed":
+        raise ValueError("only completed lane-8 pilot evidence can be archived")
 
     original_sha256 = _sha256_bytes(source.read_bytes())
     quiet_count = 0
-    for section in ("calibration", "repeatability"):
+    shard_directory = "lane8b-quiet-records" if schema == AMENDMENT_SCHEMA else "quiet-records"
+    for section in _evidence_sections(payload):
         rows = payload.get(section)
         if not isinstance(rows, list):
             raise ValueError(f"pilot evidence has invalid {section} rows")
@@ -92,7 +107,7 @@ def archive_pilot_evidence(source: Path, destination: Path) -> dict[str, Any]:
                 "quiet_machine": quiet,
             }
             shard_bytes = _canonical_json(shard_payload)
-            relative = Path("quiet-records") / f"{section}-{index:03d}.json"
+            relative = Path(shard_directory) / f"{section}-{index:03d}.json"
             shard = output_dir / relative
             _write_json_atomic(shard, shard_payload)
             row["quiet_machine"] = {

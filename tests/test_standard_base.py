@@ -27,12 +27,14 @@ from tokenizers.pre_tokenizers import Whitespace
 from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
 
 import aptivra.inference.standard_base as standard_base
+from aptivra.inference.batched_generation import generate_task_instance_answers
 from aptivra.inference.standard_base import (
     RuntimeSettings,
     StandardBase,
     collate_task_instances,
     forward_task_batch,
     generate_task_answer,
+    generate_task_instance_answer,
     load_standard_base,
     load_standard_base_settings,
     resolve_standard_base_device,
@@ -746,6 +748,62 @@ def test_cpu_generation_is_non_degenerate_and_repeatable(tiny_base: StandardBase
     assert outcomes[0].generated_token_ids == (4, 4, 4, 4, 4, 4, 4, 4)
     assert outcomes[0].stop_reason == "length"
     assert outcomes[0].text == "prompt prompt prompt prompt prompt prompt prompt prompt"
+
+
+def test_batched_generation_is_output_identical_to_scalar(tiny_base: StandardBase) -> None:
+    instances = (
+        TaskInstance("one", "tiny", "short", "answer"),
+        TaskInstance("two", "tiny", "longer prompt", "target"),
+        TaskInstance("three", "tiny", "one two three", "answer"),
+    )
+
+    scalar = tuple(generate_task_instance_answer(tiny_base, item) for item in instances)
+    batched = generate_task_instance_answers(tiny_base, instances)
+
+    assert batched == scalar
+
+
+def test_batched_generation_removes_padding_after_per_row_terminator(
+    tiny_base: StandardBase,
+) -> None:
+    class TerminatorTokenizer:
+        eos_token_id = 0
+
+        def encode(self, text: str, *, add_special_tokens: bool) -> list[int]:
+            assert add_special_tokens is False
+            return [2] if text == "short" else [3, 2]
+
+        def decode(self, token_ids: list[int], *, skip_special_tokens: bool) -> str:
+            assert skip_special_tokens is False
+            pieces = {0: "<eos>", 5: "answer", 9: "\n"}
+            return "".join(pieces[token] for token in token_ids)
+
+    class TerminatorGenerator:
+        def generate(self, **kwargs: object) -> torch.Tensor:
+            input_ids = cast(torch.Tensor, kwargs["input_ids"])
+            suffix = [5, 9] if input_ids.shape[0] == 1 else [5, 9, 0]
+            appended = torch.tensor(
+                [suffix] * input_ids.shape[0],
+                dtype=torch.long,
+                device=input_ids.device,
+            )
+            return torch.cat((input_ids, appended), dim=1)
+
+    base = replace(
+        tiny_base,
+        model=cast(Any, TerminatorGenerator()),
+        tokenizer=cast(Any, TerminatorTokenizer()),
+    )
+    instances = (
+        TaskInstance("one", "tiny", "short", "answer"),
+        TaskInstance("two", "tiny", "longer", "answer"),
+    )
+
+    scalar = tuple(generate_task_instance_answer(base, item) for item in instances)
+    batched = generate_task_instance_answers(base, instances)
+
+    assert batched == scalar
+    assert batched[0].generated_token_ids == (5, 9)
 
 
 def test_generation_removes_only_the_terminal_eos(tiny_base: StandardBase) -> None:

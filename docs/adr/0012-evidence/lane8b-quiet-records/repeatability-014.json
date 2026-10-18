@@ -1,0 +1,168 @@
+{
+  "cell": {
+    "method": "naive_sequential",
+    "repeat_index": 4,
+    "seed": 20261020,
+    "stream": "chronological_issues"
+  },
+  "index": 14,
+  "quiet_machine": {
+    "quiet": true,
+    "samples": [
+      {
+        "foreign_process_count": 684,
+        "other_processes_above_cpu_threshold": [],
+        "other_processes_above_rss_threshold": [],
+        "quiet": true,
+        "system_free_memory_percent": 85.0,
+        "system_swap_used_bytes": 12711299645,
+        "timestamp_unix": 1792261649.5883,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 98.9,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 259997696
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 1.2,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 151420928
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.0,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 117260288
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 67911680
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 83.1,
+            "parent_pid": 1,
+            "pid": 26916,
+            "rss_bytes": 57589760
+          },
+          {
+            "command": "/Applications/ShukraGhadiyaApp.app/Contents/MacOS/ShukraGhadiyaApp",
+            "cpu_percent": 1.6,
+            "parent_pid": 1,
+            "pid": 78538,
+            "rss_bytes": 56459264
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 26923,
+            "rss_bytes": 53723136
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.3,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 49528832
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.3,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 49184768
+          },
+          {
+            "command": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN",
+            "cpu_percent": 0.4,
+            "parent_pid": 1,
+            "pid": 601,
+            "rss_bytes": 42893312
+          },
+          {
+            "command": "codex",
+            "cpu_percent": 0.0,
+            "parent_pid": 7168,
+            "pid": 7169,
+            "rss_bytes": 42172416
+          },
+          {
+            "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 420,
+            "rss_bytes": 33357824
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 33672,
+            "rss_bytes": 30228480
+          },
+          {
+            "command": "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+            "cpu_percent": 0.0,
+            "parent_pid": 91686,
+            "pid": 91706,
+            "rss_bytes": 29835264
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 28409856
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.0,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 28344320
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 27049984
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) DWFabric [5-60]",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 70036,
+            "rss_bytes": 27000832
+          },
+          {
+            "command": "com.apple.weather.menu",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1156,
+            "rss_bytes": 26591232
+          },
+          {
+            "command": "/opt/homebrew/Cellar/python@3.11/3.11.17/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python",
+            "cpu_percent": 0.0,
+            "parent_pid": 3842,
+            "pid": 4257,
+            "rss_bytes": 26476544
+          }
+        ]
+      }
+    ],
+    "wait_seconds": 0.16393320902716368
+  },
+  "schema_version": "aptivra.h3_mps_pilot_archive.v1",
+  "section": "repeatability"
+}

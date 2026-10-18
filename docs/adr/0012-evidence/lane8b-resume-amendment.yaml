@@ -1,0 +1,7 @@
+schema_version: aptivra.h3_mps_pilot_resume_amendment.v1
+reason: >-
+  Resume after terminating an owned worker stalled in an MPS command-buffer wait;
+  the only execution change bounds every child by the remaining global pilot budget.
+from_manifest_sha256: 2146be686e0dfbd3c83955982e9bbdd6fd6f8535bf3ce7e22e46575f669b54c1
+to_manifest_sha256: 9328a721483fd1a23b5fe17e9641562eb8e8fea1d5f4d1e8da98bf8988c59c5c
+interrupted_wall_seconds: 4905.0

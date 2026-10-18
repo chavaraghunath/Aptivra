@@ -1,0 +1,970 @@
+{
+  "cell": {
+    "method": "aptivra_full",
+    "repeat_index": 4,
+    "seed": 20261020,
+    "stream": "synthetic_v2"
+  },
+  "index": 9,
+  "quiet_machine": {
+    "quiet": true,
+    "samples": [
+      {
+        "foreign_process_count": 846,
+        "other_processes_above_cpu_threshold": [
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 124.5,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 330235904
+          }
+        ],
+        "other_processes_above_rss_threshold": [],
+        "quiet": false,
+        "system_free_memory_percent": 89.0,
+        "system_swap_used_bytes": 10224077373,
+        "timestamp_unix": 1792252173.002762,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.2,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 1076084736
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 80.6,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 848445440
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 5093,
+            "rss_bytes": 526237696
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.0,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 477233152
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.4,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 447037440
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.4,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 373325824
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.4,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 358268928
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 124.5,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 330235904
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+            "cpu_percent": 1.3,
+            "parent_pid": 1,
+            "pid": 492,
+            "rss_bytes": 266321920
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.1,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 263634944
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 30227,
+            "rss_bytes": 248135680
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 196427776
+          },
+          {
+            "command": "codex",
+            "cpu_percent": 0.0,
+            "parent_pid": 7168,
+            "pid": 7169,
+            "rss_bytes": 160432128
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.0,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 149880832
+          },
+          {
+            "command": "Cursor Helper: shared-process",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 3755,
+            "rss_bytes": 145129472
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1065,
+            "rss_bytes": 141639680
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 83175,
+            "rss_bytes": 125566976
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) DWFabric [5-60]",
+            "cpu_percent": 0.9,
+            "parent_pid": 3745,
+            "pid": 70036,
+            "rss_bytes": 124895232
+          },
+          {
+            "command": "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+            "cpu_percent": 0.0,
+            "parent_pid": 91686,
+            "pid": 91706,
+            "rss_bytes": 109330432
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/ChronoCore.framework/Support/chronod",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1039,
+            "rss_bytes": 102957056
+          }
+        ]
+      },
+      {
+        "foreign_process_count": 846,
+        "other_processes_above_cpu_threshold": [
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 162.1,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 304185344
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 116.5,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 848445440
+          }
+        ],
+        "other_processes_above_rss_threshold": [],
+        "quiet": false,
+        "system_free_memory_percent": 89.0,
+        "system_swap_used_bytes": 10224077373,
+        "timestamp_unix": 1792252178.068311,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 1073971200
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 116.5,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 848445440
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 5093,
+            "rss_bytes": 526237696
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.1,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 477233152
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.8,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 447037440
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.7,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 373325824
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.9,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 358268928
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 162.1,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 304185344
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+            "cpu_percent": 1.1,
+            "parent_pid": 1,
+            "pid": 492,
+            "rss_bytes": 266240000
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.2,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 263684096
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 30227,
+            "rss_bytes": 248135680
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.3,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 196558848
+          },
+          {
+            "command": "codex",
+            "cpu_percent": 0.0,
+            "parent_pid": 7168,
+            "pid": 7169,
+            "rss_bytes": 160432128
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.0,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 149880832
+          },
+          {
+            "command": "Cursor Helper: shared-process",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 3755,
+            "rss_bytes": 145129472
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1065,
+            "rss_bytes": 140509184
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 7.0,
+            "parent_pid": 1,
+            "pid": 83175,
+            "rss_bytes": 129318912
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) DWFabric [5-60]",
+            "cpu_percent": 0.2,
+            "parent_pid": 3745,
+            "pid": 70036,
+            "rss_bytes": 124911616
+          },
+          {
+            "command": "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+            "cpu_percent": 0.0,
+            "parent_pid": 91686,
+            "pid": 91706,
+            "rss_bytes": 109330432
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/ChronoCore.framework/Support/chronod",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1039,
+            "rss_bytes": 102957056
+          }
+        ]
+      },
+      {
+        "foreign_process_count": 845,
+        "other_processes_above_cpu_threshold": [
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 156.0,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 321945600
+          }
+        ],
+        "other_processes_above_rss_threshold": [],
+        "quiet": false,
+        "system_free_memory_percent": 89.0,
+        "system_swap_used_bytes": 10224077373,
+        "timestamp_unix": 1792252188.141713,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 1076084736
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 83.4,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 849625088
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 5093,
+            "rss_bytes": 526237696
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.1,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 477347840
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.7,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 446431232
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.7,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 373325824
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 3.0,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 358367232
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 156.0,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 321945600
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+            "cpu_percent": 0.5,
+            "parent_pid": 1,
+            "pid": 492,
+            "rss_bytes": 266469376
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.1,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 263798784
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 30227,
+            "rss_bytes": 248135680
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.4,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 196804608
+          },
+          {
+            "command": "codex",
+            "cpu_percent": 0.0,
+            "parent_pid": 7168,
+            "pid": 7169,
+            "rss_bytes": 160432128
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.0,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 149880832
+          },
+          {
+            "command": "Cursor Helper: shared-process",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 3755,
+            "rss_bytes": 145129472
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1065,
+            "rss_bytes": 140165120
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 0.8,
+            "parent_pid": 1,
+            "pid": 83175,
+            "rss_bytes": 139689984
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) DWFabric [5-60]",
+            "cpu_percent": 0.1,
+            "parent_pid": 3745,
+            "pid": 70036,
+            "rss_bytes": 124977152
+          },
+          {
+            "command": "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+            "cpu_percent": 0.0,
+            "parent_pid": 91686,
+            "pid": 91706,
+            "rss_bytes": 109330432
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/ChronoCore.framework/Support/chronod",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1039,
+            "rss_bytes": 102957056
+          }
+        ]
+      },
+      {
+        "foreign_process_count": 845,
+        "other_processes_above_cpu_threshold": [
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 114.6,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 851492864
+          }
+        ],
+        "other_processes_above_rss_threshold": [],
+        "quiet": false,
+        "system_free_memory_percent": 89.0,
+        "system_swap_used_bytes": 10224077373,
+        "timestamp_unix": 1792252208.229978,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 1076084736
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 114.6,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 851492864
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 5093,
+            "rss_bytes": 526237696
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.6,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 477233152
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 1.1,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 446545920
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 1.1,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 373325824
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 8.7,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 358268928
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 22.6,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 321945600
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+            "cpu_percent": 0.3,
+            "parent_pid": 1,
+            "pid": 492,
+            "rss_bytes": 266715136
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.2,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 263159808
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 30227,
+            "rss_bytes": 248135680
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 195788800
+          },
+          {
+            "command": "codex",
+            "cpu_percent": 0.0,
+            "parent_pid": 7168,
+            "pid": 7169,
+            "rss_bytes": 160579584
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 10.7,
+            "parent_pid": 1,
+            "pid": 83175,
+            "rss_bytes": 158154752
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.0,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 149880832
+          },
+          {
+            "command": "Cursor Helper: shared-process",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 3755,
+            "rss_bytes": 145162240
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1065,
+            "rss_bytes": 139395072
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) DWFabric [5-60]",
+            "cpu_percent": 0.2,
+            "parent_pid": 3745,
+            "pid": 70036,
+            "rss_bytes": 125140992
+          },
+          {
+            "command": "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+            "cpu_percent": 0.0,
+            "parent_pid": 91686,
+            "pid": 91706,
+            "rss_bytes": 109330432
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/ChronoCore.framework/Support/chronod",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1039,
+            "rss_bytes": 102957056
+          }
+        ]
+      },
+      {
+        "foreign_process_count": 847,
+        "other_processes_above_cpu_threshold": [
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 127.7,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 855851008
+          }
+        ],
+        "other_processes_above_rss_threshold": [],
+        "quiet": false,
+        "system_free_memory_percent": 89.0,
+        "system_swap_used_bytes": 10215688765,
+        "timestamp_unix": 1792252248.325263,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 1076297728
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 127.7,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 855851008
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 5093,
+            "rss_bytes": 526237696
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.3,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 477331456
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 1.9,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 448086016
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 1.9,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 374161408
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 1.0,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 358367232
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 28.0,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 314277888
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.6,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 263421952
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+            "cpu_percent": 0.3,
+            "parent_pid": 1,
+            "pid": 492,
+            "rss_bytes": 258260992
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 30227,
+            "rss_bytes": 248135680
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 197722112
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 22.0,
+            "parent_pid": 1,
+            "pid": 83175,
+            "rss_bytes": 195788800
+          },
+          {
+            "command": "codex",
+            "cpu_percent": 0.0,
+            "parent_pid": 7168,
+            "pid": 7169,
+            "rss_bytes": 160432128
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.0,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 149831680
+          },
+          {
+            "command": "Cursor Helper: shared-process",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 3755,
+            "rss_bytes": 145588224
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1065,
+            "rss_bytes": 139968512
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) DWFabric [5-60]",
+            "cpu_percent": 0.6,
+            "parent_pid": 3745,
+            "pid": 70036,
+            "rss_bytes": 125501440
+          },
+          {
+            "command": "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+            "cpu_percent": 0.0,
+            "parent_pid": 91686,
+            "pid": 91706,
+            "rss_bytes": 109346816
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/ChronoCore.framework/Support/chronod",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1039,
+            "rss_bytes": 102907904
+          }
+        ]
+      },
+      {
+        "foreign_process_count": 844,
+        "other_processes_above_cpu_threshold": [],
+        "other_processes_above_rss_threshold": [],
+        "quiet": true,
+        "system_free_memory_percent": 89.0,
+        "system_swap_used_bytes": 10215688765,
+        "timestamp_unix": 1792252308.396162,
+        "top_foreign_processes_by_rss": [
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/154.0.4258.62/Helpers/Microsoft Teams WebView Helper (Renderer).app/Contents/MacOS/Microsoft Teams WebView Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 66956,
+            "pid": 66998,
+            "rss_bytes": 1079099392
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/FileProvider.framework/Support/fileproviderd",
+            "cpu_percent": 77.1,
+            "parent_pid": 1,
+            "pid": 76080,
+            "rss_bytes": 861208576
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 5093,
+            "rss_bytes": 526254080
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.296-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.1,
+            "parent_pid": 6553,
+            "pid": 6991,
+            "rss_bytes": 477331456
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.7,
+            "parent_pid": 3745,
+            "pid": 69950,
+            "rss_bytes": 449118208
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Renderer).app/Contents/MacOS/Cursor Helper (Renderer)",
+            "cpu_percent": 0.7,
+            "parent_pid": 3745,
+            "pid": 6475,
+            "rss_bytes": 374603776
+          },
+          {
+            "command": "/Users/raghunath/.cursor/extensions/anthropic.claude-code-2.1.299-darwin-arm64/resources/native-binary/claude",
+            "cpu_percent": 0.5,
+            "parent_pid": 70036,
+            "pid": 70667,
+            "rss_bytes": 358367232
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/MacOS/OneDrive",
+            "cpu_percent": 97.3,
+            "parent_pid": 1,
+            "pid": 1241,
+            "rss_bytes": 327811072
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) Aptivra [3-15]",
+            "cpu_percent": 0.1,
+            "parent_pid": 3745,
+            "pid": 6553,
+            "rss_bytes": 263094272
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+            "cpu_percent": 0.4,
+            "parent_pid": 1,
+            "pid": 492,
+            "rss_bytes": 259375104
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 30227,
+            "rss_bytes": 248135680
+          },
+          {
+            "command": "/Applications/OneDrive.app/Contents/PlugIns/OneDrive File Provider.appex/Contents/MacOS/OneDrive File Provider",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 83175,
+            "rss_bytes": 245104640
+          },
+          {
+            "command": "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 3745,
+            "rss_bytes": 197607424
+          },
+          {
+            "command": "codex",
+            "cpu_percent": 0.0,
+            "parent_pid": 7168,
+            "pid": 7169,
+            "rss_bytes": 160432128
+          },
+          {
+            "command": "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/MacOS/Microsoft Teams WebView",
+            "cpu_percent": 0.0,
+            "parent_pid": 66720,
+            "pid": 66956,
+            "rss_bytes": 149831680
+          },
+          {
+            "command": "Cursor Helper: shared-process",
+            "cpu_percent": 0.0,
+            "parent_pid": 3745,
+            "pid": 3755,
+            "rss_bytes": 145948672
+          },
+          {
+            "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1065,
+            "rss_bytes": 140165120
+          },
+          {
+            "command": "Cursor Helper (Plugin): extension-host (user) DWFabric [5-60]",
+            "cpu_percent": 0.1,
+            "parent_pid": 3745,
+            "pid": 70036,
+            "rss_bytes": 125124608
+          },
+          {
+            "command": "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+            "cpu_percent": 0.0,
+            "parent_pid": 91686,
+            "pid": 91706,
+            "rss_bytes": 109363200
+          },
+          {
+            "command": "/System/Library/PrivateFrameworks/ChronoCore.framework/Support/chronod",
+            "cpu_percent": 0.0,
+            "parent_pid": 1,
+            "pid": 1039,
+            "rss_bytes": 102907904
+          }
+        ]
+      }
+    ],
+    "wait_seconds": 135.45338370802347
+  },
+  "schema_version": "aptivra.h3_mps_pilot_archive.v1",
+  "section": "repeatability"
+}

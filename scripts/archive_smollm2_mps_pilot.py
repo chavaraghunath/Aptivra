@@ -1,4 +1,4 @@
-"""Archive completed lane-8a evidence into a compact index and quiet-record shards."""
+"""Archive completed lane-8 evidence into a compact index and quiet-record shards."""
 
 from __future__ import annotations
 
@@ -14,9 +14,15 @@ def main() -> None:
     parser.add_argument("destination", type=Path)
     args = parser.parse_args()
     result = archive_pilot_evidence(args.source, args.destination)
+    first_section = (
+        "evaluation_profiles"
+        if result.get("evaluation_profiles")
+        else "calibration"
+    )
+    record_file = result[first_section][0]["quiet_machine"]["record_file"]
     print(
         f"Archived {result['archive']['quiet_record_count']} quiet records to "
-        f"{args.destination.parent / 'quiet-records'}"
+        f"{args.destination.parent / Path(record_file).parent}"
     )
 
 

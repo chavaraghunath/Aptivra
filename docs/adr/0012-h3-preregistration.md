@@ -1,214 +1,223 @@
 # ADR-0012: H3 Continual-Learning Pre-registration
 
 - **Status:** Proposed
-- **Date:** 2026-10-17
+- **Date:** 2026-10-18
 - **Decider:** Repository owner (acceptance required before any H3 training)
 - **Depends on:** ADR-0005, ADR-0008, ADR-0011, proposed ADR-0009, and proposed ADR-0010
 
-> **Review status (2026-10-17): not ready for acceptance.** The lane-8a calibration evidence is
-> valid. The repeatability runs are not: they trained 2 optimizer steps on 16 examples and
-> evaluated 8. At that budget Aptivra scored 0.0 on both streams and naive fine-tuning 0.0 on v2,
-> so the observed zero variation is resolution censoring, not a noise floor. The thresholds below
-> (multiples of 1/8) and the power figure therefore come from the evaluation's resolution, not
-> from measured variation. Lane 8b re-measures the noise floor at the H3 per-cycle budget,
-> investigates the Aptivra-zero, EWC non-finite and LoRA step-time anomalies, and revises this
-> ADR before it is offered for acceptance.
+> **Review status: not ready for acceptance.** Lane 8b replaces lane 8a's censored
+> repeatability fixture with the actual H3 cycle caps and 64 held-out examples per task. The
+> issue-stream pair produced a usable noise floor. Aptivra did not learn the first synthetic-v2
+> task in any seed, however, and both methods scored zero on template-OOD. V2 paired variance,
+> template-OOD variance, and their confirmatory power are therefore not estimable. The main H3
+> experiment remains forbidden until a prospective amendment demonstrates learning on the v2
+> pilot pair without changing the H3 metric after observing results.
 
 ## Context and evidence boundary
 
-ADR-0011 requires H3 to be specified before its results exist. This ADR does not accept H3 and
-does not contain an H3 result. It freezes the proposed design from the bounded real-MPS lane-8a
-pilot in [`0012-evidence/pilot-evidence.json`](0012-evidence/pilot-evidence.json), schema
-`aptivra.h3_mps_pilot_evidence.v1` (the **pilot evidence**). The pilot completed in
-7,438.015 seconds on arm64 macOS with Python 3.12.13, Torch 2.14.1, Transformers 5.18.0, PEFT
-0.21.2, MPS available, and both Hugging Face offline flags set. It used only the cached
-`HuggingFaceTB/SmolLM2-360M` revision
-`f8027fd0eaeea54caa13c31d31b9fdc459c38b49`.
+ADR-0011 requires H3 to be specified before its results exist. This ADR neither accepts H3 nor
+contains an H3 result. Lane 8a's calibration evidence remains byte-identical at
+[`0012-evidence/pilot-evidence.json`](0012-evidence/pilot-evidence.json), SHA-256
+`439894ff14b5d6774a1f24d0bf0323971fd9b9535ab5a7206afddb36d4c7b686`. It is historical
+evidence, not a noise floor.
 
-The evidence references below are JSON selectors, not copied chronological-stream text:
+Lane 8b is recorded in
+[`0012-evidence/lane8b-pilot-evidence.json`](0012-evidence/lane8b-pilot-evidence.json), schema
+`aptivra.h3_mps_pilot_evidence.v2`, with losslessly sharded quiet records below
+`0012-evidence/lane8b-quiet-records/`. Raw chronological issue text remains local and is absent
+from portable evidence. The run used only cached
+`HuggingFaceTB/SmolLM2-360M@f8027fd0eaeea54caa13c31d31b9fdc459c38b49`, with both offline
+flags set, on MPS.
 
-| ID | Pilot evidence selector | Measurement |
+The lane 8b evidence selectors are:
+
+| ID | Selector | Measurement |
 | --- | --- | --- |
-| E1 | `preflight.synthetic_v2` | v2 audit passed; 12 families; config, audit-plan and audit hashes bound. |
-| E2 | `preflight.chronological_issues` | Issue audit passed; 10,065 records in 17 shards; raw/config/manifest/audit hashes bound. |
-| E3 | `calibration[*]` plus each row's hash-bound `quiet_machine.record_file` | All 48 attempts, including non-fitting and failed attempts, sequence lengths, memory, loss, timing, swap and losslessly sharded quiet samples. |
-| E4 | `noise_floor[*].same_seed_absolute_variation` | All four decision metrics varied by 0.0 in every method/stream duplicated-seed pair. |
-| E5 | `noise_floor[*].different_seed_max_absolute_variation` | All four decision metrics varied by 0.0 in every method/stream distinct-seed comparison. |
-| E6 | `repeatability[*].metrics` | Eight examples per task make the per-task accuracy quantum 0.125 and the two-task final-average quantum 0.0625. |
-| E7 | `repeatability[method=aptivra_full].metrics.promotions[*].routing_probe` | Sixteen-prompt probes: 1.0 eligible coverage, 0.50 overall misroute rate, 1.0 fallback false-route rate and 0.0 oracle gap; eligible accuracy quantum 0.125 and all-prompt routing quantum 0.0625. |
-| E8 | `compute_estimate` | Exact stream token counts, median valid ladder seconds/token, generation time, cell arithmetic and 606.234-hour unreduced estimate. |
-| E9 | `quiet_gate_events[0]` | One 900.067-second foreign-load window expired after 19 samples; the runner checkpointed it and retried without starting a measured worker. |
+| A1 | `preflight` and `run_manifest*` | Stream, model, configuration, code, runner, and resume-segment hashes. |
+| A2 | `evaluation_profiles[*]` | Scalar/batched fixed-set output identity and measured evaluation cost. |
+| A3 | `calibration[*]` | EWC, manual-LoRA, and Aptivra anomaly cells at issue micro-batch 8. |
+| A4 | `repeatability[*].metrics` | Five runs per method/stream: one duplicate seed and four unique seeds. |
+| A5 | `noise_floor` | Same-seed variation, four-seed sample SD, learning qualification, and paired-difference SD. |
+| A6 | `compute_estimate` | Measured batched generation cost and revised H3 cell arithmetic. |
 
-Zero observed metric variation is resolution-censored evidence, not bit reproducibility. For a
-metric with pilot quantum `q`, this ADR defines measured self-variation
-`v* = max(observed same-seed variation, observed different-seed variation, q / 2)`. Every
-equivalence or consistency check is `new-vs-old <= k × v*`; no check uses tensor, logit, token or
-bitwise identity.
+## Amendment to lane 8a measurements
+
+### Protocol and bounded execution
+
+The task pairs are synthetic-v2 indices `[7, 8]` and chronological-issue indices `[0, 1]`.
+Every task used the real one-epoch stream up to the first cycle cap: 100 optimizer steps or 8,192
+target tokens. V2 had 500 available training examples per task, consumed 200, ran 25 steps, and
+stopped at 8,107/8,119 target tokens. Issues had 1,192/1,266 available examples for naive full
+fine-tuning, consumed 800 per task, ran 100 steps per task, and stopped at 2,742/3,034 target
+tokens. Aptivra's second issue task included replay in its 1,899 available examples but consumed
+the same 800 current/replay-ordered examples under the same step cap.
+
+Evaluation used 64 held-out examples per task. V2 additionally used 64 held-out template-OOD
+examples per task. The seeds were `[20261017, 20261017, 20261018, 20261019, 20261020]`; the first
+seed was repeated exactly and the remaining four values provide the unique-seed sample SD.
+
+The pilot completed 20/20 cells in 24,818.404 seconds (6 h 53 min 38 s), below its eight-hour
+limit. A worker was stopped after an MPS command-buffer stall. The resume amendment preserves the
+old and new manifests, charges 4,905 interrupted seconds to the same wall budget, and changes only
+the execution guard so every subprocess timeout is the remaining global budget. No completed cell
+was replaced. The regression test is
+`test_remaining_wall_time_limits_each_worker_to_global_budget`.
+
+### Anomaly findings
+
+| Anomaly | Root cause and disposition | Defect-proof test |
+| --- | --- | --- |
+| Aptivra 0.0 on lane 8a issues | The adapter was trained, but two steps did not improve validation accuracy; the promotion gate correctly rejected and deleted it. Evaluation then used the frozen base, which scored zero. This was a correct consequence of the lane 8a budget, not an adapter-activation defect. The independent router defect was real: a one-row softmax assigned probability 1.0, making threshold 0.65 incapable of abstention. A fixed zero fallback logit now makes abstention an actual alternative. | `test_routed_evaluation_activates_adapter_and_abstention_uses_base`; `test_router_uses_masked_real_frozen_embeddings_and_abstains` |
+| Online EWC non-finite issue loss at micro-batch 8 | Lane 8a discarded worker stderr and mislabeled an asynchronous Metal out-of-memory failure as a non-finite loss. Its pilot Fisher estimator also used squared mean gradients rather than mean per-example squared gradients, omitted conventional `0.5 * lambda` scaling, and lacked squared-gradient overflow checks. Those defects are fixed in the pilot comparator; the production comparator already used mean per-example squared gradients and half scaling. The rerun produced finite losses `[1.849941, 0.663562, 0.272266]`, Fisher initialization loss `5.500088`, and a 2,894,568,960-byte EWC state, but peaked at 35,744,890,880 bytes and grew swap by 8,974,761,984 bytes. Micro-batch 8 is therefore correctly rejected; H3 retains calibrated micro-batch 4. | `test_diagonal_fisher_uses_mean_of_per_example_squared_gradients`; `test_diagonal_fisher_rejects_squared_gradient_overflow`; `test_ewc_penalty_uses_conventional_half_scaling`; `test_worker_spawn_classifies_metal_driver_oom_without_persisting_stderr` |
+| Manual LoRA 4.99 s versus Aptivra 3.33 s | The earlier three-sample gap was not reproducible. With a seed fixed before model construction, manual LoRA and Aptivra medians were 2.151841 s and 2.140674 s (0.52% apart), with 8,683,520 versus 8,695,052 trainable parameters and nearly identical 25.800/25.801 GB driver peaks. Router work occurs outside the adapter step. Micro-batch-8 LoRA exceeds micro-batch-4 full-FT driver memory because 726-token activation storage scales with batch size; freezing base weights removes gradient/optimizer state but not forward activations or the backward path needed for LoRA. | `test_manual_lora_trains_only_the_last_resident_adapter`; seeded anomaly-cell replay in A3 |
+| Evaluation cost | Scalar generation spent 2.531950 s/example on v2 and 0.101641 s/example on issues. Batched generation with KV-cache use and per-row first-complete-answer truncation is output-identical on the fixed set and costs 1.184370 and 0.088269 s/example: 2.1378x and 1.1515x speedups. The metric and verifier are unchanged. | `test_batched_generation_is_output_identical_to_scalar`; `test_batched_generation_removes_padding_after_per_row_terminator`; A2 `output_identity=true` |
+
+### Measured noise floor
+
+All same-seed absolute variations were `0.0`; unlike lane 8a, every row marked **valid** also
+learned each trained task above its frozen-base accuracy. Values below are sample SD across four
+unique seeds. “OOD” is template-OOD final average; the acquisition OOD SD is also zero.
+
+| Stream / method | Learning qualification | Per-task accuracy SD | BWT SD | Forgetting SD | Final-average SD | Acquisition SD | OOD SD |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| v2 / naive full FT | valid | `[0.152761, 0.007812]` | 0.147957 | 0.147957 | 0.078902 | 0.013532 | 0.000000 |
+| v2 / Aptivra full | **non-learning finding** (first task failed 5/5 runs) | not a noise floor | not a noise floor | not a noise floor | not a noise floor | not a noise floor | not a noise floor |
+| issues / naive full FT | valid | `[0.044194, 0.032526]` | 0.077076 | 0.046875 | 0.025911 | 0.035516 | n/a |
+| issues / Aptivra full | valid | `[0.007812, 0.029920]` | 0.000000 | 0.000000 | 0.016106 | 0.016106 | n/a |
+| issues / paired `Aptivra - naive` | valid planning SD | `[0.041093, 0.028527]` | 0.077076 | 0.046875 | 0.030840 | 0.023329 | n/a |
+
+The descriptive v2 Aptivra values were final-average/acquisition SD `0.006379` and zero BWT,
+forgetting, and OOD variation, but they are resolution-censored non-learning outputs and are not
+used as a noise floor. Naive v2 learned strongly in-template but scored zero OOD in every seed;
+therefore zero OOD SD is also censoring, not evidence of perfect repeatability.
 
 ## Pre-flight and method contract
 
-No model may be loaded until E1 and E2 are reproduced from the exact committed manifests and the
-chronological raw file hash is `2f4d6f6554f4e762ff7a779fb81ca579d0a38db119952f67786e52997d3ab9ec`.
-Raw chronological text remains local and is excluded from every Hub-facing artifact. A missing or
-mismatched path halts the experiment.
+No model may be loaded until both stream audits reproduce the exact committed manifests and the
+chronological raw hash is
+`2f4d6f6554f4e762ff7a779fb81ca579d0a38db119952f67786e52997d3ab9ec`.
+A missing or mismatched input halts the experiment. Every measured process starts from pristine
+cached weights, passes the registered quiet-machine gate, records its own MPS/RSS/swap peaks, and
+runs offline on MPS. The hard own-footprint cap remains 28,991,029,248 bytes. Foreign processes
+are observed but never killed or reniced; swap growth above 1,073,741,824 bytes invalidates
+throughput, not accuracy.
 
-Every measured process starts from pristine cached weights and passes the registered quiet-machine
-gate. Foreign processes are observed and recorded but never killed or reniced. Swap growth above
-1,073,741,824 bytes invalidates throughput only. The hard own-footprint cap is 28,991,029,248
-bytes. MPS is the only permitted device; CPU fallback, mixed precision, quantization, offload and
-network access are forbidden.
+The six methods remain frozen base, naive sequential full FT, deterministic replay full FT,
+bounded online EWC full FT, manual task-ID rank-16 LoRA, and Aptivra full. The selected issue
+micro-batches remain 8 frozen, 4 naive, 4 replay, 4 EWC, 8 manual LoRA, and 8 Aptivra. V2 uses 8
+for all methods. Online EWC uses a mean of per-example squared gradients, finite Fisher/state
+checks, one consolidated diagonal state, and `0.5 * 400.0 * F * (theta - theta*)^2`.
 
-The six methods are frozen base, naive sequential full FT, deterministic replay full FT, bounded
-online EWC full FT, manual task-ID rank-16 LoRA, and Aptivra full. Frozen-base calibration is
-forward-only under `no_grad()` and eval mode, uses target-only loss, and exercises maximum-answer
-generation; backward, optimizer, accumulation and checkpointing are recorded as
-`not_applicable`. Every other method performs forward, backward and AdamW update steps. Online EWC
-initializes its single consolidated diagonal Fisher from gradients on the same real worst-case
-batch before warm-up, rejects an identically zero Fisher, and applies the registered penalty
-`400.0`. Aptivra full backpropagates only through the active LoRA adapter and candidate router row.
+## Confirmatory thresholds and power
 
-For each stream and micro-batch `k`, calibration selects the `k` longest distinct real examples by
-tokenized length with stable-record-ID tie-breaking, then pads all sequences to that stream's
-single longest accepted example. The ladder is `[8, 4, 2, 1]`, effective batch is 8, and each
-attempt has one warm-up plus three measured steps. Gradient checkpointing is permitted only after
-a failed micro-batch-1 training attempt. The largest accepted non-checkpointed micro-batch is used:
+The five main seeds remain exactly `20261017` through `20261021`, paired across methods within a
+stream. Results from v2, issues, and the one-seed v1 regression are never pooled. The primary
+decision remains an intersection-union test at one-sided alpha 0.05; every conjunct must pass on
+both claim-bearing streams. Exploratory contrasts use Holm correction within endpoint/stream.
 
-| Stream | Frozen | Naive FT | Replay FT | Online EWC | Manual LoRA | Aptivra full |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| synthetic v2 (167 tokens) | 8 | 8 | 8 | 8 | 8 | 8 |
-| chronological issues (726 tokens) | 8 | 4 | 4 | 4 | 8 | 8 |
+The practical effects are not shrunk to rescue five seeds. For a paired SD `s`, effect `delta`,
+and `n` pairs, planning power is
+`1 - F_nct(t_0.95,n-1; (delta/s)*sqrt(n))`. The valid issue-stream arithmetic is:
 
-The chronological micro-batch-8 naive and replay attempts peaked at 31,236,161,536 and
-31,169,052,672 bytes and are rejected; their swap growth of 4,514,518,138 and 2,218,189,128
-bytes also suppresses throughput. Online EWC micro-batch 8 initialized a nonzero Fisher
-(initialization loss `5.296557`) but produced a non-finite training loss and is failed. These rows
-remain in E3. At the selected micro-batches the chronological peaks are 19,079,888,896 (naive),
-19,079,888,896 (replay), 23,644,340,224 (EWC), 25,800,343,552 (manual LoRA), and
-25,801,474,048 bytes (Aptivra). Frozen base peaked at 2,743,943,168 bytes. All selected attempts
-had finite losses, zero swap growth and no CPU fallback.
+| Endpoint | Registered effect/margin | Paired SD | SD units | Power at n=5 | Pairs for 80% / 90% |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BWT superiority | +0.125 | 0.077076 | 1.6218 | 0.9036 | 5 / 5 |
+| Forgetting superiority | +0.125 | 0.046875 | 2.6667 | 0.9990 | 3 / 4 |
+| Final-average non-inferiority | -0.0625 | 0.030840 | 2.0266 | 0.9774 | 4 / 4 |
+| Acquisition non-inferiority | -0.125 | 0.023329 | 5.3582 | >0.9999 | 3 / 3 |
 
-The exact parameter arithmetic remains: 361,821,120 tied base parameters; 8,683,520 parameters
-per rank-16 all-seven-projection adapter; 104,202,240 adapter parameters for twelve resident
-adapters; and `961E` router parameters (`11,532` at `E=12`). Base fp32 weights are
-1,447,284,480 bytes. Twelve adapter weights add 416,808,960 bytes; the active adapter's gradient
-and two AdamW moments add 104,202,240 bytes, for 1,968,295,680 bytes before negligible router
-state and activations. E3, not this static arithmetic, is the fit decision.
+These margins are respectively 1.62, 2.67, 2.03, and 5.36 measured paired SDs on issues. The
+superiority effects remain practically meaningful eight-example-equivalents at the 64-example
+evaluation size; the non-inferiority margins permit at most four final-average or eight per-task
+correct-answer equivalents, rather than being invented from an eight-example pilot quantum.
 
-## Confirmatory design and power
+V2 has no paired SD because Aptivra did not learn. Using only the valid naive-v2 BWT/forgetting SD
+`0.147957` as a conservative sensitivity calculation, `delta=0.125` is `0.8448 SD`: five seeds
+have power `0.4686`, 11 seeds reach 80%, and 14 reach 90%. This is not paired-H3 power and cannot
+authorize H3. At the revised main-cell cost of 11.9213 Mac-hours per added cross-method seed, 11
+seeds add 71.528 hours and raise the total design estimate to 202.192 hours; 14 add 107.292 hours
+and raise it to 237.956 hours. The effect is not reduced to make five seeds sufficient.
 
-The five main seeds are exactly `20261017`, `20261018`, `20261019`, `20261020`, and `20261021`,
-paired across every method within each stream. Results from v2, chronological issues and v1 are
-never pooled. V1 is six one-seed regression cells only and cannot support a new claim.
+Template-OOD power is not estimable because every pilot value was zero. The provisional practical
+margin remains `-0.125`, but it has no noise-floor defense and therefore cannot be accepted. A
+prospective learning pilot must establish non-degenerate OOD performance and paired SD before the
+template-OOD conjunct is confirmatory.
 
-E4 and E5 observed zero decision-metric variation. E6 gives `q=0.125` for per-task accuracy,
-BWT and forgetting on a two-task pair, and `q=0.0625` for final average. The preregistered
-standard-deviation guards are therefore `q/2`: 0.0625 for BWT, forgetting, new-task accuracy and
-template-OOD, and 0.03125 for final average. A one-sided paired t test with five pairs, alpha 0.05,
-and a threshold equal to `2 × SD` has noncentral-t power 0.9748 (`df=4`, noncentrality
-`2*sqrt(5)`). This is an explicit planning assumption, not a post-hoc estimate. If the observed
-five-seed SD is larger, power is lower and the claim is not rescued by changing seeds or margins.
+## Comparator, routing, and kill criterion
 
-The primary decision is an intersection-union test: every conjunct below must pass independently
-on both claim-bearing streams. An intersection-union claim needs no alpha division because the
-claim is accepted only when every component rejects its own null at one-sided alpha 0.05.
-Exploratory method-by-method and ablation contrasts use Holm correction within each reported
-endpoint/stream family and are labelled exploratory. Confidence intervals are paired across seeds;
-normality is checked before a paired t interval, otherwise the exact paired randomization interval
-is used. No unpaired replacement is permitted.
+Before Aptivra is unblinded, select the strongest eligible non-routing comparator separately per
+stream by five-seed mean final average, then BWT, then forgetting, then the fixed order manual
+LoRA, replay, EWC, naive FT, frozen base. Eligibility requires learning, finite completion,
+memory-cap compliance, compute matching, rollback, and five paired seeds. An incomplete required
+baseline kills H3 even if another comparator exists.
 
-## Comparator and kill criterion
+H3 can pass only if each claim-bearing stream satisfies all of the following:
 
-The comparator is selected separately per claim-bearing stream before Aptivra results are
-unblinded. An eligible non-learned-routing baseline must pass its audit, memory, finite-loss,
-completion, five-seed, rollback and compute-matching gates. Manual task-ID LoRA is eligible because
-it has oracle adapter selection but no learned router. Among eligible baselines choose the highest
-five-seed mean final average; a difference at or below 0.0625 ties (E6), then choose higher BWT,
-then lower forgetting, then the fixed conservative order manual LoRA, replay, online EWC, naive
-FT, frozen base. Any incomplete required baseline independently kills H3 even if another comparator
-can be selected.
+1. The lower one-sided 95% paired bound for `Aptivra BWT - comparator BWT` is at least `+0.125`.
+2. The lower bound for `comparator forgetting - Aptivra forgetting` is at least `+0.125`.
+3. The lower bound for `Aptivra final average - comparator` is at least `-0.0625`.
+4. The lower bound for `Aptivra acquisition - comparator` is at least `-0.125`.
+5. On v2, the template-OOD lower bound is at least `-0.125`, but only after a prospective
+   amendment establishes a non-degenerate paired OOD SD and adequate power.
+6. Every trained task in every required method/seed exceeds its frozen-base accuracy. The lane 8b
+   v2 Aptivra result fails this prerequisite and currently blocks H3.
+7. Routing at a validation-calibrated, test-frozen threshold has eligible coverage at least
+   `0.875`, eligible misroute rate at most `0.0625`, fallback false-route rate at most `0.0625`,
+   and oracle-minus-routed accuracy at most `0.125`. These permit at most 8 missed routes, 4
+   misroutes, 4 false routes, and 8 correct-answer equivalents per 64-prompt denominator.
+8. A cap breach, missing seed, non-finite value, worker timeout, CPU fallback, failed rollback,
+   audit mismatch, gate bypass, or incomplete evidence kills H3 and remains in the table.
 
-H3 passes only if all of the following pass on **each** claim-bearing stream:
+The routing bounds are deliberately not inferred from the broken lane 8a router. With the fixed
+fallback logit, lane 8b still observed first-task fallback false-route `1.0`; after the second issue
+candidate was rejected, coverage ranged `0.171875–0.640625`, eligible misroute
+`0.326087–0.514286`, and oracle gaps `0.21875–0.4921875`. Threshold `0.65` is therefore not
+calibrated adequately and fails every relevant bound. Confidence calibration, not a threshold
+change after test results, is required before H3.
 
-1. **BWT superiority:** the lower one-sided 95% paired bound for `Aptivra - comparator` is at least
-   `+0.125` (one E6 per-task quantum; `2 × 0.0625` SD guard).
-2. **Forgetting superiority:** the lower bound for `comparator forgetting - Aptivra forgetting` is
-   at least `+0.125`, from the same E6 quantum and power assumption.
-3. **Final-average non-inferiority:** the lower bound for `Aptivra - comparator` is at least
-   `-0.0625`, one E6 final-average quantum.
-4. **New-task acquisition non-inferiority:** the lower bound is at least `-0.125`, one E6
-   per-task quantum.
-5. **Template-OOD non-inferiority (v2 only):** the lower bound is at least `-0.125`. The margin is
-   transferred from E6's exact-match per-task quantum; template-OOD remains a separate cell and is
-   never pooled with in-template accuracy. The chronological stream has no template-OOD cell.
-6. **Routing reality:** at confidence threshold 0.65, eligible-adapter coverage is at least 0.875
-   (E7 observed 1.0; one eligible miss is 0.125), overall misroute rate including false routing of
-   fallback prompts is at most 0.0625 (one E7 all-prompt error quantum), fallback false-route rate
-   is at most 0.0625, and task-ID-oracle accuracy minus learned-routing accuracy is at most 0.125
-   (one E7 eligible-accuracy quantum). E7's 0.50 pilot misroute and 1.0 false-route rates do not
-   satisfy these bounds; the short pilot is diagnostic, not an H3 pass.
-7. **Consistency:** any loader/restart/new-vs-old metric check must satisfy
-   `absolute(new - old) <= 2 × v*` for its measured metric. With E4/E5 resolution censoring this is
-   0.125 for final average and 0.25 for per-task/BWT/forgetting, never bitwise identity.
-8. **Operability:** a cap breach, missing seed, failed/OOM required method, verifier infrastructure
-   error, non-finite value, CPU fallback, failed rollback, audit mismatch, gate bypass or incomplete
-   evidence kills H3. Failed methods remain in every table.
+## Compute matching and revised estimate
 
-## Compute matching and caps
+All updating methods receive identical serialized order, one epoch per task, effective batch 8,
+target-only loss, evaluation schedule, and the first-applicable 100-step/8,192-target-token cap.
+Evaluation remains capped at 64 examples per seen task per cycle; v2's template-OOD cell is
+separate and never pooled. Actual steps, tokens, generations, wall time, peak memory, swap growth,
+and cap utilization are mandatory.
 
-All updating methods receive the same serialized order, one epoch per task, effective batch 8,
-target-only loss, evaluation schedule, optimizer-step ceiling and target-token ceiling. A method
-stops at the first applicable cap; unused budget cannot be moved to another method. Frozen base has
-no training budget. Hyperparameter selection gets the same declared number of candidates and uses
-only training/validation data. Router-only work is reported separately and cannot buy extra adapter
-steps. Actual steps, tokens, generations, wall time, FLOPs method, peak memory and cap utilization
-are mandatory.
+A2's output-identical batching reduces measured generation cost to 1.184370 s/example on v2 and
+0.088269 s/example on issues. With 60 main cells, six v1 regression cells, and 66 three-seed
+ablation stream-cells, A6 estimates:
 
-Per consolidation cycle the adapter caps are 100 optimizer steps and 8,192 target tokens; router
-caps are 100 optimizer steps and 8 replay examples per mature expert. Evaluation is capped at 64
-examples per seen task per cycle: v2 uses 32 stratified in-template plus 32 stratified template-OOD
-examples, while chronological and v1 use 64 stratified in-template examples. Sampling is fixed by
-the experiment seed and task ID and is identical across methods. Final evaluation uses the same
-frozen subsets. A cap overrun aborts and rolls back.
+| Component | Seconds |
+| --- | ---: |
+| Main training | 33,653.741 |
+| Main evaluation | 180,930.299 |
+| V1 training | 705.049 |
+| V1 evaluation | 19,059.051 |
+| Ablation training | 37,019.115 |
+| Ablation evaluation | 199,023.329 |
+| **Total** | **470,390.583 (130.664 h)** |
 
-E8 counted exactly 534,755 synthetic-v2, 2,015,255 chronological and 263,315 v1 training sequence
-tokens (157,271, 25,700 and 95,637 target tokens). At the original 363-evaluation cap, the exact
-cell arithmetic is 60 main cells, 6 v1 cells and 66 ablation seed-stream cells. Measured training
-is 34,265.722 + 713.045 + 37,692.294 seconds; capped evaluation is 955,213.578 + 103,824.200 +
-1,050,734.936 seconds, totaling 2,182,443.775 seconds or 606.234 hours. That is not a reasonable
-local budget.
-
-The preregistered reduction leaves all 60 main cells at five seeds, reduces only the eleven named
-ablations to one seed on each stream (22 labelled diagnostic cells), and uses the 64-example cap
-above. Scaling E8's measured generation cost and exact cell counts gives 168,412.311 seconds main
-evaluation, 18,305.093 seconds v1 evaluation, 61,751.181 seconds ablation evaluation, 34,265.722
-seconds main training, 713.045 seconds v1 training and 12,564.098 seconds ablation training:
-296,011.450 seconds or 82.225 hours total. This is the proposed-design estimate, not a promise.
-Main H3 cells may not be reduced below five seeds. Any expansion requires an amendment before the
-additional result is observed.
+This replaces lane 8a's 606.234-hour unreduced scalar-generation estimate. It is larger than lane
+8a's proposed 82.225-hour one-seed-ablation reduction because this estimate preserves the
+registered three seeds for each ablation. The 59.607-hour five-seed main matrix is 11.9213 hours
+per cross-method seed. This is a planning estimate, not permission to execute H3.
 
 ## Execution order and failure handling
 
-1. Re-run and bind both stream audits, environment, code, config, model and raw/manifest hashes.
-2. Reproduce calibration in fresh processes and freeze each method/stream micro-batch above.
-3. Run frozen-base vectors, then non-routing baselines in the fixed order naive, replay, EWC and
-   manual LoRA, for all five seeds on one stream before opening Aptivra results for that stream.
-4. Select the strongest eligible comparator using the frozen rule, still blinded to Aptivra.
-5. Run Aptivra full for the same five paired seeds; finish and seal one stream before the other.
-6. Run the six one-seed v1 regression cells; they cannot rescue either claim-bearing stream.
-7. Run the eleven one-seed-per-stream ablations in the order listed in
-   `configs/h3_mps_pilot.yaml`, restoring pristine state after each.
-8. Apply corrected intervals, the intersection-union kill criterion and release gates once, then
-   write immutable evidence. No threshold, comparator or exclusion changes after step 1.
-
-Every cell checkpoints atomically after completion and resumes only when its run manifest matches.
-OOM, non-finite, timeout and failed methods remain in the table with quiet samples and failure
-evidence. There is no replacement seed. A rejected Aptivra candidate atomically restores adapter,
-router, optimizer, replay, memory, configuration and RNG state; rollback failure kills H3.
+After a prospective amendment resolves the v2 learning/OOD blockers: rebind audits and hashes;
+reproduce calibration; run frozen and non-routing baselines for all paired seeds on one stream;
+select the comparator while Aptivra stays blinded; run Aptivra; seal that stream; then run v1 and
+ablations. Every cell checkpoints atomically. Failed, timed-out, OOM, or swap-compromised workers
+remain visible. No replacement seed is permitted. Every worker timeout is bounded by the remaining
+global run budget.
 
 ## Consequences and retrospective
 
-The design is falsifiable and locally bounded, but its 82.225-hour estimate is still substantial. The
-pilot also showed that a one-row router confidently false-routes fallback prompts; routing cannot
-be inferred from adapter isolation. Kaizen action: retain the pre-model raw-data/hash check, the
-persisted quiet-window samples, fresh-process calibration and explicit fallback false-route metric
-as permanent gates. The owner must accept this Proposed ADR before any main H3 cell is run.
+Lane 8b turns lane 8a's zero-score fixture into a real issue-stream variance estimate and exposes a
+stronger negative result: the current H3 recipe does not make Aptivra learn the selected v2 pair.
+The correct response is to keep ADR-0012 Proposed and block the main experiment, not to call zero
+variation reproducibility or shrink the effect. Batched evaluation materially lowers cost without
+changing outputs, while explicit manifest-transition evidence and remaining-budget timeouts prevent
+a stalled worker from silently escaping the bounded pilot. The next amendment must be prospective,
+must retain the metric, and must prove both in-template and template-OOD learning before power is
+claimed.

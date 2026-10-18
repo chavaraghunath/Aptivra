@@ -8,7 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from aptivra.eval.mps_pilot import PILOT_SCHEMA, _json_mapping, _write_json_atomic
+from aptivra.eval.mps_pilot import (
+    AMENDMENT_SCHEMA,
+    PILOT_SCHEMA,
+    _json_mapping,
+    _write_json_atomic,
+)
 from aptivra.eval.pilot_evidence_archive import (
     ARCHIVE_SCHEMA,
     _verify_existing_archive,
@@ -60,6 +65,33 @@ def test_archive_is_lossless_hash_bound_and_idempotent(tmp_path: Path) -> None:
         assert hashlib.sha256(shard.read_bytes()).hexdigest() == reference["sha256"]
         shard_payload = json.loads(shard.read_text(encoding="utf-8"))
         assert shard_payload["quiet_machine"]["samples"] == [{"quiet": True}]
+
+
+def test_lane8b_archive_includes_profile_quiet_records_in_separate_directory(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "raw.json"
+    destination = tmp_path / "archive" / "lane8b-pilot-evidence.json"
+    payload = _completed_payload()
+    payload["schema_version"] = AMENDMENT_SCHEMA
+    payload["evaluation_profiles"] = [
+        {
+            "stream": "synthetic_v2",
+            "quiet_machine": {
+                "quiet": True,
+                "wait_seconds": 0.0,
+                "samples": [{"quiet": True}],
+            },
+        }
+    ]
+    _write_json_atomic(source, payload)
+
+    archived = archive_pilot_evidence(source, destination)
+
+    assert archived["archive"]["quiet_record_count"] == 3
+    reference = archived["evaluation_profiles"][0]["quiet_machine"]
+    assert reference["record_file"].startswith("lane8b-quiet-records/")
+    _verify_existing_archive(archived, destination.parent)
 
 
 def test_archive_rejects_incomplete_and_tampered_evidence(tmp_path: Path) -> None:

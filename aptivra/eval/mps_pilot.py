@@ -7,6 +7,7 @@ import json
 import math
 import os
 import platform
+import random
 import re
 import subprocess
 import sys
@@ -47,6 +48,7 @@ from aptivra.eval.task_stream_audit import load_audit_plan, write_or_check_plan
 from aptivra.experts.router import SequenceTop1Router, masked_mean_frozen_embeddings
 from aptivra.experts.standard import PeftExpertBank, load_standard_expert_settings
 from aptivra.gate.promotion_gate import PromotionGate
+from aptivra.inference.batched_generation import generate_task_instance_answers
 from aptivra.inference.standard_base import (
     CausalBatch,
     StandardBase,
@@ -65,6 +67,7 @@ from aptivra.tasks.stream import TaskStreamSplit
 
 DEFAULT_MPS_PILOT_CONFIG = aptivra_resource("configs", "h3_mps_pilot.yaml")
 PILOT_SCHEMA = "aptivra.h3_mps_pilot_evidence.v1"
+AMENDMENT_SCHEMA = "aptivra.h3_mps_pilot_evidence.v2"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _METHODS = (
     "frozen_base",
@@ -176,7 +179,16 @@ class QuietMachineSettings(_StrictModel):
         return self
 
 
+class CalibrationAnomalyCell(_StrictModel):
+    method: Literal["online_ewc", "manual_lora", "aptivra_full"]
+    stream: Literal["chronological_issues"]
+    micro_batch: Literal[8]
+
+
 class CalibrationSettings(_StrictModel):
+    historical_evidence: Path
+    historical_evidence_sha256: str
+    seed: NonNegativeInt
     frozen_base_mode: Literal["forward_only"]
     frozen_generation_path: Literal["max_answer_length"]
     worst_case_example_policy: Literal["longest_distinct_pad_to_stream_max"]
@@ -190,6 +202,19 @@ class CalibrationSettings(_StrictModel):
     memory_cap_bytes: Literal[28_991_029_248]
     memory_sample_interval_seconds: float = Field(strict=True, ge=0.001, le=1.0)
     swap_throughput_reporting_threshold_bytes: NonNegativeInt
+    anomaly_cells: list[CalibrationAnomalyCell] = Field(min_length=3, max_length=3)
+
+    @field_validator("historical_evidence", mode="before")
+    @classmethod
+    def normalize_historical_path(cls, value: object) -> object:
+        return Path(value) if isinstance(value, str) else value
+
+    @field_validator("historical_evidence_sha256")
+    @classmethod
+    def validate_historical_hash(cls, value: str) -> str:
+        if _SHA256.fullmatch(value) is None:
+            raise ValueError("historical calibration hash must be lowercase SHA-256")
+        return value
 
     @model_validator(mode="after")
     def validate_protocol(self) -> CalibrationSettings:
@@ -197,16 +222,46 @@ class CalibrationSettings(_StrictModel):
             raise ValueError("calibration methods must use the registered six-method order")
         if self.micro_batches != [8, 4, 2, 1]:
             raise ValueError("calibration micro-batches must be [8, 4, 2, 1]")
+        expected = {
+            ("online_ewc", "chronological_issues", 8),
+            ("manual_lora", "chronological_issues", 8),
+            ("aptivra_full", "chronological_issues", 8),
+        }
+        actual = {(cell.method, cell.stream, cell.micro_batch) for cell in self.anomaly_cells}
+        if actual != expected:
+            raise ValueError("calibration anomaly cells must cover the three lane-8b issue cells")
         return self
+class RepeatabilityMethodMicroBatches(_StrictModel):
+    naive_sequential: Literal[8, 4, 2, 1]
+    aptivra_full: Literal[8, 4, 2, 1]
+
+
+class RepeatabilityMicroBatches(_StrictModel):
+    synthetic_v2: RepeatabilityMethodMicroBatches
+    chronological_issues: RepeatabilityMethodMicroBatches
+
+
+class RepeatabilityEvaluationBatchSizes(_StrictModel):
+    synthetic_v2: PositiveInt = Field(le=16)
+    chronological_issues: PositiveInt = Field(le=16)
 
 
 class RepeatabilitySettings(_StrictModel):
     methods: tuple[Literal["naive_sequential", "aptivra_full"], ...]
-    seeds: tuple[NonNegativeInt, NonNegativeInt, NonNegativeInt, NonNegativeInt]
-    optimizer_steps_per_task: PositiveInt
-    training_examples_per_task: PositiveInt
+    seeds: tuple[
+        NonNegativeInt,
+        NonNegativeInt,
+        NonNegativeInt,
+        NonNegativeInt,
+        NonNegativeInt,
+    ]
+    training_example_policy: Literal["one_epoch_up_to_cycle_caps"]
     evaluation_examples_per_task: PositiveInt
-    micro_batch_size: PositiveInt
+    template_ood_examples_per_task: PositiveInt
+    effective_batch_size: Literal[8]
+    micro_batches: RepeatabilityMicroBatches
+    evaluation_batch_sizes: RepeatabilityEvaluationBatchSizes
+    profile_examples: PositiveInt = Field(ge=2, le=32)
     max_new_tokens: PositiveInt
     checkpoint_after_each_run: Literal[True]
 
@@ -219,8 +274,14 @@ class RepeatabilitySettings(_StrictModel):
     def validate_repeats(self) -> RepeatabilitySettings:
         if self.methods != ("naive_sequential", "aptivra_full"):
             raise ValueError("repeatability requires one full-FT method and Aptivra full")
-        if self.seeds[0] != self.seeds[1] or len(set(self.seeds[1:])) != 3:
-            raise ValueError("repeatability requires two same-seed and two different-seed runs")
+        if self.seeds[0] != self.seeds[1] or len(set(self.seeds)) < 4:
+            raise ValueError(
+                "repeatability requires one duplicated seed and three additional seeds"
+            )
+        for stream in (self.micro_batches.synthetic_v2, self.micro_batches.chronological_issues):
+            for micro_batch in (stream.naive_sequential, stream.aptivra_full):
+                if self.effective_batch_size % micro_batch:
+                    raise ValueError("repeatability micro-batches must divide effective batch 8")
         return self
 
 
@@ -274,11 +335,11 @@ class CycleCapSettings(_StrictModel):
 class ExecutionSettings(_StrictModel):
     device: Literal["mps"]
     offline: Literal[True]
-    wall_time_limit_seconds: PositiveFloat = Field(le=21_600.0)
+    wall_time_limit_seconds: PositiveFloat = Field(le=28_800.0)
 
 
 class MpsPilotSettings(_StrictModel):
-    schema_version: Literal["aptivra.h3_mps_pilot_config.v1"]
+    schema_version: Literal["aptivra.h3_mps_pilot_config.v2"]
     feature: FeatureSettings
     output_dir: Path
     base_config: Path
@@ -306,6 +367,11 @@ class MpsPilotSettings(_StrictModel):
             (worktree / self.output_dir).resolve().relative_to(worktree)
         except ValueError as error:
             raise ValueError("pilot output_dir must resolve inside the worktree") from error
+        if (
+            self.repeatability.evaluation_examples_per_task
+            < self.cycle_caps.evaluation_examples_per_seen_task
+        ):
+            raise ValueError("repeatability evaluation must meet the H3 per-task count")
         return self
 
 
@@ -330,6 +396,22 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _python_source_tree_sha256(root: Path = Path("aptivra")) -> str:
+    """Bind every importable Aptivra Python source file to measured evidence."""
+    digest = hashlib.sha256()
+    paths = sorted(path for path in root.rglob("*.py") if path.is_file())
+    if not paths:
+        raise FileNotFoundError(f"no Python sources found below {root}")
+    for path in paths:
+        relative = path.relative_to(root.parent).as_posix().encode("utf-8")
+        payload = path.read_bytes()
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(len(payload).to_bytes(8, "big"))
+        digest.update(payload)
+    return digest.hexdigest()
+
+
 def _require_hash(path: Path, expected: str, description: str) -> str:
     actual = _sha256(path)
     if actual != expected:
@@ -344,6 +426,78 @@ def _json_mapping(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"JSON evidence must contain an object: {path}")
     return cast(dict[str, Any], value)
+
+
+def _mapping_sha256(value: Mapping[str, Any]) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _accept_resume_amendment(
+    progress: dict[str, Any],
+    current_manifest: Mapping[str, Any],
+    amendment_path: Path,
+) -> None:
+    """Record an explicit manifest transition and charge interrupted wall time."""
+    raw: object = yaml.safe_load(amendment_path.read_text(encoding="utf-8"))
+    required = {
+        "schema_version",
+        "reason",
+        "from_manifest_sha256",
+        "to_manifest_sha256",
+        "interrupted_wall_seconds",
+    }
+    if not isinstance(raw, dict) or set(raw) != required:
+        raise ValueError("resume amendment must contain exactly the registered fields")
+    amendment = cast(dict[str, Any], raw)
+    if amendment["schema_version"] != "aptivra.h3_mps_pilot_resume_amendment.v1":
+        raise ValueError("unsupported resume amendment schema")
+    reason = amendment["reason"]
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("resume amendment reason must be non-empty")
+    previous_manifest = progress.get("run_manifest")
+    if not isinstance(previous_manifest, dict):
+        raise ValueError("existing pilot checkpoint has no valid run manifest")
+    expected_from = amendment["from_manifest_sha256"]
+    expected_to = amendment["to_manifest_sha256"]
+    if not isinstance(expected_from, str) or _SHA256.fullmatch(expected_from) is None:
+        raise ValueError("resume amendment from-manifest digest must be SHA-256")
+    if not isinstance(expected_to, str) or _SHA256.fullmatch(expected_to) is None:
+        raise ValueError("resume amendment to-manifest digest must be SHA-256")
+    if _mapping_sha256(previous_manifest) != expected_from:
+        raise ValueError("resume amendment does not match the checkpoint manifest")
+    if _mapping_sha256(current_manifest) != expected_to:
+        raise ValueError("resume amendment does not match the current manifest")
+    interrupted = amendment["interrupted_wall_seconds"]
+    if not isinstance(interrupted, (int, float)) or isinstance(interrupted, bool):
+        raise ValueError("resume amendment interrupted wall time must be numeric")
+    interrupted_seconds = float(interrupted)
+    if not math.isfinite(interrupted_seconds) or interrupted_seconds <= 0.0:
+        raise ValueError("resume amendment interrupted wall time must be positive and finite")
+    raw_prior_elapsed = progress.get("elapsed_wall_time_seconds", 0.0)
+    if isinstance(raw_prior_elapsed, bool):
+        raise ValueError("existing pilot checkpoint elapsed wall time must be numeric")
+    prior_elapsed = float(raw_prior_elapsed)
+    history = progress.setdefault("run_manifest_history", [])
+    amendments = progress.setdefault("resume_amendments", [])
+    if not isinstance(history, list) or not isinstance(amendments, list):
+        raise ValueError("existing pilot checkpoint has invalid amendment history")
+    history.append(
+        {
+            "run_manifest": previous_manifest,
+            "completed_repeatability_records": len(progress.get("repeatability", [])),
+            "elapsed_wall_time_seconds": prior_elapsed,
+        }
+    )
+    amendments.append(
+        {
+            **amendment,
+            "artifact": amendment_path.as_posix(),
+            "artifact_sha256": _sha256(amendment_path),
+        }
+    )
+    progress["run_manifest"] = dict(current_manifest)
+    progress["elapsed_wall_time_seconds"] = prior_elapsed + interrupted_seconds
 
 
 def validate_claim_streams(settings: MpsPilotSettings) -> dict[str, Any]:
@@ -475,12 +629,19 @@ def _process_samples() -> tuple[ProcessSample, ...]:
         fields = line.strip().split(maxsplit=4)
         if len(fields) != 5:
             continue
+        try:
+            pid = int(fields[0])
+            parent_pid = int(fields[1])
+            cpu_percent = float(fields[2])
+            rss_bytes = int(fields[3]) * 1024
+        except ValueError:
+            continue
         samples.append(
             ProcessSample(
-                pid=int(fields[0]),
-                parent_pid=int(fields[1]),
-                cpu_percent=float(fields[2]),
-                rss_bytes=int(fields[3]) * 1024,
+                pid=pid,
+                parent_pid=parent_pid,
+                cpu_percent=cpu_percent,
+                rss_bytes=rss_bytes,
                 command=fields[4],
             )
         )
@@ -689,6 +850,57 @@ def _trainable_parameters(module: torch.nn.Module) -> list[torch.nn.Parameter]:
     return [parameter for parameter in module.parameters() if parameter.requires_grad]
 
 
+def _diagonal_fisher(
+    base: StandardBase,
+    instances: Sequence[TaskInstance],
+) -> tuple[dict[str, torch.Tensor], float]:
+    """Estimate EWC Fisher as the mean of per-example squared gradients."""
+    if not instances:
+        raise ValueError("online EWC Fisher requires at least one example")
+    fisher = {
+        name: torch.zeros_like(parameter)
+        for name, parameter in base.model.named_parameters()
+        if parameter.requires_grad
+    }
+    loss_sum = 0.0
+    cast(torch.nn.Module, base.model).eval()
+    for instance in instances:
+        base.model.zero_grad(set_to_none=True)
+        loss, _ = _decoder_loss(base, collate_task_instances(base, [instance]))
+        if not bool(torch.isfinite(loss).item()):
+            raise FloatingPointError("online EWC Fisher loss is non-finite")
+        torch.autograd.backward(loss)
+        loss_sum += float(loss.detach().cpu().item())
+        for name, parameter in base.model.named_parameters():
+            if parameter.requires_grad and parameter.grad is not None:
+                fisher[name].add_(parameter.grad.detach().square())
+    for value in fisher.values():
+        value.div_(len(instances))
+    base.model.zero_grad(set_to_none=True)
+    if any(not bool(torch.isfinite(value).all().item()) for value in fisher.values()):
+        raise FloatingPointError("online EWC Fisher contains a non-finite value")
+    if not any(bool(torch.any(value > 0).item()) for value in fisher.values()):
+        raise RuntimeError("online EWC Fisher is identically zero")
+    return fisher, loss_sum / len(instances)
+
+
+def _ewc_penalty(
+    base: StandardBase,
+    anchor: Mapping[str, torch.Tensor],
+    fisher: Mapping[str, torch.Tensor],
+    penalty_lambda: float,
+) -> torch.Tensor:
+    """Return the conventional half-scaled finite online-EWC penalty."""
+    penalty = torch.zeros((), device=base.device, dtype=torch.float32)
+    for name, parameter in base.model.named_parameters():
+        if parameter.requires_grad:
+            penalty = penalty + (fisher[name] * (parameter - anchor[name]).square()).sum()
+    weighted = 0.5 * penalty_lambda * penalty
+    if not bool(torch.isfinite(weighted).item()):
+        raise FloatingPointError("online EWC penalty is non-finite")
+    return weighted
+
+
 def _configure_calibration_method(
     method: PilotMethod,
     base: StandardBase,
@@ -809,6 +1021,7 @@ def run_calibration_attempt(
     base: StandardBase | None = None
     started = time.perf_counter()
     try:
+        seed_experiment(settings.calibration.seed)
         base = _base_for_pilot(settings)
         if base.device.type != "mps":
             raise RuntimeError("pilot calibration requires MPS and forbids CPU fallback")
@@ -911,23 +1124,14 @@ def run_calibration_attempt(
                         tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]],
                         method_metadata["ewc_state"],
                     )
+                    measured_fisher, fisher_loss = _diagonal_fisher(base, selected)
+                    for name, value in measured_fisher.items():
+                        fisher[name].copy_(value)
                     optimizer.zero_grad(set_to_none=True)
-                    fisher_loss_sum = 0.0
-                    for batch in batches:
-                        fisher_loss, _ = _decoder_loss(base, batch)
-                        if not bool(torch.isfinite(fisher_loss).item()):
-                            raise FloatingPointError("online EWC Fisher loss is non-finite")
-                        torch.autograd.backward(fisher_loss / len(batches))
-                        fisher_loss_sum += float(fisher_loss.detach().cpu().item())
-                    for name, parameter in base.model.named_parameters():
-                        if not parameter.requires_grad or parameter.grad is None:
-                            continue
-                        fisher[name].copy_(parameter.grad.detach().square())
-                    optimizer.zero_grad(set_to_none=True)
-                    if not any(bool(torch.any(value > 0).item()) for value in fisher.values()):
-                        raise RuntimeError("online EWC Fisher is identically zero")
-                    record["method_state"]["fisher_initialization_loss"] = fisher_loss_sum / len(
-                        batches
+                    record["method_state"]["fisher_initialization_loss"] = fisher_loss
+                    record["method_state"]["fisher_examples"] = len(selected)
+                    record["method_state"]["fisher_estimator"] = (
+                        "mean_per_example_squared_gradient"
                     )
                 for index in range(total_steps):
                     optimizer.zero_grad(set_to_none=True)
@@ -946,7 +1150,7 @@ def run_calibration_attempt(
                                 device=base.device,
                             )
                             router_loss = torch.nn.functional.cross_entropy(
-                                router.logits(pooled), labels
+                                router.classification_logits(pooled), labels + 1
                             )
                             loss = loss + router_loss
                         if method == "online_ewc":
@@ -954,15 +1158,11 @@ def run_calibration_attempt(
                                 tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]],
                                 method_metadata["ewc_state"],
                             )
-                            penalty = torch.zeros((), device=base.device)
-                            for name, parameter in base.model.named_parameters():
-                                if parameter.requires_grad:
-                                    penalty = (
-                                        penalty
-                                        + (fisher[name] * (parameter - anchor[name]).square()).sum()
-                                    )
-                            loss = (
-                                loss + cast(float, method_metadata["ewc_penalty_lambda"]) * penalty
+                            loss = loss + _ewc_penalty(
+                                base,
+                                anchor,
+                                fisher,
+                                cast(float, method_metadata["ewc_penalty_lambda"]),
                             )
                         if not bool(torch.isfinite(loss).item()):
                             raise FloatingPointError(f"{method} calibration loss is non-finite")
@@ -1034,60 +1234,154 @@ class _BoundedPairStream:
         self,
         source: _TaskStream,
         indices: tuple[int, int],
-        train_count: int,
         eval_count: int,
+        template_ood_count: int,
     ) -> None:
         if indices[0] == indices[1] or max(indices) >= len(source.families):
             raise ValueError("pilot task-pair indices must name two distinct real tasks")
         self.families = [source.families[index] for index in indices]
-        self.num_train_per_task = train_count
+        self.num_train_per_task = min(
+            len(source.get_split(family.family_id).train) for family in self.families
+        )
         self.num_val_per_task = eval_count
         self.num_test_per_task = eval_count
         self._splits: dict[str, TaskStreamSplit] = {}
+        self._template_ood_splits: dict[str, list[TaskInstance]] = {}
         for family in self.families:
             split = source.get_split(family.family_id)
-            if len(split.train) < train_count or len(split.test) < eval_count:
+            if not split.train or len(split.test) < eval_count:
                 raise ValueError(f"pilot task {family.family_id} lacks configured real examples")
             self._splits[family.family_id] = TaskStreamSplit(
-                train=list(split.train[:train_count]),
+                train=list(split.train),
                 val=list(split.val[:eval_count]),
                 test=list(split.test[:eval_count]),
             )
+            get_ood = getattr(source, "get_template_ood_split", None)
+            ood = list(get_ood(family.family_id)) if callable(get_ood) else []
+            if ood and len(ood) < template_ood_count:
+                raise ValueError(
+                    f"pilot task {family.family_id} lacks configured template-OOD examples"
+                )
+            self._template_ood_splits[family.family_id] = ood[:template_ood_count]
 
     def get_split(self, family_id: str) -> TaskStreamSplit:
         return self._splits[family_id]
 
+    def get_template_ood_split(self, family_id: str) -> list[TaskInstance]:
+        return self._template_ood_splits[family_id]
+
 
 def _evaluate_pair(
-    base: StandardBase,
     stream: _BoundedPairStream,
-    predict: Callable[[TaskInstance], str],
+    predict_many: Callable[[Sequence[TaskInstance]], Sequence[str]],
+    batch_size: int,
 ) -> list[float]:
     values: list[float] = []
     for family in stream.families:
-        passed = 0
         instances = stream.get_split(family.family_id).test
-        for instance in instances:
-            raw = predict(instance)
-            outcome = ContinualEvalHarness.verify_generated_output(family, instance, raw)
-            passed += int(outcome.passed)
+        passed = _evaluate_instances(family, instances, predict_many, batch_size)
         values.append(passed / len(instances))
     return values
 
 
-def _pair_metrics(matrix: list[list[float]], frozen: list[float]) -> dict[str, Any]:
+def _evaluate_instances(
+    family: TaskFamily,
+    instances: Sequence[TaskInstance],
+    predict_many: Callable[[Sequence[TaskInstance]], Sequence[str]],
+    batch_size: int,
+) -> int:
+    passed = 0
+    for offset in range(0, len(instances), batch_size):
+        selected = instances[offset : offset + batch_size]
+        predictions = predict_many(selected)
+        if len(predictions) != len(selected):
+            raise RuntimeError("batched predictor returned the wrong number of outputs")
+        for instance, raw in zip(selected, predictions, strict=True):
+            outcome = ContinualEvalHarness.verify_generated_output(family, instance, raw)
+            passed += int(outcome.passed)
+    return passed
+
+
+def _evaluate_template_ood_pair(
+    stream: _BoundedPairStream,
+    predict_many: Callable[[Sequence[TaskInstance]], Sequence[str]],
+    batch_size: int,
+) -> list[float] | None:
+    values: list[float] = []
+    for family in stream.families:
+        instances = stream.get_template_ood_split(family.family_id)
+        if not instances:
+            return None
+        passed = _evaluate_instances(family, instances, predict_many, batch_size)
+        values.append(passed / len(instances))
+    return values
+
+
+def _evaluate_one_task(
+    stream: _BoundedPairStream,
+    task_idx: int,
+    predict_many: Callable[[Sequence[TaskInstance]], Sequence[str]],
+    batch_size: int,
+) -> float:
+    family = stream.families[task_idx]
+    instances = stream.get_split(family.family_id).test
+    passed = _evaluate_instances(family, instances, predict_many, batch_size)
+    return passed / len(instances)
+
+
+def _pair_metrics(
+    matrix: list[list[float]],
+    frozen: list[float],
+    *,
+    template_ood_matrix: list[list[float]] | None = None,
+    template_ood_frozen: list[float] | None = None,
+) -> dict[str, Any]:
     values = np.asarray(matrix, dtype=np.float64)
     forgetting = compute_max_forgetting(values, ["pair_task_0", "pair_task_1"])
     finite_forgetting = [value for value in forgetting.values() if value is not None]
-    return {
+    result: dict[str, Any] = {
         "accuracy_matrix": matrix,
         "frozen_base_accuracy": frozen,
         "per_task_accuracy_after_training": matrix[-1],
+        "new_task_acquisition": float(
+            np.mean([matrix[index][index] for index in range(len(matrix))])
+        ),
         "backward_transfer": compute_backward_transfer(values),
         "forgetting": forgetting,
         "aggregate_forgetting": max(finite_forgetting, default=0.0),
         "final_average": compute_average_accuracy(values),
     }
+    if template_ood_matrix is not None and template_ood_frozen is not None:
+        result["template_ood_accuracy_matrix"] = template_ood_matrix
+        result["template_ood_frozen_base_accuracy"] = template_ood_frozen
+        result["template_ood_per_task_accuracy_after_training"] = template_ood_matrix[-1]
+        result["template_ood_new_task_acquisition"] = float(
+            np.mean(
+                [
+                    template_ood_matrix[index][index]
+                    for index in range(len(template_ood_matrix))
+                ]
+            )
+        )
+        result["template_ood_final_average"] = float(
+            np.mean(template_ood_matrix[-1])
+        )
+    return result
+
+
+def _base_predict_many(
+    base: StandardBase,
+    instances: Sequence[TaskInstance],
+    max_new_tokens: int,
+) -> list[str]:
+    return [
+        result.text
+        for result in generate_task_instance_answers(
+            base,
+            instances,
+            max_new_tokens=max_new_tokens,
+        )
+    ]
 
 
 def _losses(base: StandardBase, instances: Sequence[TaskInstance]) -> np.ndarray:
@@ -1125,28 +1419,101 @@ def _train_adapter_steps(
     base: StandardBase,
     bank: PeftExpertBank,
     instances: Sequence[TaskInstance],
-    steps: int,
+    max_steps: int,
+    max_target_tokens: int,
     micro_batch: int,
+    effective_batch: int,
     learning_rate: float,
-) -> tuple[list[float], int]:
+) -> dict[str, Any]:
     adapter_name = cast(str, bank.trainable_adapter)
     bank.activate(adapter_name)
-    optimizer = torch.optim.AdamW(bank.adapter_parameters(adapter_name), lr=learning_rate)
+    return _train_capped_steps(
+        base,
+        bank.adapter_parameters(adapter_name),
+        instances,
+        max_steps=max_steps,
+        max_target_tokens=max_target_tokens,
+        micro_batch=micro_batch,
+        effective_batch=effective_batch,
+        learning_rate=learning_rate,
+        failure_label="Aptivra pilot adapter",
+    )
+
+
+def _train_capped_steps(
+    base: StandardBase,
+    parameters: Sequence[torch.nn.Parameter],
+    instances: Sequence[TaskInstance],
+    *,
+    max_steps: int,
+    max_target_tokens: int,
+    micro_batch: int,
+    effective_batch: int,
+    learning_rate: float,
+    failure_label: str,
+) -> dict[str, Any]:
+    if not instances:
+        raise ValueError("capped training requires at least one example")
+    if effective_batch % micro_batch:
+        raise ValueError("micro-batch must divide the effective batch")
+    optimizer = torch.optim.AdamW(parameters, lr=learning_rate)
     losses: list[float] = []
     target_tokens = 0
-    for step in range(steps):
-        offset = (step * micro_batch) % len(instances)
-        selected = [instances[(offset + index) % len(instances)] for index in range(micro_batch)]
-        batch = collate_task_instances(base, selected)
+    optimizer_steps = 0
+    consumed_examples = 0
+    accumulation = effective_batch // micro_batch
+    micro_batches = [
+        instances[offset : offset + micro_batch]
+        for offset in range(0, len(instances), micro_batch)
+    ]
+    stopped_by = "one_epoch"
+    for group_start in range(0, len(micro_batches), accumulation):
+        if optimizer_steps >= max_steps:
+            stopped_by = "optimizer_step_cap"
+            break
+        group_instances = micro_batches[group_start : group_start + accumulation]
+        batches = [collate_task_instances(base, list(selected)) for selected in group_instances]
+        group_target_tokens = sum(
+            int((batch.labels[:, 1:] != -100).sum().item()) for batch in batches
+        )
+        if target_tokens + group_target_tokens > max_target_tokens:
+            stopped_by = "target_token_cap"
+            break
         optimizer.zero_grad(set_to_none=True)
-        loss, _ = _decoder_loss(base, batch)
-        if not bool(torch.isfinite(loss).item()):
-            raise FloatingPointError("Aptivra pilot adapter loss is non-finite")
-        torch.autograd.backward(loss)
+        step_loss = 0.0
+        for batch in batches:
+            loss, _ = _decoder_loss(base, batch)
+            if not bool(torch.isfinite(loss).item()):
+                raise FloatingPointError(f"{failure_label} loss is non-finite")
+            torch.autograd.backward(loss / len(batches))
+            step_loss += float(loss.detach().cpu().item())
         optimizer.step()
-        losses.append(float(loss.detach().cpu().item()))
-        target_tokens += int((batch.labels[:, 1:] != -100).sum().item())
-    return losses, target_tokens
+        losses.append(step_loss / len(batches))
+        target_tokens += group_target_tokens
+        consumed_examples += sum(len(selected) for selected in group_instances)
+        optimizer_steps += 1
+    return {
+        "losses": losses,
+        "target_tokens": target_tokens,
+        "optimizer_steps": optimizer_steps,
+        "available_examples": len(instances),
+        "consumed_examples": consumed_examples,
+        "stopped_by": stopped_by,
+        "micro_batch_size": micro_batch,
+        "gradient_accumulation_steps": accumulation,
+        "effective_batch_size": effective_batch,
+    }
+
+
+def _seeded_task_order(
+    instances: Sequence[TaskInstance], seed: int, task_idx: int
+) -> list[TaskInstance]:
+    ordered = list(instances)
+    derived = int.from_bytes(
+        hashlib.sha256(f"{seed}:{task_idx}".encode()).digest()[:8], "big"
+    )
+    random.Random(derived).shuffle(ordered)
+    return ordered
 
 
 def _remove_candidate(bank: PeftExpertBank, router: SequenceTop1Router) -> None:
@@ -1233,6 +1600,7 @@ def _routing_probe(
     router: SequenceTop1Router,
     stream: _BoundedPairStream,
     max_new_tokens: int,
+    batch_size: int,
 ) -> dict[str, Any]:
     """Measure learned routing against task-ID oracle on real held-out prompts."""
     expected_by_family = dict(zip(router.task_families, router.expert_ids, strict=True))
@@ -1246,27 +1614,50 @@ def _routing_probe(
     routed_ids = [decision.expert_id for decision in decisions]
     expected_ids = [expected_by_family.get(instance.task_family) for instance in instances]
     rates = _routing_decision_rates(routed_ids, expected_ids)
+    routed_outputs = _predict_with_adapter_assignments(
+        base,
+        bank,
+        instances,
+        routed_ids,
+        max_new_tokens=max_new_tokens,
+        batch_size=batch_size,
+    )
+    oracle_outputs = list(routed_outputs)
+    oracle_indices = [
+        index
+        for index, (routed_id, expected_id) in enumerate(
+            zip(routed_ids, expected_ids, strict=True)
+        )
+        if expected_id is not None and routed_id != expected_id
+    ]
+    if oracle_indices:
+        generated = _predict_with_adapter_assignments(
+            base,
+            bank,
+            [instances[index] for index in oracle_indices],
+            [cast(str, expected_ids[index]) for index in oracle_indices],
+            max_new_tokens=max_new_tokens,
+            batch_size=batch_size,
+        )
+        for index, output in zip(oracle_indices, generated, strict=True):
+            oracle_outputs[index] = output
     routed_passes = 0
     oracle_passes = 0
     eligible_count = 0
-    for instance, routed_id, expected_id in zip(instances, routed_ids, expected_ids, strict=True):
+    families = {family.family_id: family for family in stream.families}
+    for instance, routed, oracle, expected_id in zip(
+        instances, routed_outputs, oracle_outputs, expected_ids, strict=True
+    ):
         if expected_id is None:
             continue
-        family = next(
-            family for family in stream.families if family.family_id == instance.task_family
-        )
+        family = families[instance.task_family]
         eligible_count += 1
-        if routed_id is None:
-            bank.deactivate()
-        else:
-            bank.activate(routed_id)
-        routed = generate_task_instance_answer(base, instance, max_new_tokens=max_new_tokens).text
-        routed_outcome = ContinualEvalHarness.verify_generated_output(family, instance, routed)
-        routed_passes += int(routed_outcome.passed)
-        bank.activate(expected_id)
-        oracle = generate_task_instance_answer(base, instance, max_new_tokens=max_new_tokens).text
-        oracle_outcome = ContinualEvalHarness.verify_generated_output(family, instance, oracle)
-        oracle_passes += int(oracle_outcome.passed)
+        routed_passes += int(
+            ContinualEvalHarness.verify_generated_output(family, instance, routed).passed
+        )
+        oracle_passes += int(
+            ContinualEvalHarness.verify_generated_output(family, instance, oracle).passed
+        )
     if eligible_count == 0:
         raise RuntimeError("routing probe has no task-ID-eligible prompts")
     routed_accuracy = routed_passes / eligible_count
@@ -1280,10 +1671,45 @@ def _routing_probe(
     }
 
 
+def _predict_with_adapter_assignments(
+    base: StandardBase,
+    bank: PeftExpertBank,
+    instances: Sequence[TaskInstance],
+    adapter_ids: Sequence[str | None],
+    *,
+    max_new_tokens: int,
+    batch_size: int,
+) -> list[str]:
+    if len(instances) != len(adapter_ids):
+        raise ValueError("adapter assignments must align with prediction instances")
+    grouped: dict[str | None, list[tuple[int, TaskInstance]]] = {}
+    for index, (instance, adapter_id) in enumerate(zip(instances, adapter_ids, strict=True)):
+        grouped.setdefault(adapter_id, []).append((index, instance))
+    results = [""] * len(instances)
+    for adapter_id, members in grouped.items():
+        if adapter_id is None:
+            bank.deactivate()
+        else:
+            bank.activate(adapter_id)
+        for offset in range(0, len(members), batch_size):
+            selected = members[offset : offset + batch_size]
+            outputs = _base_predict_many(
+                base,
+                [instance for _, instance in selected],
+                max_new_tokens,
+            )
+            for (index, _), output in zip(selected, outputs, strict=True):
+                results[index] = output
+    return results
+
+
 def _run_aptivra_pair(
     base: StandardBase,
     stream: _BoundedPairStream,
     settings: MpsPilotSettings,
+    *,
+    stream_name: str,
+    seed: int,
 ) -> dict[str, Any]:
     expert = load_standard_expert_settings(settings.expert_config)
     expert = expert.model_copy(
@@ -1300,59 +1726,80 @@ def _run_aptivra_pair(
     verified_memory_ids: set[str] = set()
     promotions: list[dict[str, Any]] = []
 
-    def routed_predict(instance: TaskInstance) -> str:
+    batch_size = getattr(repeat.evaluation_batch_sizes, stream_name)
+    micro_batch = getattr(repeat.micro_batches, stream_name).aptivra_full
+
+    def routed_predict_many(instances: Sequence[TaskInstance]) -> list[str]:
+        if not instances:
+            return []
         if router.num_experts == 0:
             bank.deactivate()
-            return generate_task_instance_answer(
-                base, instance, max_new_tokens=repeat.max_new_tokens
-            ).text
-        features = _prompt_features(base, [instance])
-        decision = router.route(features)[0]
-        if decision.route_status == "routed" and decision.expert_id is not None:
-            bank.activate(decision.expert_id)
-        else:
-            bank.deactivate()
-        return generate_task_instance_answer(
-            base, instance, max_new_tokens=repeat.max_new_tokens
-        ).text
+            return _base_predict_many(base, instances, repeat.max_new_tokens)
+        decisions = router.route(_prompt_features(base, instances))
+        expert_ids = [
+            (
+                decision.expert_id
+                if decision.route_status == "routed" and decision.expert_id is not None
+                else None
+            )
+            for decision in decisions
+        ]
+        return _predict_with_adapter_assignments(
+            base,
+            bank,
+            instances,
+            expert_ids,
+            max_new_tokens=repeat.max_new_tokens,
+            batch_size=batch_size,
+        )
 
     bank.deactivate()
     frozen = _evaluate_pair(
-        base,
         stream,
-        lambda item: (
-            generate_task_instance_answer(base, item, max_new_tokens=repeat.max_new_tokens).text
-        ),
+        lambda instances: _base_predict_many(base, instances, repeat.max_new_tokens),
+        batch_size,
+    )
+    frozen_ood = _evaluate_template_ood_pair(
+        stream,
+        lambda instances: _base_predict_many(base, instances, repeat.max_new_tokens),
+        batch_size,
     )
     matrix: list[list[float]] = []
-    total_tokens = 0
+    template_ood_matrix: list[list[float]] | None = [] if frozen_ood is not None else None
+    training: list[dict[str, Any]] = []
     for task_idx, family in enumerate(stream.families):
         adapter_name = f"pilot_{task_idx:04d}"
         if task_idx > 0:
             bank.add_candidate(adapter_name)
             _add_router_candidate_on_device(router, adapter_name, family.family_id, base.device)
-        train = stream.get_split(family.family_id).train
+        train = _seeded_task_order(
+            stream.get_split(family.family_id).train, seed, task_idx
+        )
         combined = [*train]
         if replay:
             combined.extend(replay[: len(train) // 2])
         validation = stream.get_split(family.family_id).val
         bank.deactivate()
-        current_acc = _evaluate_pair(base, stream, routed_predict)[task_idx]
+        current_acc = _evaluate_one_task(
+            stream, task_idx, routed_predict_many, batch_size
+        )
         regression = [
             item
             for seen in stream.families[: task_idx + 1]
             for item in stream.get_split(seen.family_id).val
         ][: max(5, repeat.evaluation_examples_per_task)]
         current_losses = _losses(base, regression)
-        losses, tokens = _train_adapter_steps(
+        train_result = _train_adapter_steps(
             base,
             bank,
             combined,
-            repeat.optimizer_steps_per_task,
-            repeat.micro_batch_size,
+            settings.cycle_caps.adapter_optimizer_steps,
+            settings.cycle_caps.adapter_target_tokens,
+            micro_batch,
+            repeat.effective_batch_size,
             expert.consolidation.adapter_learning_rate,
         )
-        total_tokens += tokens
+        training.append(train_result)
         current_features = _prompt_features(base, train[:8])
         replay_features, replay_labels = _router_replay_batch(
             base, replay, expert.router.replay_examples_per_expert
@@ -1366,10 +1813,22 @@ def _run_aptivra_pair(
             adam_beta1=expert.router.adam_beta1,
             adam_beta2=expert.router.adam_beta2,
             adam_epsilon=expert.router.adam_epsilon,
-            max_steps=min(expert.router.max_optimizer_steps, 20),
+            max_steps=min(
+                expert.router.max_optimizer_steps,
+                settings.cycle_caps.router_optimizer_steps,
+            ),
         )
-        routing_probe = _routing_probe(base, bank, router, stream, repeat.max_new_tokens)
-        candidate_acc = _evaluate_pair(base, stream, routed_predict)[task_idx]
+        routing_probe = _routing_probe(
+            base,
+            bank,
+            router,
+            stream,
+            repeat.max_new_tokens,
+            batch_size,
+        )
+        candidate_acc = _evaluate_one_task(
+            stream, task_idx, routed_predict_many, batch_size
+        )
         candidate_losses = _losses(base, regression)
         promotion = PromotionGate(
             expert.consolidation.promotion_alpha,
@@ -1380,7 +1839,7 @@ def _run_aptivra_pair(
         promotions.append(
             {
                 **asdict(promotion),
-                "adapter_losses": losses,
+                "adapter_training": train_result,
                 "router": asdict(router_result),
                 "routing_probe": routing_probe,
             }
@@ -1392,22 +1851,43 @@ def _run_aptivra_pair(
             bank.activate(candidate)
             router.promote_candidate()
             replay.extend(train)
-            for instance in validation:
-                prediction = routed_predict(instance)
-                outcome = ContinualEvalHarness.verify_generated_output(family, instance, prediction)
-                if outcome.passed:
-                    verified_memory_ids.add(instance.task_id)
+            for offset in range(0, len(validation), batch_size):
+                selected = validation[offset : offset + batch_size]
+                predictions = routed_predict_many(selected)
+                for instance, prediction in zip(selected, predictions, strict=True):
+                    outcome = ContinualEvalHarness.verify_generated_output(
+                        family, instance, prediction
+                    )
+                    if outcome.passed:
+                        verified_memory_ids.add(instance.task_id)
         else:
             _remove_candidate(bank, router)
-        matrix.append(_evaluate_pair(base, stream, routed_predict))
+        matrix.append(_evaluate_pair(stream, routed_predict_many, batch_size))
+        if template_ood_matrix is not None:
+            template_values = _evaluate_template_ood_pair(
+                stream, routed_predict_many, batch_size
+            )
+            if template_values is None:
+                raise RuntimeError("template-OOD split disappeared during a pilot cell")
+            template_ood_matrix.append(template_values)
     return {
-        **_pair_metrics(matrix, frozen),
-        "optimizer_steps": repeat.optimizer_steps_per_task * len(stream.families),
-        "target_tokens": total_tokens,
+        **_pair_metrics(
+            matrix,
+            frozen,
+            template_ood_matrix=template_ood_matrix,
+            template_ood_frozen=frozen_ood,
+        ),
+        "optimizer_steps": sum(int(item["optimizer_steps"]) for item in training),
+        "target_tokens": sum(int(item["target_tokens"]) for item in training),
+        "training": training,
         "promotions": promotions,
         "verified_memory_count": len(verified_memory_ids),
         "replay_records": len(replay),
         "router_experts": router.num_experts,
+        "evaluation_examples_per_task": repeat.evaluation_examples_per_task,
+        "template_ood_examples_per_task": (
+            repeat.template_ood_examples_per_task if frozen_ood is not None else 0
+        ),
     }
 
 
@@ -1437,8 +1917,8 @@ def run_repeatability_cell(
         pair = _BoundedPairStream(
             source,
             pair_indices,
-            settings.repeatability.training_examples_per_task,
             settings.repeatability.evaluation_examples_per_task,
+            settings.repeatability.template_ood_examples_per_task,
         )
         base = _base_for_pilot(settings)
         sampler = MemoryPeakSampler(
@@ -1448,51 +1928,99 @@ def run_repeatability_cell(
         )
         with sampler:
             if method == "aptivra_full":
-                metrics = _run_aptivra_pair(base, pair, settings)
+                metrics = _run_aptivra_pair(
+                    base,
+                    pair,
+                    settings,
+                    stream_name=stream_name,
+                    seed=seed,
+                )
             else:
                 for parameter in base.model.parameters():
                     parameter.requires_grad_(True)
-                optimizer = torch.optim.AdamW(base.model.parameters(), lr=1e-4)
-
-                def predict(item: TaskInstance) -> str:
-                    return generate_task_instance_answer(
-                        base,
-                        item,
-                        max_new_tokens=settings.repeatability.max_new_tokens,
-                    ).text
-
-                frozen = _evaluate_pair(base, pair, predict)
+                repeat = settings.repeatability
+                batch_size = getattr(repeat.evaluation_batch_sizes, stream_name)
+                def predict_many(instances: Sequence[TaskInstance]) -> list[str]:
+                    return _base_predict_many(base, instances, repeat.max_new_tokens)
+                frozen = _evaluate_pair(
+                    pair,
+                    predict_many,
+                    batch_size,
+                )
+                frozen_ood = _evaluate_template_ood_pair(
+                    pair,
+                    predict_many,
+                    batch_size,
+                )
                 matrix: list[list[float]] = []
-                losses: list[float] = []
-                target_tokens = 0
-                for family in pair.families:
-                    train = pair.get_split(family.family_id).train
-                    task_losses: list[float] = []
-                    for step in range(settings.repeatability.optimizer_steps_per_task):
-                        offset = (step * settings.repeatability.micro_batch_size) % len(train)
-                        selected = [
-                            train[(offset + index) % len(train)]
-                            for index in range(settings.repeatability.micro_batch_size)
-                        ]
-                        batch = collate_task_instances(base, selected)
-                        optimizer.zero_grad(set_to_none=True)
-                        loss, _ = _decoder_loss(base, batch)
-                        if not bool(torch.isfinite(loss).item()):
-                            raise FloatingPointError("naive pilot loss is non-finite")
-                        torch.autograd.backward(loss)
-                        optimizer.step()
-                        task_losses.append(float(loss.detach().cpu().item()))
-                        target_tokens += int((batch.labels[:, 1:] != -100).sum().item())
-                    losses.append(float(np.mean(task_losses)))
-                    matrix.append(_evaluate_pair(base, pair, predict))
+                template_ood_matrix: list[list[float]] | None = (
+                    [] if frozen_ood is not None else None
+                )
+                training: list[dict[str, Any]] = []
+                micro_batch = getattr(
+                    repeat.micro_batches, stream_name
+                ).naive_sequential
+                for task_idx, family in enumerate(pair.families):
+                    train = _seeded_task_order(
+                        pair.get_split(family.family_id).train, seed, task_idx
+                    )
+                    training.append(
+                        _train_capped_steps(
+                            base,
+                            tuple(base.model.parameters()),
+                            train,
+                            max_steps=settings.cycle_caps.adapter_optimizer_steps,
+                            max_target_tokens=settings.cycle_caps.adapter_target_tokens,
+                            micro_batch=micro_batch,
+                            effective_batch=repeat.effective_batch_size,
+                            learning_rate=1e-4,
+                            failure_label="naive pilot",
+                        )
+                    )
+                    matrix.append(
+                        _evaluate_pair(
+                            pair,
+                            predict_many,
+                            batch_size,
+                        )
+                    )
+                    if template_ood_matrix is not None:
+                        template_values = _evaluate_template_ood_pair(
+                            pair,
+                            predict_many,
+                            batch_size,
+                        )
+                        if template_values is None:
+                            raise RuntimeError(
+                                "template-OOD split disappeared during a pilot cell"
+                            )
+                        template_ood_matrix.append(template_values)
                 metrics = {
-                    **_pair_metrics(matrix, frozen),
-                    "task_losses": losses,
-                    "optimizer_steps": (
-                        settings.repeatability.optimizer_steps_per_task * len(pair.families)
+                    **_pair_metrics(
+                        matrix,
+                        frozen,
+                        template_ood_matrix=template_ood_matrix,
+                        template_ood_frozen=frozen_ood,
                     ),
-                    "target_tokens": target_tokens,
+                    "optimizer_steps": sum(
+                        int(item["optimizer_steps"]) for item in training
+                    ),
+                    "target_tokens": sum(int(item["target_tokens"]) for item in training),
+                    "training": training,
+                    "evaluation_examples_per_task": repeat.evaluation_examples_per_task,
+                    "template_ood_examples_per_task": (
+                        repeat.template_ood_examples_per_task
+                        if frozen_ood is not None
+                        else 0
+                    ),
                 }
+            learned = [
+                float(cast(list[list[float]], metrics["accuracy_matrix"])[index][index])
+                > float(cast(list[float], metrics["frozen_base_accuracy"])[index])
+                for index in range(len(pair.families))
+            ]
+            metrics["trained_task_above_frozen_base"] = learned
+            metrics["demonstrably_learned"] = all(learned)
         record.update(
             {
                 "status": "completed",
@@ -1513,8 +2041,113 @@ def run_repeatability_cell(
     return record
 
 
+def run_evaluation_profile_cell(
+    stream_name: str,
+    source: _TaskStream,
+    pair_indices: tuple[int, int],
+    settings: MpsPilotSettings,
+    quiet_record: dict[str, Any],
+) -> dict[str, Any]:
+    """Prove scalar/batched identity and measure the fixed-set evaluation speedup."""
+    started = time.perf_counter()
+    record: dict[str, Any] = {
+        "stream": stream_name,
+        "quiet_machine": quiet_record,
+        "status": "running",
+    }
+    base: StandardBase | None = None
+    try:
+        seed_experiment(settings.calibration.seed)
+        pair = _BoundedPairStream(
+            source,
+            pair_indices,
+            settings.repeatability.evaluation_examples_per_task,
+            settings.repeatability.template_ood_examples_per_task,
+        )
+        base = _base_for_pilot(settings)
+        cast(torch.nn.Module, base.model).eval()
+        per_family = max(1, settings.repeatability.profile_examples // len(pair.families))
+        instances = [
+            instance
+            for family in pair.families
+            for instance in pair.get_split(family.family_id).test[:per_family]
+        ][: settings.repeatability.profile_examples]
+        _synchronize(base.device)
+        scalar_started = time.perf_counter()
+        scalar = tuple(
+            generate_task_instance_answer(
+                base,
+                instance,
+                max_new_tokens=settings.repeatability.max_new_tokens,
+            )
+            for instance in instances
+        )
+        _synchronize(base.device)
+        scalar_seconds = time.perf_counter() - scalar_started
+        _synchronize(base.device)
+        batched_started = time.perf_counter()
+        configured_batch_size = getattr(
+            settings.repeatability.evaluation_batch_sizes, stream_name
+        )
+        batched = tuple(
+            result
+            for offset in range(0, len(instances), configured_batch_size)
+            for result in generate_task_instance_answers(
+                base,
+                instances[offset : offset + configured_batch_size],
+                max_new_tokens=settings.repeatability.max_new_tokens,
+            )
+        )
+        _synchronize(base.device)
+        batched_seconds = time.perf_counter() - batched_started
+        if scalar != batched:
+            mismatch = next(
+                index
+                for index, (left, right) in enumerate(zip(scalar, batched, strict=True))
+                if left != right
+            )
+            raise RuntimeError(
+                f"batched generation changed the fixed-set output at index {mismatch}"
+            )
+        digest = hashlib.sha256()
+        for result in batched:
+            digest.update(
+                json.dumps(
+                    {
+                        "ids": result.generated_token_ids,
+                        "stop_reason": result.stop_reason,
+                        "matched_terminator": result.matched_terminator,
+                        "text_sha256": hashlib.sha256(result.text.encode()).hexdigest(),
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            )
+        record.update(
+            {
+                "status": "completed",
+                "examples": len(instances),
+                "configured_batch_size": configured_batch_size,
+                "max_new_tokens": settings.repeatability.max_new_tokens,
+                "scalar_seconds": scalar_seconds,
+                "batched_seconds": batched_seconds,
+                "scalar_seconds_per_example": scalar_seconds / len(instances),
+                "batched_seconds_per_example": batched_seconds / len(instances),
+                "speedup": scalar_seconds / batched_seconds,
+                "output_identity": True,
+                "output_sha256": digest.hexdigest(),
+            }
+        )
+    except Exception as error:
+        record.update({"status": "failed", "failure": _redacted_failure(error)})
+    finally:
+        record["wall_time_seconds"] = time.perf_counter() - started
+        _cleanup_base(base)
+    return record
+
+
 def noise_floor(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Summarize same-seed and different-seed decision-metric self variation."""
+    """Summarize repeatability and seed SD only for demonstrably learning runs."""
     complete = [record for record in records if record.get("status") == "completed"]
     grouped: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
     for record in complete:
@@ -1522,19 +2155,24 @@ def noise_floor(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for (method, stream), cells in grouped.items():
         ordered = sorted(cells, key=lambda item: int(item["repeat_index"]))
-        if len(ordered) != 4:
+        if len(ordered) != 5:
             raise RuntimeError(f"noise floor is incomplete for {method}/{stream}")
+        repeat_indices = [int(cell["repeat_index"]) for cell in ordered]
+        if repeat_indices != [0, 1, 2, 3, 4]:
+            raise RuntimeError(f"noise floor repeat indices are invalid for {method}/{stream}")
+        seeds = [int(cell["seed"]) for cell in ordered]
+        if seeds[0] != seeds[1] or len({seeds[0], seeds[2], seeds[3], seeds[4]}) != 4:
+            raise RuntimeError(f"noise floor seed design is invalid for {method}/{stream}")
         metric_names = (
             "backward_transfer",
             "aggregate_forgetting",
             "final_average",
+            "new_task_acquisition",
         )
         same: dict[str, float] = {}
-        different: dict[str, float] = {}
         for name in metric_names:
             values = [float(cast(Mapping[str, Any], cell["metrics"])[name]) for cell in ordered]
             same[name] = abs(values[1] - values[0])
-            different[name] = max(abs(values[index] - values[0]) for index in (2, 3))
         task_values = [
             cast(
                 list[float],
@@ -1545,20 +2183,156 @@ def noise_floor(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         same["per_task_accuracy"] = max(
             abs(right - left) for left, right in zip(task_values[0], task_values[1], strict=True)
         )
-        different["per_task_accuracy"] = max(
-            abs(task_values[index][task] - task_values[0][task])
-            for index in (2, 3)
-            for task in range(len(task_values[0]))
-        )
-        result[f"{method}:{stream}"] = {
+        learning = [
+            bool(cast(Mapping[str, Any], cell["metrics"])["demonstrably_learned"])
+            for cell in ordered
+        ]
+        summary: dict[str, Any] = {
+            "status": "completed" if all(learning) else "non_learning",
+            "learning_by_run": learning,
             "same_seed_absolute_variation": same,
-            "different_seed_max_absolute_variation": different,
+        }
+        if all(learning):
+            unique_seed_cells = [ordered[0], *ordered[2:]]
+            standard_deviation: dict[str, Any] = {
+                name: float(
+                    np.std(
+                        [
+                            float(cast(Mapping[str, Any], cell["metrics"])[name])
+                            for cell in unique_seed_cells
+                        ],
+                        ddof=1,
+                    )
+                )
+                for name in metric_names
+            }
+            standard_deviation["per_task_accuracy"] = [
+                float(
+                    np.std(
+                        [
+                            cast(
+                                list[float],
+                                cast(Mapping[str, Any], cell["metrics"])[
+                                    "per_task_accuracy_after_training"
+                                ],
+                            )[task_idx]
+                            for cell in unique_seed_cells
+                        ],
+                        ddof=1,
+                    )
+                )
+                for task_idx in range(len(task_values[0]))
+            ]
+            first_metrics = cast(Mapping[str, Any], ordered[0]["metrics"])
+            if "template_ood_final_average" in first_metrics:
+                ood_names = (
+                    "template_ood_final_average",
+                    "template_ood_new_task_acquisition",
+                )
+                for name in ood_names:
+                    same[name] = abs(
+                        float(cast(Mapping[str, Any], ordered[1]["metrics"])[name])
+                        - float(first_metrics[name])
+                    )
+                    standard_deviation[name] = float(
+                        np.std(
+                            [
+                                float(cast(Mapping[str, Any], cell["metrics"])[name])
+                                for cell in unique_seed_cells
+                            ],
+                            ddof=1,
+                        )
+                    )
+            summary["seed_to_seed_standard_deviation"] = standard_deviation
+            summary["seed_count"] = len(unique_seed_cells)
+        result[f"{method}:{stream}"] = summary
+    for stream in sorted({key[1] for key in grouped}):
+        naive = sorted(
+            grouped.get(("naive_sequential", stream), []),
+            key=lambda item: int(item["repeat_index"]),
+        )
+        aptivra = sorted(
+            grouped.get(("aptivra_full", stream), []),
+            key=lambda item: int(item["repeat_index"]),
+        )
+        if len(naive) != 5 or len(aptivra) != 5:
+            continue
+        if [int(cell["seed"]) for cell in naive] != [
+            int(cell["seed"]) for cell in aptivra
+        ]:
+            raise RuntimeError(f"paired noise-floor seeds do not align for {stream}")
+        if not all(
+            bool(cast(Mapping[str, Any], cell["metrics"])["demonstrably_learned"])
+            for cell in [*naive, *aptivra]
+        ):
+            result[f"paired_difference:{stream}"] = {"status": "non_learning"}
+            continue
+        unique_indices = (0, 2, 3, 4)
+        paired_metric_names = [
+            "backward_transfer",
+            "aggregate_forgetting",
+            "final_average",
+            "new_task_acquisition",
+        ]
+        if "template_ood_final_average" in cast(
+            Mapping[str, Any], naive[0]["metrics"]
+        ):
+            paired_metric_names.extend(
+                ("template_ood_final_average", "template_ood_new_task_acquisition")
+            )
+        paired_sd: dict[str, Any] = {
+            name: float(
+                np.std(
+                    [
+                        float(cast(Mapping[str, Any], aptivra[index]["metrics"])[name])
+                        - float(cast(Mapping[str, Any], naive[index]["metrics"])[name])
+                        for index in unique_indices
+                    ],
+                    ddof=1,
+                )
+            )
+            for name in paired_metric_names
+        }
+        first_tasks = cast(
+            list[float],
+            cast(Mapping[str, Any], naive[0]["metrics"])[
+                "per_task_accuracy_after_training"
+            ],
+        )
+        paired_sd["per_task_accuracy"] = [
+            float(
+                np.std(
+                    [
+                        cast(
+                            list[float],
+                            cast(Mapping[str, Any], aptivra[index]["metrics"])[
+                                "per_task_accuracy_after_training"
+                            ],
+                        )[task_index]
+                        - cast(
+                            list[float],
+                            cast(Mapping[str, Any], naive[index]["metrics"])[
+                                "per_task_accuracy_after_training"
+                            ],
+                        )[task_index]
+                        for index in unique_indices
+                    ],
+                    ddof=1,
+                )
+            )
+            for task_index in range(len(first_tasks))
+        ]
+        result[f"paired_difference:{stream}"] = {
+            "status": "completed",
+            "seed_count": len(unique_indices),
+            "aptivra_minus_naive_standard_deviation": paired_sd,
         }
     return result
 
 
 def compute_estimate(
     calibration: Sequence[Mapping[str, Any]],
+    evaluation_profiles: Sequence[Mapping[str, Any]],
     streams: Mapping[str, _TaskStream],
     base: StandardBase,
     settings: MpsPilotSettings,
@@ -1615,18 +2389,15 @@ def compute_estimate(
             seconds_per_token[key] = 1.0 / float(np.median(rates))
     generation_samples: dict[str, list[float]] = {
         stream_key: [
-            float(cast(Mapping[str, Any], row["generation"])["wall_time_seconds"])
-            for row in calibration
-            if row.get("method") == "frozen_base"
-            and row.get("stream") == stream_key
-            and row.get("status") == "completed"
-            and isinstance(row.get("generation"), Mapping)
+            float(row["batched_seconds_per_example"])
+            for row in evaluation_profiles
+            if row.get("stream") == stream_key and row.get("status") == "completed"
         ]
         for stream_key in streams
     }
     for stream_key, values in generation_samples.items():
         if not values or any(not math.isfinite(value) or value <= 0.0 for value in values):
-            missing_measurements.append(f"frozen_generation:{stream_key}")
+            missing_measurements.append(f"batched_generation:{stream_key}")
     token_evidence = {
         "exact_training_sequence_tokens": {
             **sequence_token_counts,
@@ -1714,7 +2485,7 @@ def compute_estimate(
         "status": "completed",
         **token_evidence,
         "measured_seconds_per_sequence_token_by_method_stream": seconds_per_token,
-        "measured_frozen_generation_seconds_by_stream": generation_seconds,
+        "measured_batched_generation_seconds_per_example_by_stream": generation_seconds,
         "evaluation_generation_caps_by_stream": evaluation_generation_caps,
         "per_method_stream_cell_seconds": per_cell_seconds,
         "arithmetic": {
@@ -1780,9 +2551,16 @@ def pilot_run_manifest(
         "schema_version": "aptivra.h3_mps_pilot_manifest.v1",
         "pilot_config_sha256": _sha256(config_path),
         "pilot_module_sha256": _sha256(Path(__file__)),
+        "aptivra_python_source_tree_sha256": _python_source_tree_sha256(),
+        "pilot_runner_sha256": _sha256(Path("scripts/run_smollm2_mps_pilot.py")),
         "base_config_sha256": _sha256(settings.base_config),
         "baseline_config_sha256": _sha256(settings.baseline_config),
         "expert_config_sha256": _sha256(settings.expert_config),
+        "historical_calibration_evidence_sha256": _require_hash(
+            settings.calibration.historical_evidence,
+            settings.calibration.historical_evidence_sha256,
+            "lane-8a historical calibration evidence",
+        ),
         "model": {
             "repository": base.source.repository,
             "revision": base.source.revision,
@@ -1849,6 +2627,30 @@ def run_repeatability_worker(
     )
 
 
+def run_evaluation_profile_worker(
+    settings: MpsPilotSettings,
+    stream_name: str,
+    quiet_record: dict[str, Any],
+) -> dict[str, Any]:
+    """Fresh-process scalar/batched evaluation profile entry point."""
+    quiet_record = _validate_quiet_record(quiet_record)
+    streams = _make_streams(settings)
+    stream = streams.get(stream_name)
+    if stream is None:
+        raise ValueError(f"unknown pilot stream: {stream_name}")
+    pairs = {
+        "synthetic_v2": settings.streams.synthetic_v2.pair_task_indices,
+        "chronological_issues": settings.streams.chronological_issues.pair_task_indices,
+    }
+    return run_evaluation_profile_cell(
+        stream_name,
+        stream,
+        pairs[stream_name],
+        settings,
+        quiet_record,
+    )
+
+
 def _spawn_worker(
     config_path: Path,
     arguments: list[str],
@@ -1859,7 +2661,10 @@ def _spawn_worker(
     """Run one memory-isolated worker and return its required JSON record."""
     quiet = _validate_quiet_record(quiet_record)
     expected: dict[str, Any]
-    if arguments[:1] == ["--calibration-worker"] and len(arguments) in {4, 5}:
+    if arguments[:1] == ["--calibration-worker"] and (
+        len(arguments) == 4
+        or (len(arguments) == 5 and arguments[4] == "--checkpointing")
+    ):
         method, stream, micro_batch = arguments[1:4]
         checkpointing = arguments[4:] == ["--checkpointing"]
         expected = {
@@ -1878,6 +2683,8 @@ def _spawn_worker(
             "seed": int(seed),
             "repeat_index": int(repeat_index),
         }
+    elif arguments[:1] == ["--evaluation-profile-worker"] and len(arguments) == 2:
+        expected = {"stream": arguments[1]}
     else:
         raise ValueError("worker arguments do not identify one registered pilot cell")
 
@@ -1936,6 +2743,16 @@ def _spawn_worker(
                 stderr_bytes=len(completed.stderr.encode("utf-8")),
             )
         result = _json_mapping(output_path)
+        lowered_stderr = completed.stderr.lower()
+        metal_out_of_memory = (
+            "kiogpucommandbuffercallbackerroroutofmemory" in lowered_stderr
+            or "insufficient memory" in lowered_stderr
+        )
+        if result.get("status") == "failed" and metal_out_of_memory:
+            failure = result.get("failure")
+            if isinstance(failure, dict):
+                failure["out_of_memory"] = True
+                failure["accelerator_signal"] = "metal_driver_out_of_memory"
         if result.get("status") not in {"completed", "failed"}:
             return failed("WorkerEvidenceError", reason="invalid worker status")
         if result.get("quiet_machine") != quiet:
@@ -1983,11 +2800,26 @@ def _quiet_before_measurement(
                 ) from error
 
 
+def _remaining_wall_time(
+    settings: MpsPilotSettings,
+    pilot_started: float,
+    elapsed_before_run: float,
+    phase: str,
+) -> float:
+    """Return the remaining global pilot budget or halt before spawning work."""
+    elapsed = elapsed_before_run + time.perf_counter() - pilot_started
+    remaining = settings.execution.wall_time_limit_seconds - elapsed
+    if remaining <= 0.0:
+        raise TimeoutError(f"bounded pilot wall-time cap reached during {phase}")
+    return remaining
+
+
 def run_pilot(
     settings: MpsPilotSettings,
     *,
     authorized: bool,
     config_path: Path = Path("configs/h3_mps_pilot.yaml"),
+    resume_amendment_path: Path | None = None,
 ) -> dict[str, Any]:
     """Execute only the bounded lane-8a pilot with resumable JSON checkpoints."""
     started = time.perf_counter()
@@ -1998,37 +2830,64 @@ def run_pilot(
     if os.environ.get("HF_HUB_OFFLINE") != "1" or os.environ.get("TRANSFORMERS_OFFLINE") != "1":
         raise RuntimeError("pilot requires HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1")
     preflight = validate_claim_streams(settings)
+    _require_hash(
+        settings.calibration.historical_evidence,
+        settings.calibration.historical_evidence_sha256,
+        "lane-8a historical calibration evidence",
+    )
+    historical_evidence = _json_mapping(settings.calibration.historical_evidence)
+    if (
+        historical_evidence.get("schema_version") != PILOT_SCHEMA
+        or historical_evidence.get("status") != "completed"
+        or not isinstance(historical_evidence.get("calibration"), list)
+    ):
+        raise ValueError("lane-8a historical calibration evidence is not completed v1 evidence")
+    historical_calibration = cast(list[dict[str, Any]], historical_evidence["calibration"])
     if not torch.backends.mps.is_available():
         raise RuntimeError("MPS is unavailable")
     output = settings.output_dir
-    progress_path = output / "pilot-progress.json"
-    final_path = output / "pilot-evidence.json"
+    progress_path = output / "lane8b-pilot-progress.json"
+    final_path = output / "lane8b-pilot-evidence.raw.json"
     manifest = pilot_run_manifest(settings, config_path, preflight)
     if progress_path.is_file():
         progress = _json_mapping(progress_path)
         if progress.get("run_manifest") != manifest:
-            raise ValueError(
-                "existing pilot checkpoint does not match the current code/config/input manifest"
-            )
+            if resume_amendment_path is None:
+                raise ValueError(
+                    "existing pilot checkpoint does not match the current "
+                    "code/config/input manifest"
+                )
+            _accept_resume_amendment(progress, manifest, resume_amendment_path)
     else:
         progress = {
-            "schema_version": PILOT_SCHEMA,
+            "schema_version": AMENDMENT_SCHEMA,
             "correlation_id": str(uuid.uuid4()),
             "status": "running",
             "run_manifest": manifest,
             "preflight": preflight,
             "environment": _environment(),
+            "historical_calibration_basis": {
+                "path": settings.calibration.historical_evidence.as_posix(),
+                "sha256": settings.calibration.historical_evidence_sha256,
+                "records": len(historical_calibration),
+                "reuse_reason": "lane-8a calibration retained; lane-8b reruns anomaly cells only",
+            },
             "quiet_gate_events": [],
+            "evaluation_profiles": [],
             "calibration": [],
             "repeatability": [],
             "elapsed_wall_time_seconds": 0.0,
         }
-    elapsed_before_run = float(progress.get("elapsed_wall_time_seconds", 0.0))
+    raw_elapsed_before_run = progress.get("elapsed_wall_time_seconds", 0.0)
+    if isinstance(raw_elapsed_before_run, bool):
+        raise ValueError("existing pilot checkpoint has invalid elapsed wall time")
+    elapsed_before_run = float(raw_elapsed_before_run)
     if not math.isfinite(elapsed_before_run) or elapsed_before_run < 0.0:
         raise ValueError("existing pilot checkpoint has invalid elapsed wall time")
     if elapsed_before_run >= settings.execution.wall_time_limit_seconds:
         raise TimeoutError("bounded pilot wall-time cap was exhausted before resume")
     progress["status"] = "running"
+    progress.pop("failure", None)
     if final_path.is_file():
         final_path.unlink()
 
@@ -2036,15 +2895,34 @@ def run_pilot(
         progress["elapsed_wall_time_seconds"] = elapsed_before_run + time.perf_counter() - started
         _write_json_atomic(progress_path, progress)
 
-    def ensure_budget(phase: str) -> None:
-        if (
-            elapsed_before_run + time.perf_counter() - started
-            >= settings.execution.wall_time_limit_seconds
-        ):
-            raise TimeoutError(f"bounded pilot wall-time cap reached during {phase}")
+    def remaining_budget(phase: str) -> float:
+        return _remaining_wall_time(settings, started, elapsed_before_run, phase)
 
     checkpoint()
     streams = _make_streams(settings)
+    profiles = cast(list[dict[str, Any]], progress["evaluation_profiles"])
+    completed_profiles = {
+        row.get("stream") for row in profiles if row.get("status") == "completed"
+    }
+    for stream_name in streams:
+        if stream_name in completed_profiles:
+            continue
+        quiet = _quiet_before_measurement(
+            settings,
+            progress,
+            progress_path,
+            started,
+            elapsed_before_run,
+        )
+        profile = _spawn_worker(
+            config_path,
+            ["--evaluation-profile-worker", stream_name],
+            quiet,
+            timeout_seconds=remaining_budget("evaluation profiles"),
+        )
+        profiles.append(profile)
+        checkpoint()
+        remaining_budget("evaluation profiles")
     calibration = cast(list[dict[str, Any]], progress["calibration"])
     completed_attempts = {
         (
@@ -2055,70 +2933,32 @@ def run_pilot(
         )
         for row in calibration
     }
-    for stream_name in streams:
-        for method in settings.calibration.methods:
-            for micro_batch in settings.calibration.micro_batches:
-                checkpoint_value: bool | str = (
-                    "not_applicable" if method == "frozen_base" else False
-                )
-                calibration_key = (
-                    method,
-                    stream_name,
-                    micro_batch,
-                    checkpoint_value,
-                )
-                if calibration_key in completed_attempts:
-                    continue
-                quiet = _quiet_before_measurement(
-                    settings,
-                    progress,
-                    progress_path,
-                    started,
-                    elapsed_before_run,
-                )
-                record = _spawn_worker(
-                    config_path,
-                    [
-                        "--calibration-worker",
-                        method,
-                        stream_name,
-                        str(micro_batch),
-                    ],
-                    quiet,
-                    timeout_seconds=settings.execution.wall_time_limit_seconds,
-                )
-                calibration.append(record)
-                if (
-                    method != "frozen_base"
-                    and micro_batch == 1
-                    and record.get("status") == "failed"
-                    and cast(Mapping[str, Any], record.get("failure", {})).get("out_of_memory")
-                    and (method, stream_name, 1, True) not in completed_attempts
-                ):
-                    quiet = _quiet_before_measurement(
-                        settings,
-                        progress,
-                        progress_path,
-                        started,
-                        elapsed_before_run,
-                    )
-                    fallback = _spawn_worker(
-                        config_path,
-                        [
-                            "--calibration-worker",
-                            method,
-                            stream_name,
-                            "1",
-                            "--checkpointing",
-                        ],
-                        quiet,
-                        timeout_seconds=settings.execution.wall_time_limit_seconds,
-                    )
-                    calibration.append(fallback)
-                checkpoint()
-                ensure_budget("calibration")
+    for cell in settings.calibration.anomaly_cells:
+        calibration_key = (cell.method, cell.stream, cell.micro_batch, False)
+        if calibration_key in completed_attempts:
+            continue
+        quiet = _quiet_before_measurement(
+            settings,
+            progress,
+            progress_path,
+            started,
+            elapsed_before_run,
+        )
+        record = _spawn_worker(
+            config_path,
+            ["--calibration-worker", cell.method, cell.stream, str(cell.micro_batch)],
+            quiet,
+            timeout_seconds=remaining_budget("anomaly calibration"),
+        )
+        calibration.append(record)
+        checkpoint()
+        remaining_budget("anomaly calibration")
     repeats = cast(list[dict[str, Any]], progress["repeatability"])
-    completed_repeats = {(row["method"], row["stream"], row["repeat_index"]) for row in repeats}
+    completed_repeats = {
+        (row["method"], row["stream"], row["repeat_index"])
+        for row in repeats
+        if row.get("status") == "completed"
+    }
     for stream_name in streams:
         for method in settings.repeatability.methods:
             for index, seed in enumerate(settings.repeatability.seeds):
@@ -2142,16 +2982,22 @@ def run_pilot(
                         str(index),
                     ],
                     quiet,
-                    timeout_seconds=settings.execution.wall_time_limit_seconds,
+                    timeout_seconds=remaining_budget("repeats"),
                 )
                 repeats.append(record)
                 checkpoint()
-                ensure_budget("repeats")
+                remaining_budget("repeats")
     try:
         noise = noise_floor(repeats)
         tokenizer_base = _base_for_pilot(settings)
         try:
-            estimate = compute_estimate(calibration, streams, tokenizer_base, settings)
+            estimate = compute_estimate(
+                [*historical_calibration, *calibration],
+                profiles,
+                streams,
+                tokenizer_base,
+                settings,
+            )
         finally:
             _cleanup_base(tokenizer_base)
         if estimate.get("status") != "completed":

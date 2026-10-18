@@ -1,5 +1,5 @@
 h3_mps_pilot:
-  schema_version: aptivra.h3_mps_pilot_config.v1
+  schema_version: aptivra.h3_mps_pilot_config.v2
   feature:
     enabled: false
   output_dir: docs/adr/0012-evidence
@@ -14,7 +14,7 @@ h3_mps_pilot:
       config_sha256: 4450d9747dcfbc64992fc51aedc2464b5e95a609230ef78cf0b7d91b4067bd73
       audit_plan_sha256: 0eedacb933504a7a33b4a6a55cbef4f277a0ed1fa6e1038c4e32ac23a62821ae
       audit_sha256: e83c0763188250698885573798673b61b0dc35602eb1335e0d03d913c110a391
-      pair_task_indices: [0, 2]
+      pair_task_indices: [7, 8]
     chronological_issues:
       config: configs/github_issues_stream.yaml
       raw_data: scratch/github_issues_stream/issues.jsonl
@@ -33,6 +33,9 @@ h3_mps_pilot:
     initial_backoff_seconds: 5.0
     maximum_backoff_seconds: 60.0
   calibration:
+    historical_evidence: docs/adr/0012-evidence/pilot-evidence.json
+    historical_evidence_sha256: 439894ff14b5d6774a1f24d0bf0323971fd9b9535ab5a7206afddb36d4c7b686
+    seed: 20261017
     frozen_base_mode: forward_only
     frozen_generation_path: max_answer_length
     worst_case_example_policy: longest_distinct_pad_to_stream_max
@@ -52,14 +55,29 @@ h3_mps_pilot:
     memory_cap_bytes: 28991029248
     memory_sample_interval_seconds: 0.02
     swap_throughput_reporting_threshold_bytes: 1073741824
+    anomaly_cells:
+      - {method: online_ewc, stream: chronological_issues, micro_batch: 8}
+      - {method: manual_lora, stream: chronological_issues, micro_batch: 8}
+      - {method: aptivra_full, stream: chronological_issues, micro_batch: 8}
   repeatability:
     methods: [naive_sequential, aptivra_full]
-    seeds: [20261017, 20261017, 20261018, 20261019]
-    optimizer_steps_per_task: 2
-    training_examples_per_task: 16
-    evaluation_examples_per_task: 8
-    micro_batch_size: 4
-    max_new_tokens: 32
+    seeds: [20261017, 20261017, 20261018, 20261019, 20261020]
+    training_example_policy: one_epoch_up_to_cycle_caps
+    evaluation_examples_per_task: 64
+    template_ood_examples_per_task: 64
+    effective_batch_size: 8
+    micro_batches:
+      synthetic_v2:
+        naive_sequential: 8
+        aptivra_full: 8
+      chronological_issues:
+        naive_sequential: 4
+        aptivra_full: 8
+    evaluation_batch_sizes:
+      synthetic_v2: 8
+      chronological_issues: 1
+    profile_examples: 8
+    max_new_tokens: 128
     checkpoint_after_each_run: true
   h3_estimate:
     main_method_count: 6
@@ -86,8 +104,8 @@ h3_mps_pilot:
     adapter_target_tokens: 8192
     router_optimizer_steps: 100
     router_replay_examples_per_expert: 8
-    evaluation_examples_per_seen_task: 363
+    evaluation_examples_per_seen_task: 64
   execution:
     device: mps
     offline: true
-    wall_time_limit_seconds: 21600.0
+    wall_time_limit_seconds: 28800.0

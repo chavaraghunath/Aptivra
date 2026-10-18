@@ -2,7 +2,7 @@
 module-path = "aptivra/eval/mps_pilot.py"
 timeout = 300.0
 excluded-modules = []
-test-command = "scripts/run-project-tool pytest -q -x -p no:cacheprovider --no-cov tests/test_mps_pilot.py tests/test_mps_pilot_mutation.py"
+test-command = "scripts/run-project-tool pytest -q -x -p no:cacheprovider --no-cov tests/test_mps_pilot_mutation.py tests/test_mps_pilot_orchestration_mutation.py tests/test_mps_pilot.py"
 
 [cosmic-ray.distributor]
 name = "local"

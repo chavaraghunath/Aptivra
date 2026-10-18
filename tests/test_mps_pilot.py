@@ -81,7 +81,7 @@ def _quiet_record() -> dict[str, Any]:
 def test_registered_config_is_mirrored_disabled_and_protocol_complete() -> None:
     settings = _settings()
     assert settings.feature.enabled is False
-    assert settings.streams.synthetic_v2.pair_task_indices == (0, 2)
+    assert settings.streams.synthetic_v2.pair_task_indices == (7, 8)
     assert settings.calibration.methods == list(pilot._METHODS)
     assert settings.calibration.micro_batches == [8, 4, 2, 1]
     assert settings.calibration.frozen_base_mode == "forward_only"
@@ -89,7 +89,9 @@ def test_registered_config_is_mirrored_disabled_and_protocol_complete() -> None:
     assert settings.h3_estimate.main_seed_count >= 5
     assert settings.h3_estimate.ablation_stream_count == 2
     assert len(settings.h3_estimate.ablations) == 11
-    assert settings.cycle_caps.evaluation_examples_per_seen_task == 363
+    assert settings.cycle_caps.evaluation_examples_per_seen_task == 64
+    assert settings.repeatability.evaluation_examples_per_task == 64
+    assert settings.repeatability.template_ood_examples_per_task == 64
     assert (
         Path("configs/h3_mps_pilot.yaml").read_bytes()
         == Path("aptivra/resources/configs/h3_mps_pilot.yaml").read_bytes()
@@ -153,9 +155,9 @@ def test_config_rejects_wrong_root_order_and_repeat_semantics(tmp_path: Path) ->
         pilot.load_mps_pilot_settings(bad)
 
     raw = yaml.safe_load(Path("configs/h3_mps_pilot.yaml").read_text(encoding="utf-8"))
-    raw["h3_mps_pilot"]["repeatability"]["seeds"] = [1, 2, 3, 4]
+    raw["h3_mps_pilot"]["repeatability"]["seeds"] = [1, 2, 3, 4, 5]
     bad.write_text(yaml.safe_dump(raw), encoding="utf-8")
-    with pytest.raises(ValidationError, match="same-seed"):
+    with pytest.raises(ValidationError, match="duplicated seed"):
         pilot.load_mps_pilot_settings(bad)
 
 
@@ -229,6 +231,8 @@ def test_protocol_bounds_reject_unsafe_values(
 
 def test_manifest_and_environment_bind_local_inputs() -> None:
     settings = _settings()
+    assert settings.repeatability.evaluation_batch_sizes.synthetic_v2 == 8
+    assert settings.repeatability.evaluation_batch_sizes.chronological_issues == 1
     manifest = pilot.pilot_run_manifest(
         settings,
         Path("configs/h3_mps_pilot.yaml"),
@@ -383,7 +387,8 @@ def test_bounded_pair_uses_real_prefixes_and_rejects_bad_indices() -> None:
     stream = _Stream()
     pair = pilot._BoundedPairStream(cast(Any, stream), (0, 1), 4, 3)
     assert [family.family_id for family in pair.families] == ["a", "b"]
-    assert len(pair.get_split("a").train) == 4
+    assert len(pair.get_split("a").train) == 10
+    assert len(pair.get_split("a").test) == 4
     with pytest.raises(ValueError, match="distinct real tasks"):
         pilot._BoundedPairStream(cast(Any, stream), (0, 0), 4, 3)
     with pytest.raises(ValueError, match="lacks configured real examples"):
@@ -398,25 +403,33 @@ def test_pair_metrics_and_noise_floor_are_exact() -> None:
     records: list[dict[str, Any]] = []
     for method in ("naive_sequential", "aptivra_full"):
         for stream in ("synthetic_v2", "chronological_issues"):
-            for index, value in enumerate((0.5, 0.625, 0.375, 0.75)):
+            for index, value in enumerate((0.5, 0.625, 0.375, 0.75, 0.625)):
                 records.append(
                     {
                         "status": "completed",
                         "method": method,
                         "stream": stream,
                         "repeat_index": index,
+                        "seed": (7, 7, 11, 13, 17)[index],
                         "metrics": {
                             "backward_transfer": value,
                             "aggregate_forgetting": value,
                             "final_average": value,
+                            "new_task_acquisition": value,
                             "per_task_accuracy_after_training": [value, value],
+                            "demonstrably_learned": True,
                         },
                     }
                 )
     floor = pilot.noise_floor(records)
     cell = floor["naive_sequential:synthetic_v2"]
     assert cell["same_seed_absolute_variation"]["final_average"] == 0.125
-    assert cell["different_seed_max_absolute_variation"]["final_average"] == 0.25
+    assert cell["seed_count"] == 4
+    assert cell["seed_to_seed_standard_deviation"]["final_average"] > 0.0
+    paired = floor["paired_difference:synthetic_v2"]
+    assert paired["status"] == "completed"
+    assert paired["seed_count"] == 4
+    assert paired["aptivra_minus_naive_standard_deviation"]["final_average"] == 0.0
     with pytest.raises(RuntimeError, match="incomplete"):
         pilot.noise_floor(records[:-1])
 
@@ -438,7 +451,17 @@ def test_compute_estimate_shows_exact_arithmetic() -> None:
         "synthetic_v2": cast(Any, _Stream((2, 2))),
         "chronological_issues": cast(Any, _Stream((2, 2))),
     }
-    result = pilot.compute_estimate(calibration, streams, cast(Any, _fake_base()), settings)
+    profiles = [
+        {
+            "status": "completed",
+            "stream": stream,
+            "batched_seconds_per_example": 0.25,
+        }
+        for stream in streams
+    ]
+    result = pilot.compute_estimate(
+        calibration, profiles, streams, cast(Any, _fake_base()), settings
+    )
     arithmetic = result["arithmetic"]
     assert arithmetic["main_cells"] == 60
     assert arithmetic["v1_regression_cells"] == 6
@@ -461,6 +484,23 @@ def test_atomic_json_is_finite_and_replaces(tmp_path: Path) -> None:
     assert pilot._json_mapping(path) == {"value": 2}
     with pytest.raises(ValueError):
         pilot._write_json_atomic(path, {"bad": float("nan")})
+
+
+def test_python_source_tree_hash_binds_paths_and_bytes(tmp_path: Path) -> None:
+    source = tmp_path / "aptivra"
+    source.mkdir()
+    (source / "a.py").write_text("value = 1\n", encoding="utf-8")
+    first = pilot._python_source_tree_sha256(source)
+
+    (source / "a.py").write_text("value = 2\n", encoding="utf-8")
+    second = pilot._python_source_tree_sha256(source)
+    (source / "nested").mkdir()
+    (source / "nested" / "a.py").write_text("value = 2\n", encoding="utf-8")
+    third = pilot._python_source_tree_sha256(source)
+
+    assert len({first, second, third}) == 3
+    with pytest.raises(FileNotFoundError, match="no Python sources"):
+        pilot._python_source_tree_sha256(tmp_path / "empty")
 
 
 def test_run_pilot_refuses_without_authority_or_offline(
@@ -552,6 +592,42 @@ def test_worker_spawn_timeout_is_redacted_and_retains_cell(
     assert "private" not in str(result)
 
 
+def test_worker_spawn_classifies_metal_driver_oom_without_persisting_stderr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def metal_oom(command: list[str], **_: Any) -> Any:
+        output = Path(command[command.index("--worker-output") + 1])
+        pilot._write_json_atomic(
+            output,
+            {
+                "status": "failed",
+                "method": "online_ewc",
+                "stream": "chronological_issues",
+                "micro_batch": 8,
+                "gradient_checkpointing": False,
+                "failure": {"type": "FloatingPointError", "out_of_memory": False},
+                "quiet_machine": _quiet_record(),
+            },
+        )
+        return SimpleNamespace(
+            returncode=0,
+            stdout="",
+            stderr="private text: kIOGPUCommandBufferCallbackErrorOutOfMemory",
+        )
+
+    monkeypatch.setattr(pilot.subprocess, "run", metal_oom)
+    result = pilot._spawn_worker(
+        Path("configs/h3_mps_pilot.yaml"),
+        ["--calibration-worker", "online_ewc", "chronological_issues", "8"],
+        _quiet_record(),
+        timeout_seconds=5.0,
+    )
+
+    assert result["failure"]["out_of_memory"] is True
+    assert result["failure"]["accelerator_signal"] == "metal_driver_out_of_memory"
+    assert "private text" not in str(result)
+
+
 @pytest.mark.parametrize(
     "record",
     (
@@ -591,7 +667,7 @@ def test_worker_dispatch_rejects_unknown_stream(monkeypatch: pytest.MonkeyPatch)
         )
 
 
-def test_run_pilot_orchestrates_all_cells_and_oom_fallback(
+def test_run_pilot_orchestrates_profiles_anomaly_cells_and_repeats(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     settings = _settings().model_copy(update={"output_dir": tmp_path / "evidence"})
@@ -615,8 +691,14 @@ def test_run_pilot_orchestrates_all_cells_and_oom_fallback(
         *,
         timeout_seconds: float,
     ) -> dict[str, Any]:
-        assert timeout_seconds == settings.execution.wall_time_limit_seconds
+        assert 0.0 < timeout_seconds <= settings.execution.wall_time_limit_seconds
         calls.append(arguments)
+        if arguments[0] == "--evaluation-profile-worker":
+            return {
+                "status": "completed",
+                "stream": arguments[1],
+                "batched_seconds_per_example": 0.25,
+            }
         if (
             arguments[:4]
             == [
@@ -672,12 +754,13 @@ def test_run_pilot_orchestrates_all_cells_and_oom_fallback(
         config_path=Path("configs/h3_mps_pilot.yaml"),
     )
     assert result["status"] == "completed"
-    assert len(result["calibration"]) == 49
-    assert len(result["repeatability"]) == 16
-    assert any("--checkpointing" in call for call in calls)
-    assert pilot._json_mapping(settings.output_dir / "pilot-evidence.json")["status"] == (
-        "completed"
-    )
+    assert len(result["calibration"]) == 3
+    assert len(result["repeatability"]) == 20
+    assert len(result["evaluation_profiles"]) == 2
+    assert not any("--checkpointing" in call for call in calls)
+    assert pilot._json_mapping(
+        settings.output_dir / "lane8b-pilot-evidence.raw.json"
+    )["status"] == "completed"
 
     calls.clear()
     resumed = pilot.run_pilot(
@@ -687,6 +770,64 @@ def test_run_pilot_orchestrates_all_cells_and_oom_fallback(
     )
     assert resumed["status"] == "completed"
     assert calls == []
+
+
+def test_remaining_wall_time_limits_each_worker_to_global_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = _settings()
+    settings = settings.model_copy(
+        update={
+            "execution": settings.execution.model_copy(
+                update={"wall_time_limit_seconds": 10.0}
+            )
+        }
+    )
+    monkeypatch.setattr(pilot.time, "perf_counter", lambda: 7.0)
+
+    assert pilot._remaining_wall_time(settings, 1.0, 2.0, "repeats") == 2.0
+    monkeypatch.setattr(pilot.time, "perf_counter", lambda: 9.0)
+    with pytest.raises(TimeoutError, match="during repeats"):
+        pilot._remaining_wall_time(settings, 1.0, 2.0, "repeats")
+
+
+def test_resume_amendment_preserves_manifest_history_and_charges_interruption(
+    tmp_path: Path,
+) -> None:
+    previous = {"identity": "before"}
+    current = {"identity": "after"}
+    progress: dict[str, Any] = {
+        "run_manifest": previous,
+        "repeatability": [{"status": "completed"}],
+        "elapsed_wall_time_seconds": 10.0,
+    }
+    amendment = tmp_path / "resume.yaml"
+    amendment.write_text(
+        "\n".join(
+            (
+                "schema_version: aptivra.h3_mps_pilot_resume_amendment.v1",
+                "reason: bounded worker timeout fix after an MPS command-buffer stall",
+                f"from_manifest_sha256: {pilot._mapping_sha256(previous)}",
+                f"to_manifest_sha256: {pilot._mapping_sha256(current)}",
+                "interrupted_wall_seconds: 4.5",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    pilot._accept_resume_amendment(progress, current, amendment)
+
+    assert progress["run_manifest"] == current
+    assert progress["elapsed_wall_time_seconds"] == 14.5
+    assert progress["run_manifest_history"] == [
+        {
+            "run_manifest": previous,
+            "completed_repeatability_records": 1,
+            "elapsed_wall_time_seconds": 10.0,
+        }
+    ]
+    assert progress["resume_amendments"][0]["artifact"] == amendment.as_posix()
 
 
 def test_run_pilot_rejects_stale_checkpoint(
@@ -699,7 +840,7 @@ def test_run_pilot_rejects_stale_checkpoint(
     monkeypatch.setattr(pilot.torch.backends.mps, "is_available", lambda: True)
     monkeypatch.setattr(pilot, "pilot_run_manifest", lambda *args: {"identity": "new"})
     pilot._write_json_atomic(
-        tmp_path / "pilot-progress.json", {"run_manifest": {"identity": "old"}}
+        tmp_path / "lane8b-pilot-progress.json", {"run_manifest": {"identity": "old"}}
     )
     with pytest.raises(ValueError, match="does not match"):
         pilot.run_pilot(

@@ -463,6 +463,10 @@ def test_router_topology_and_fit_guardrails() -> None:
 
     first_only = SequenceTop1Router(2, 0.5)
     first_only.add_candidate("first", "first")
+    unseen = first_only.route(-torch.ones(1, 2))[0]
+    assert unseen.route_status == "unrouted"
+    assert unseen.fallback_probability == pytest.approx(0.5)
+    initial_row = first_only.weights[0].detach().clone()
     first_result, _first_optimizer = first_only.fit_candidate(
         torch.ones(1, 2),
         torch.empty(0, 2),
@@ -475,6 +479,8 @@ def test_router_topology_and_fit_guardrails() -> None:
         max_steps=1,
     )
     assert first_result.replay_examples == 0
+    assert first_result.loss > 0.0
+    assert not torch.equal(first_only.weights[0], initial_row)
     with pytest.raises(ValueError, match="align"):
         first_only.fit_candidate(
             torch.ones(1, 2),
