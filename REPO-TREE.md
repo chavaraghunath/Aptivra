@@ -180,6 +180,7 @@
   - `docs/DESIGN.md` — Master Phase 1 architecture and design specification.
   - `docs/configuration-register.md` — Register of all runtime-tunable configurations.
   - `docs/adr/` — Architecture Decision Records capturing foundational technical decisions.
+  - `docs/research/` — Cited deep-research reports (`reports/`) and the per-topic source notes behind them (`research_notes/`) that inform proposed ADRs, starting with the 2026-10-18 personal small-model study behind ADR-0013 and ADR-0014.
   - `docs/github-issues-stream/` — Committed manifest index, bounded hash-verified record shards, and aggregate audit for the local-only public GitHub issues continual-learning stream; raw issue text stays under git-ignored `scratch/`.
 - `aptivra/` — Core Python package containing models, memory systems, experts, task stream, and eval harness.
   - `aptivra/mutation_gate.py` — Fail-closed Cosmic Ray session validator that rejects lost, crashed, exceptional, null, and unfinished work before enforcing the configured kill-rate threshold.
